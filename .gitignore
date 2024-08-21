@@ -1,0 +1,19 @@
+# python generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# venv
+.venv
+
+# generated
+examples/config
+**/*_pb2.py
+**/*_pb2.pyi
+**/outputs/*
+
+# lockfiles
+uv.lock

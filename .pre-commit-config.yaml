@@ -1,0 +1,54 @@
+---
+fail_fast: true
+
+repos:
+  - repo: https://github.com/abravalheri/validate-pyproject
+    rev: v0.19
+    hooks:
+      - id: validate-pyproject
+
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.23.6
+    hooks:
+      - id: typos
+
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.17.0
+    hooks:
+      - id: pyupgrade
+
+  - repo: https://github.com/google/yamlfmt
+    rev: v0.13.0
+    hooks:
+      - id: yamlfmt
+        exclude: examples/config
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.1
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/DetachHead/basedpyright-pre-commit-mirror
+    rev: 1.16.0
+    hooks:
+      - id: basedpyright
+
+  - repo: local
+    hooks:
+      - id: just-format
+        name: just-format
+        language: system
+        stages: [commit]
+        entry: just --fmt --unstable
+        pass_filenames: false
+        always_run: true
+
+      - id: generate-example-config
+        name: generate-example-config
+        language: system
+        stages: [commit]
+        entry: ytt --ignore-unknown-comments --file examples/config_templates --output-files examples/config --output yaml --strict
+        pass_filenames: false
+        always_run: true

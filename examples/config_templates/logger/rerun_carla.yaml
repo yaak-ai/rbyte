@@ -1,0 +1,16 @@
+---
+_target_: rbyte.viz.loggers.RerunLogger
+_recursive_: true
+_convert_: all
+config:
+  log_schema:
+    frame:
+      cam_front_left: rerun.components.ImageBufferBatch
+
+    table:
+      frame_idx: rerun.TimeSequenceColumn
+      control.brake: rerun.components.ScalarBatch
+      control.steer: rerun.components.ScalarBatch
+      control.throttle: rerun.components.ScalarBatch
+      state.acceleration.value: rerun.components.ScalarBatch
+      state.velocity.value: rerun.components.ScalarBatch

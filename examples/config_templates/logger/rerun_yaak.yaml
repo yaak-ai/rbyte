@@ -1,0 +1,41 @@
+---
+_target_: rbyte.viz.loggers.RerunLogger
+_convert_: all
+_recursive_: true
+config:
+  transforms:
+    - select:
+        - [table, image.cam_front_left.time_stamp]
+        - [table, image.cam_left_forward.time_stamp]
+        - [table, image.cam_right_forward.time_stamp]
+        - [table, vehicle_motion.time_stamp]
+        - [table, vehicle_state.time_stamp]
+        - [table, gnss.time_stamp]
+      apply:
+        _target_: torch.mul
+        _partial_: true
+        other: 1000
+
+  log_schema:
+    frame:
+      cam_front_left: rerun.components.ImageBufferBatch
+      cam_left_forward: rerun.components.ImageBufferBatch
+      cam_right_forward: rerun.components.ImageBufferBatch
+
+    table:
+      gnss.heading: rerun.components.ScalarBatch
+      gnss.time_stamp: rerun.TimeNanosColumn
+      image.cam_front_left.frame_idx: rerun.TimeSequenceColumn
+      image.cam_front_left.time_stamp: rerun.TimeNanosColumn
+      image.cam_left_forward.frame_idx: rerun.TimeSequenceColumn
+      image.cam_left_forward.time_stamp: rerun.TimeNanosColumn
+      image.cam_right_forward.frame_idx: rerun.TimeSequenceColumn
+      image.cam_right_forward.time_stamp: rerun.TimeNanosColumn
+      vehicle_motion.brake_pedal_normalized: rerun.components.ScalarBatch
+      vehicle_motion.gas_pedal_normalized: rerun.components.ScalarBatch
+      vehicle_motion.gear: rerun.components.ScalarBatch
+      vehicle_motion.speed: rerun.components.ScalarBatch
+      vehicle_motion.steering_angle_normalized: rerun.components.ScalarBatch
+      vehicle_motion.time_stamp: rerun.TimeNanosColumn
+      vehicle_state.time_stamp: rerun.TimeNanosColumn
+      vehicle_state.turn_signal: rerun.components.ScalarBatch

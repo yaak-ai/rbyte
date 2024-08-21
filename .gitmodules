@@ -1,0 +1,3 @@
+[submodule "src/rbyte/io/table/yaak/idl-repo"]
+	path = src/rbyte/io/table/yaak/idl-repo
+	url = git@github.com:yaak-ai/idl-repo

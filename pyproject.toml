@@ -1,0 +1,98 @@
+[project]
+name = "rbyte"
+version = "0.1.0"
+description = "Multimodal dataset library"
+authors = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
+maintainers = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
+dependencies = [
+  "torch>=2.4.0",
+  "tensordict @ git+https://github.com/pytorch/tensordict.git",
+  "more-itertools",
+  "protobuf",
+  "pydantic>=2.8.2",
+  "diskcache",
+  "polars>=1.5.0",
+  "parse",
+  "hydra-core",
+  "simplejpeg",
+  "jaxtyping",
+  "structlog",
+]
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.optional-dependencies]
+build = ["hatchling>=1.25.0", "grpcio-tools==1.62.2", "protoletariat==3.2.19"]
+visualize = ["rerun-sdk>=0.18.0", "tqdm"]
+
+[project.scripts]
+rbyte-build-table = 'rbyte.scripts.build_table:main'
+rbyte-visualize = 'rbyte.scripts.visualize:main'
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = [
+  "wat-inspector>=0.3.3",
+  "lovely-tensors>=0.1.16",
+  "pudb>=2024.1.2",
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build]
+reproducible = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rbyte"]
+artifacts = ["src/rbyte/io/table/yaak/proto"]
+exclude = ["src/rbyte/io/table/yaak/idl-repo"]
+
+[tool.hatch.build.hooks.custom]
+require-runtime-features = ["build"]
+
+[tool.basedpyright]
+typeCheckingMode = "all"
+enableTypeIgnoreComments = true
+reportMissingTypeStubs = "none"
+reportAny = "none"
+reportIgnoreCommentWithoutRule = "error"
+
+venvPath = "."
+venv = ".venv"
+include = ["src/"]
+ignore = ["src/**/*_pb2.py", "**/*.pyi"]
+
+[tool.ruff]
+extend-exclude = ['*_pb2.py']
+output-format = "grouped"
+preview = true
+fix = true
+unsafe-fixes = true
+target-version = "py312"
+
+[tool.ruff.format]
+preview = true
+skip-magic-trailing-comma = true
+
+[tool.ruff.lint]
+preview = true
+select = ["ALL"]
+fixable = ["ALL"]
+ignore = ["D", "CPY", "COM812", "F722", "PD901", "ISC001", "TD"]
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false

@@ -1,0 +1,85 @@
+---
+path: ???
+builder:
+  _target_: rbyte.io.table.yaak.YaakMetadataTableBuilder
+  _recursive_: false
+  config:
+    cameras: [cam_front_left]
+    select:
+      - message:
+          type: rbyte.io.table.yaak.proto.sensor_pb2.ImageMetadata
+          alias: image
+        fields:
+          - name: time_stamp
+
+          - name: frame_idx
+            merge:
+              method: asof
+              tolerance: 30ms
+
+          - name: camera_name
+            partition: true
+
+      - message:
+          type: rbyte.io.table.yaak.proto.can_pb2.VehicleState
+          alias: vehicle_state
+        fields:
+          - name: time_stamp
+
+          - name: turn_signal
+            merge:
+              method: asof
+              tolerance: 100ms
+
+      - message:
+          type: rbyte.io.table.yaak.proto.can_pb2.VehicleMotion
+          alias: vehicle_motion
+        fields:
+          - name: time_stamp
+
+          - name: speed
+            merge:
+              method: interp
+
+          - name: gas_pedal_normalized
+            merge:
+              method: interp
+
+          - name: brake_pedal_normalized
+            merge:
+              method: interp
+
+          - name: steering_angle_normalized
+            merge:
+              method: interp
+
+          - name: gear
+            merge:
+              method: asof
+              tolerance: 100ms
+
+      - message:
+          type: rbyte.io.table.yaak.proto.sensor_pb2.Gnss
+          alias: gnss
+        fields:
+          - name: time_stamp
+
+          - name: heading
+            merge:
+              method: asof
+              tolerance: 100ms
+
+    merge:
+      reference:
+        key:
+          - rbyte.io.table.yaak.proto.sensor_pb2.ImageMetadata
+          - cam_front_left
+        column: time_stamp
+
+    filter: !!null
+    cache: !!null
+
+writer:
+  _target_: polars.DataFrame.write_csv
+  _partial_: true
+  file: ???

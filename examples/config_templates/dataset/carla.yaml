@@ -1,0 +1,44 @@
+---
+_target_: rbyte.Dataset
+_recursive_: false
+config:
+  inputs:
+    - id: carla_id1
+      sources:
+        frame:
+          - id: cam_front_left
+            index_column: frame_idx
+            reader:
+              _target_: rbyte.io.frame.jpeg.JpegFrameReader
+              path: "${data_dir}/${.....id}/frames/${..id}.defish.mp4/576x324/{:09d}.jpg"
+
+        table:
+          path: ${data_dir}/${...id}/ego_logs.json
+          builder:
+            _target_: rbyte.io.table.carla.CarlaRecordsTableBuilder
+            _recursive_: false
+            config:
+              index_column: frame_idx
+              select:
+                - control.brake
+                - control.throttle
+                - control.steer
+                - state.velocity.value
+                - state.acceleration.value
+
+              filter: |
+                `control.throttle` > 0.5
+
+              transforms:
+                - _target_: rbyte.io.table.transforms.FpsResampler
+                  source_fps: 20
+                  target_fps: 30
+  samples:
+    builder:
+      _target_: rbyte.sample.builder.GreedySampleTableBuilder
+      config:
+        index_column: frame_idx
+        length: 1
+        stride: 1
+        min_step: 1
+        filter: !!null
