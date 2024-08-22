@@ -1,21 +1,26 @@
 export HYDRA_FULL_ERROR := "1"
 export PYTHONOPTIMIZE := "1"
+export HATCH_BUILD_CLEAN := "1"
 
 _default:
     @just --list --unsorted
 
 setup:
     git submodule update --init --recursive --remote
-    uv sync --all-extras --dev
+    uv sync --all-extras
     for tool in basedpyright ruff pre-commit; do uv tool install --force --upgrade $tool;  done
     uvx pre-commit install --install-hooks
 
+clean:
+    uvx --from hatch hatch clean
+
 build:
-    uvx --from build pyproject-build --installer uv --wheel
+    uvx --from build pyproject-build --installer uv
+
+build-protos:
+    uvx --from hatch hatch build --clean --hooks-only --target sdist
 
 pre-commit:
-    uvx pre-commit validate-config
-    uvx pre-commit install --install-hooks
     uvx pre-commit run --all-files --color=always
 
 generate-example-config:

@@ -1,4 +1,4 @@
-![](https://github.com/yaak-ai/rbyte/actions/workflows/ci.yaml/badge.svg)
+[![CI](https://github.com/yaak-ai/rbyte/actions/workflows/ci.yaml/badge.svg)](https://github.com/yaak-ai/rbyte/actions/workflows/ci.yaml) [![build](https://github.com/yaak-ai/rbyte/actions/workflows/build.yaml/badge.svg)](https://github.com/yaak-ai/rbyte/actions/workflows/build.yaml)
 
 # rbyte
 

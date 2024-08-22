@@ -1,7 +1,13 @@
 ---
 name: CI
 
-on: [push]
+on:
+  push:
+    branches: [main]
+
+  pull_request:
+
+  workflow_dispatch:
 
 jobs:
   pre-commit:
@@ -40,6 +46,9 @@ jobs:
 
       - name: uv sync
         run: uv sync --all-extras --dev
+
+      - name: run build hooks
+        run: uvx --from hatch hatch build --clean --hooks-only --target sdist
 
       - name: install pre-commit
         run: uv tool install --upgrade pre-commit
