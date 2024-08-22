@@ -1,8 +1,12 @@
 ![](https://github.com/yaak-ai/rbyte/actions/workflows/ci.yaml/badge.svg)
 
+<div align="center">
+  <p><strong>rbyte:</strong> Multimodal datasets for spatial intelligence</p>
+</div>
+
 # rbyte
 
-Multimodal dataset library.
+ryte is built for developers training end-to-end spatial intelligence (robotics) models.
 
 ## Installation
 
