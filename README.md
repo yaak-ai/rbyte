@@ -7,12 +7,25 @@ Multimodal dataset library.
 ## Installation
 
 ```bash
-uv add git+https://github.com/yaak-ai/rbyte [--extra visualize]
+uv add https://github.com/yaak-ai/rbyte/releases/latest/download/rbyte-X.Y.Z-py3-none-any.whl [--extra visualize]
 ```
 
 ## Usage
 
 See [examples/config_templates/dataset](examples/config_templates/dataset).
+
+### Visualization
+
+1. Create a [`hydra`](https://hydra.cc) config `config.yaml` with the following structure (see [examples/config_templates/visualize.yaml](examples/config_templates/visualize.yaml)):
+```yaml
+dataloader: ???
+logger: ???
+```
+
+2. Run using the config from step 1:
+```bash
+ uv run rbyte-visualize --config-name config.yaml [--config-path /path/to/config]
+```
 
 ## Development
 
