@@ -1,0 +1,29 @@
+---
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["*"]
+
+  release:
+    types: [published]
+
+  workflow_dispatch:
+
+jobs:
+  build-wheels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: setup ssh
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.YAAK_IDL_REPO_SSH_KEY }}
+
+      - name: checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - uses: hynek/build-and-inspect-python-package@v2.8.0

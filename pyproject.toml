@@ -40,7 +40,7 @@ rbyte-build-table = 'rbyte.scripts.build_table:main'
 rbyte-visualize = 'rbyte.scripts.visualize:main'
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.25.0"]
 build-backend = "hatchling.build"
 
 [tool.uv]
@@ -56,13 +56,18 @@ allow-direct-references = true
 [tool.hatch.build]
 reproducible = true
 
+[tool.hatch.build.targets.sdist]
+include = ["src/rbyte"]
+exclude = ["src/rbyte/io/table/yaak/idl-repo"]
+artifacts = ["src/rbyte/io/table/yaak/proto/*_pb2.py*"]
+
+[tool.hatch.build.targets.sdist.hooks.custom]
+enable-by-default = true
+require-runtime-features = ["build"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/rbyte"]
-artifacts = ["src/rbyte/io/table/yaak/proto"]
-exclude = ["src/rbyte/io/table/yaak/idl-repo"]
-
-[tool.hatch.build.hooks.custom]
-require-runtime-features = ["build"]
+artifacts = ["src/rbyte/io/table/yaak/proto/*_pb2.py*"]
 
 [tool.basedpyright]
 typeCheckingMode = "all"

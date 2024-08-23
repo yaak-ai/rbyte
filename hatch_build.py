@@ -1,3 +1,5 @@
+import logging
+from collections.abc import Generator
 from importlib import resources
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -6,6 +8,9 @@ from typing import Any, override
 from grpc_tools import protoc
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 from protoletariat.fdsetgen import Raw
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
 
 
 class BuildYaakIdlProtosHook(BuildHookInterface):  # pyright: ignore[reportMissingTypeArgument]
@@ -34,8 +39,22 @@ class BuildYaakIdlProtosHook(BuildHookInterface):  # pyright: ignore[reportMissi
     YAAK_IDL_PROTOS = ("can.proto", "sensor.proto")
 
     @override
+    def clean(self, versions: list[str]) -> None:
+        for path in self._get_yaak_idl_proto_paths():
+            if path.exists():
+                logger.warning("removing %s", path)
+                path.unlink()
+
+    @override
     def initialize(self, version: str, build_data: dict[str, Any]) -> None:
         self._build_yaak_idl_protos()
+
+    @classmethod
+    def _get_yaak_idl_proto_paths(cls) -> Generator[Path, Any, None]:
+        for proto in cls.YAAK_IDL_PROTOS:
+            name, *_ = proto.split(".", maxsplit=1)
+            for ext in (".py", ".pyi"):
+                yield (cls.YAAK_IDL_PYTHON_OUT / f"{name}_pb2").with_suffix(ext)
 
     @classmethod
     def _build_yaak_idl_protos(cls) -> None:
@@ -57,7 +76,12 @@ class BuildYaakIdlProtosHook(BuildHookInterface):  # pyright: ignore[reportMissi
             Raw(descriptor_set_out.read()).fix_imports(
                 python_out=cls.YAAK_IDL_PYTHON_OUT,
                 create_package=False,
-                overwrite_callback=lambda file, text: file.write_text(text),  # pyright: ignore[reportArgumentType]
+                overwrite_callback=cls._overwrite_callback,
                 module_suffixes=["_pb2.py", "_pb2.pyi"],
                 exclude_imports_glob=["google/protobuf/*"],
             )
+
+    @staticmethod
+    def _overwrite_callback(file: Path, text: str) -> None:
+        logger.warning("overwriting %s", file)
+        _ = file.write_text(text)
