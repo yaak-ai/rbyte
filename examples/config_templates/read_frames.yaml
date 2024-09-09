@@ -1,0 +1,12 @@
+---
+defaults:
+  - frame_reader: !!null
+  - _self_
+
+batch_size: 1
+entity_path: ???
+
+hydra:
+  output_subdir: !!null
+  run:
+    dir: .

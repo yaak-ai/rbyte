@@ -1,24 +1,45 @@
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from enum import StrEnum, unique
+from functools import cache
+from typing import Annotated
 
+import more_itertools as mit
 import polars as pl
 import torch
-from hydra.utils import instantiate
-from polars._utils.getitem import (
-    _select_rows_by_index,  # pyright: ignore[reportPrivateUsage]  # noqa: PLC2701
-)
+from pydantic import ConfigDict, Field, FilePath, StringConstraints, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from tensordict import TensorDict
 from torch.utils.data import Dataset as TorchDataset
 
 from rbyte.batch import Batch, BatchMeta
-
-from .config import DatasetConfig, FrameSourceConfig, SourcesConfig, TableSourceConfig
+from rbyte.config.base import BaseModel, HydraConfig
+from rbyte.io.frame.base import FrameReader
+from rbyte.io.table.base import TableBuilderBase
+from rbyte.sample.base import SampleTableBuilder
 
 __all__ = ["Dataset"]
 
 logger = get_logger(__name__)
+
+type Id = Annotated[
+    str, StringConstraints(strip_whitespace=True, pattern=r"^[\x00-\x7F]+$")
+]
+
+
+class FrameSourceConfig(BaseModel):
+    reader: HydraConfig[FrameReader]
+    index_column: str
+
+
+class TableSourceConfig(BaseModel):
+    path: FilePath
+    builder: HydraConfig[TableBuilderBase]
+
+
+class SourcesConfig(BaseModel):
+    frame: Mapping[Id, FrameSourceConfig] = Field(min_length=1)
+    table: TableSourceConfig | None = None
 
 
 @unique
@@ -32,22 +53,26 @@ class Column(StrEnum):
 
 
 class Dataset(TorchDataset[TensorDict]):
-    def __init__(self, config: object) -> None:
+    @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
+    def __init__(
+        self,
+        inputs: Annotated[Mapping[Id, SourcesConfig], Field(min_length=1)],
+        sample_builder: HydraConfig[SampleTableBuilder],
+    ) -> None:
+        logger.debug("initializing dataset")
+
         super().__init__()
 
-        config = DatasetConfig.model_validate(config)
-
-        samples: dict[str, pl.LazyFrame] = {}
-        sample_builder = config.samples.builder.instantiate()
-        for _input in config.inputs:
-            with bound_contextvars(input=_input.id):
-                table = self._build_table(_input.sources)
-                samples[_input.id] = sample_builder.build(table)
-
+        _sample_builder = sample_builder.instantiate()
+        samples: Mapping[str, pl.LazyFrame] = {}
+        for input_id, input_cfg in inputs.items():
+            with bound_contextvars(input_id=input_id):
+                table = self._build_table(input_cfg)
+                samples[input_id] = _sample_builder.build(table)
                 logger.debug(
-                    "processed",
+                    "built samples",
                     rows=table.select(pl.len()).collect().item(),
-                    samples=samples[_input.id].select(pl.len()).collect().item(),
+                    samples=samples[input_id].select(pl.len()).collect().item(),
                 )
 
         input_id_enum = pl.Enum(sorted(samples))
@@ -73,13 +98,19 @@ class Dataset(TorchDataset[TensorDict]):
             pl.LazyFrame(
                 [
                     {
-                        Column.input_id: _input.id,
+                        Column.input_id: input_id,
                         (k := "source"): [
-                            source.model_dump(by_alias=True)
-                            for source in _input.sources.frame
+                            source_cfg.model_dump(exclude={"reader"})
+                            | {
+                                "id": source_id,
+                                "reader": source_cfg.reader.model_dump_json(
+                                    by_alias=True
+                                ),
+                            }
+                            for source_id, source_cfg in input_cfg.frame.items()
                         ],
                     }
-                    for _input in config.inputs
+                    for input_id, input_cfg in inputs.items()
                 ],
                 schema_overrides={Column.input_id: input_id_enum},
             )
@@ -92,17 +123,19 @@ class Dataset(TorchDataset[TensorDict]):
 
     @classmethod
     def _build_table(cls, sources: SourcesConfig) -> pl.LazyFrame:
+        logger.debug("building table")
+
         match sources:
-            case SourcesConfig(
-                frame=[FrameSourceConfig(reader=reader, index_column=index_column)],
-                table=None,
-            ):
-                frame_reader = reader.instantiate()
+            case SourcesConfig(frame=frame_sources, table=None) if len(
+                frame_sources
+            ) == 1:
+                frame_source = mit.one(frame_sources.values())
+                frame_reader = frame_source.reader.instantiate()
                 frame_idxs = pl.Series(
-                    name=index_column,
-                    values=frame_reader.get_available_indices(),
+                    name=frame_source.index_column,
+                    values=frame_reader.get_available_indexes(),
                     dtype=pl.UInt32,
-                )
+                ).sort()
 
                 return pl.LazyFrame(frame_idxs)
 
@@ -110,21 +143,23 @@ class Dataset(TorchDataset[TensorDict]):
                 frame=frame_sources, table=TableSourceConfig(path=path, builder=builder)
             ):
                 table_builder = builder.instantiate()
-                table_df = table_builder.build(path).lazy()
-                schema = table_df.collect_schema()
+                table = table_builder.build(path).lazy()
+                schema = table.collect_schema()
 
-                for frame_source in frame_sources:
+                for frame_source_id, frame_source in frame_sources.items():
+                    logger.debug("pruning table", frame_source=frame_source_id)
                     frame_reader = frame_source.reader.instantiate()
                     frame_idxs = pl.Series(
                         name=(col := frame_source.index_column),
-                        values=frame_reader.get_available_indices(),
+                        values=frame_reader.get_available_indexes(),
                         dtype=schema[col],
-                    )
-                    table_df = table_df.join(
+                    ).sort()
+
+                    table = table.join(
                         pl.LazyFrame(frame_idxs), on=frame_idxs.name, how="semi"
                     )
 
-                return table_df
+                return table
 
             case _:
                 raise NotImplementedError
@@ -137,14 +172,18 @@ class Dataset(TorchDataset[TensorDict]):
     def frame_sources(self) -> pl.DataFrame:
         return self._frame_sources
 
-    def __getitems__(self, idxs: Sequence[int]) -> Batch:  # pyright: ignore[reportGeneralTypeIssues, reportUnknownParameterType]  # noqa: PLW3201
-        samples = _select_rows_by_index(
-            self.samples, pl.Series(values=idxs, dtype=pl.UInt32)
-        )
+    @cache  # noqa: B019
+    def _get_frame_reader(self, reader_json: str) -> FrameReader:  # noqa: PLR6301
+        return HydraConfig[FrameReader].model_validate_json(reader_json).instantiate()
 
-        meta = BatchMeta(  # pyright: ignore[reportCallIssue, reportUnknownVariableType]
+    def __getitems__(self, indexes: Sequence[int]) -> Batch:  # noqa: PLW3201
+        samples = self.samples[indexes]
+        batch_size = [samples.height]
+
+        meta = BatchMeta(
             sample_idx=samples[Column.sample_idx].to_torch(),  # pyright: ignore[reportCallIssue]
             input_id=samples[Column.input_id].to_list(),  # pyright: ignore[reportCallIssue]
+            batch_size=batch_size,  # pyright: ignore[reportCallIssue]
         )
 
         frame_source_idx_cols = self._frame_sources[Column.source_index_column].unique()
@@ -165,25 +204,24 @@ class Dataset(TorchDataset[TensorDict]):
         frames = TensorDict(
             {
                 row[Column.source_id]: torch.stack([
-                    instantiate(reader).read(frame_idxs)
+                    self._get_frame_reader(reader).read(frame_idxs)
                     for (reader, frame_idxs) in zip(
                         row[Column.source_reader], row[Column.frame_idx], strict=True
                     )
                 ])
                 for row in frame_sources.collect().iter_rows(named=True)
             },
-            batch_size=[len(idxs)],
+            batch_size=batch_size,
         )
 
         table = TensorDict(
             samples.select(  # pyright: ignore[reportArgumentType]
-                pl.exclude(Column.sample_idx, Column.input_id)
-                .arr.to_list()
-                .to_physical()
-            ).to_dict()
+                pl.exclude(Column.sample_idx, Column.input_id).to_physical()
+            ).to_dict(as_series=False),
+            batch_size=batch_size,
         )
 
-        return Batch(meta=meta, frame=frames, table=table).auto_batch_size_(1)  # pyright: ignore[reportCallIssue, reportUnknownVariableType, reportUnknownMemberType]
+        return Batch(meta=meta, frame=frames, table=table, batch_size=batch_size)  # pyright: ignore[reportCallIssue]
 
     def __len__(self) -> int:
         return len(self.samples)

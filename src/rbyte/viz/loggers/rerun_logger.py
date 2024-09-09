@@ -1,61 +1,33 @@
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from functools import cache, cached_property
-from typing import Any, Literal, cast, override
+from typing import Any, Literal, Protocol, cast, override, runtime_checkable
 
 import rerun as rr
 import torch
-from pydantic import Field, ImportString
+from optree import tree_flatten_with_path
+from pydantic import ImportString, validate_call
 from rerun._baseclasses import ComponentBatchMixin  # noqa: PLC2701
+from rerun._send_columns import TimeColumnLike  # noqa: PLC2701
 from torch import Tensor
-from torch.utils._pytree import tree_flatten_with_path  # noqa: PLC2701
 
 from rbyte.batch import Batch
-from rbyte.config.base import BaseModel
 
 from .base import Logger
 
-type NestedKey = str | tuple[str, ...]
-TimeColumn = rr.TimeSequenceColumn | rr.TimeNanosColumn | rr.TimeSecondsColumn
 
-
-class SchemaItemConfig(BaseModel):
-    key: NestedKey
-    type: Callable[[str, int], None] | Callable[[str, float], None]
-
-
-class TransformConfig(BaseModel):
-    select: tuple[NestedKey, ...]
-    apply: Callable[[Tensor], Tensor]
-
-
-class RerunLoggerConfig(BaseModel):
-    log_schema: Mapping[Literal["frame", "table"], Mapping[str, ImportString[Any]]]
-    transforms: list[TransformConfig] = Field(default_factory=list)
-
-    @cached_property
-    def times(self) -> tuple[tuple[tuple[str, ...], type[TimeColumn]], ...]:
-        return tuple(  # pyright: ignore[reportUnknownVariableType]
-            (tuple(x.key for x in path), leaf)  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType, reportAttributeAccessIssue]
-            for path, leaf in tree_flatten_with_path(self.log_schema)[0]
-            if issubclass(leaf, TimeColumn)
-        )
-
-    @cached_property
-    def components(
-        self,
-    ) -> tuple[tuple[tuple[str, ...], type[ComponentBatchMixin]], ...]:
-        return tuple(  # pyright: ignore[reportUnknownVariableType]
-            (tuple(x.key for x in path), leaf)  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType, reportAttributeAccessIssue]
-            for path, leaf in tree_flatten_with_path(self.log_schema)[0]
-            if issubclass(leaf, ComponentBatchMixin)
-        )
+@runtime_checkable
+class TimeColumn(TimeColumnLike, Protocol): ...
 
 
 class RerunLogger(Logger[Batch]):
-    def __init__(self, config: object) -> None:
+    @validate_call
+    def __init__(
+        self,
+        schema: Mapping[Literal["frame", "table"], Mapping[str, ImportString[Any]]],
+    ) -> None:
         super().__init__()
 
-        self.config = RerunLoggerConfig.model_validate(config)
+        self._schema = schema
 
     @cache  # noqa: B019
     def _get_recording(self, *, application_id: str) -> rr.RecordingStream:  # noqa: PLR6301
@@ -64,25 +36,20 @@ class RerunLogger(Logger[Batch]):
         )
 
     @override
-    def log(self, batch_idx: int, batch: Batch) -> None:  # pyright: ignore[reportGeneralTypeIssues, reportUnknownParameterType]
-        for transform in self.config.transforms:
-            batch = batch.update(  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
-                batch.select(*transform.select).apply(transform.apply)  # pyright: ignore[reportUnknownMemberType]
-            )
-
+    def log(self, batch_idx: int, batch: Batch) -> None:
         # NOTE: zip because batch.meta.input_id is NonTensorData and isn't indexed
         for input_id, sample in zip(  # pyright: ignore[reportUnknownVariableType]
-            batch.get(k := ("meta", "input_id")),  # pyright: ignore[reportUnknownArgumentType,reportUnknownMemberType]
-            batch.exclude(k),  # pyright: ignore[reportUnknownArgumentType,reportUnknownMemberType]
+            batch.get(k := ("meta", "input_id")),  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType, reportAttributeAccessIssue]
+            batch.exclude(k),  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType, reportAttributeAccessIssue]
             strict=True,
         ):
             with self._get_recording(application_id=input_id):  # pyright: ignore[reportUnknownArgumentType]
                 times = [
-                    fn(times=sample.get(k).numpy(), timeline="/".join(k))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
-                    for k, fn in self.config.times
+                    fn(timeline="/".join(k), times=sample.get(k).numpy())  # pyright: ignore[reportUnknownMemberType, reportCallIssue]
+                    for k, fn in self.times
                 ]
 
-                for k, fn in self.config.components:
+                for k, fn in self.components:
                     path = "/".join(k)
                     tensor = cast(Tensor, sample.get(k))  # pyright: ignore[reportUnknownMemberType]
                     match fn:
@@ -120,3 +87,25 @@ class RerunLogger(Logger[Batch]):
                         components=[fn(tensor.numpy())],  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportCallIssue]
                         strict=True,
                     )
+
+    @cached_property
+    def times(self) -> tuple[tuple[tuple[str, ...], type[TimeColumn]], ...]:
+        paths, leaves, _ = tree_flatten_with_path(self._schema)  # pyright: ignore[reportArgumentType, reportUnknownVariableType]
+
+        return tuple(
+            (path, leaf)
+            for path, leaf in zip(paths, leaves, strict=True)  # pyright: ignore[reportUnknownArgumentType, reportUnknownVariableType]
+            if issubclass(leaf, TimeColumn)
+        )
+
+    @cached_property
+    def components(
+        self,
+    ) -> tuple[tuple[tuple[str, ...], type[ComponentBatchMixin]], ...]:
+        paths, leaves, _ = tree_flatten_with_path(self._schema)  # pyright: ignore[reportArgumentType, reportUnknownVariableType]
+
+        return tuple(
+            (path, leaf)
+            for path, leaf in zip(paths, leaves, strict=True)  # pyright: ignore[reportUnknownArgumentType, reportUnknownVariableType]
+            if issubclass(leaf, ComponentBatchMixin)
+        )

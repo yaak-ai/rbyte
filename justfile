@@ -1,4 +1,3 @@
-export HYDRA_FULL_ERROR := "1"
 export PYTHONOPTIMIZE := "1"
 export HATCH_BUILD_CLEAN := "1"
 
@@ -20,8 +19,8 @@ build:
 build-protos:
     uvx --from hatch hatch build --clean --hooks-only --target sdist
 
-pre-commit:
-    uvx pre-commit run --all-files --color=always
+pre-commit *ARGS:
+    uvx pre-commit run --all-files --color=always {{ ARGS }}
 
 generate-example-config:
     ytt --ignore-unknown-comments \
@@ -35,13 +34,26 @@ visualize *ARGS: generate-example-config
     uv run rbyte-visualize \
         --config-path {{ justfile_directory() }}/examples/config \
         --config-name visualize.yaml \
+        hydra/hydra_logging=disabled \
+        hydra/job_logging=disabled \
         {{ ARGS }}
 
 [group('scripts')]
 build-table *ARGS: generate-example-config
     uv run rbyte-build-table \
         --config-path {{ justfile_directory() }}/examples/config \
-        --config-name table.yaml \
+        --config-name build_table.yaml \
+        hydra/hydra_logging=disabled \
+        hydra/job_logging=disabled \
+        {{ ARGS }}
+
+[group('scripts')]
+read-frames *ARGS: generate-example-config
+    uv run rbyte-read-frames \
+        --config-path {{ justfile_directory() }}/examples/config \
+        --config-name read_frames.yaml \
+        hydra/hydra_logging=disabled \
+        hydra/job_logging=disabled \
         {{ ARGS }}
 
 # rerun server and viewer

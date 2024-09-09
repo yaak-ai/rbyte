@@ -1,0 +1,23 @@
+#@yaml/text-templated-strings
+
+#@ cameras = [
+#@     'cam_front_left',
+#@ ]
+
+---
+_target_: rbyte.viz.loggers.RerunLogger
+_recursive_: true
+_convert_: all
+schema:
+  frame:
+    #@ for camera in cameras:
+    (@=camera@): rerun.components.ImageBufferBatch
+    #@ end
+
+  table:
+    frame_idx: rerun.TimeSequenceColumn
+    control.brake: rerun.components.ScalarBatch
+    control.steer: rerun.components.ScalarBatch
+    control.throttle: rerun.components.ScalarBatch
+    state.acceleration.value: rerun.components.ScalarBatch
+    state.velocity.value: rerun.components.ScalarBatch

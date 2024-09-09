@@ -1,44 +1,61 @@
+#@yaml/text-templated-strings
+
+#@ drives = [
+#@     'carla_id1',
+#@ ]
+
+#@ cameras = [
+#@     'cam_front_left',
+#@ ]
 ---
 _target_: rbyte.Dataset
 _recursive_: false
-config:
-  inputs:
-    - id: carla_id1
-      sources:
-        frame:
-          - id: cam_front_left
-            index_column: frame_idx
-            reader:
-              _target_: rbyte.io.frame.jpeg.JpegFrameReader
-              path: "${data_dir}/${.....id}/frames/${..id}.defish.mp4/576x324/{:09d}.jpg"
-
-        table:
-          path: ${data_dir}/${...id}/ego_logs.json
-          builder:
-            _target_: rbyte.io.table.carla.CarlaRecordsTableBuilder
-            _recursive_: false
-            config:
-              index_column: frame_idx
-              select:
-                - control.brake
-                - control.throttle
-                - control.steer
-                - state.velocity.value
-                - state.acceleration.value
-
-              filter: |
-                `control.throttle` > 0.5
-
-              transforms:
-                - _target_: rbyte.io.table.transforms.FpsResampler
-                  source_fps: 20
-                  target_fps: 30
-  samples:
-    builder:
-      _target_: rbyte.sample.builder.GreedySampleTableBuilder
-      config:
+_convert_: all
+inputs:
+  #@ for input_id in drives:
+  (@=input_id@):
+    frame:
+      #@ for source_id in cameras:
+      (@=source_id@):
         index_column: frame_idx
-        length: 1
-        stride: 1
-        min_step: 1
-        filter: !!null
+        reader:
+          _target_: rbyte.io.frame.DirectoryFrameReader
+          path: "${data_dir}/(@=input_id@)/frames/(@=source_id@).defish.mp4/576x324/{:09d}.jpg"
+          frame_decoder:
+            _target_: simplejpeg.decode_jpeg
+            _partial_: true
+            colorspace: rgb
+            fastdct: true
+            fastupsample: true
+
+      #@ end
+
+    table:
+      path: ${data_dir}/(@=input_id@)/ego_logs.json
+      builder:
+        _target_: rbyte.io.table.carla.CarlaRecordsTableBuilder
+        _convert_: all
+        index_column: frame_idx
+        select:
+          - control.brake
+          - control.throttle
+          - control.steer
+          - state.velocity.value
+          - state.acceleration.value
+
+        filter: |
+          `control.throttle` > 0.5
+
+        transforms:
+          - _target_: rbyte.io.table.transforms.FpsResampler
+            source_fps: 20
+            target_fps: 30
+    #@ end
+
+sample_builder:
+  _target_: rbyte.sample.builder.GreedySampleTableBuilder
+  index_column: frame_idx
+  length: 1
+  stride: 1
+  min_step: 1
+  filter: !!null

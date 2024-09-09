@@ -7,19 +7,19 @@ from pydantic import ConfigDict, Field, ImportString, field_serializer
 
 
 class BaseModel(_BaseModel):
-    class Config:
-        frozen = True
-        extra = "forbid"
-        validate_assignment = True
+    model_config = ConfigDict(
+        frozen=True,
+        extra="forbid",
+        validate_assignment=True,
+        ignored_types=(cached_property,),
+    )
 
 
 T = TypeVar("T")
 
 
 class HydraConfig[T](BaseModel):
-    model_config = ConfigDict(
-        frozen=True, extra="allow", ignored_types=(cached_property,)
-    )
+    model_config = ConfigDict(extra="allow")
 
     target: ImportString[type[T]] = Field(alias="_target_")
 
