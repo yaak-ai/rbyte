@@ -1,7 +1,52 @@
 #@yaml/text-templated-strings
 
 #@ drives = [
-#@     'carla_id1',
+#@     'Accident',
+#@     'Accident_2',
+#@     'AccidentTwoWays',
+#@     'BlockedIntersection',
+#@     'ConstructionObstacle',
+#@     'ConstructionObstacleTwoWays',
+#@     'ControlLoss',
+#@     'DynamicObjectCrossing_right_container',
+#@     'DynamicObjectCrossing_right_haybalelb',
+#@     'EnterActorFlow_fast',
+#@     'EnterActorFlow_slow',
+#@     'HardBreakRoute',
+#@     'HazardAtSideLane',
+#@     'HazardAtSideLaneTwoWays',
+#@     'HighwayCutIn',
+#@     'HighwayExit',
+#@     'InterurbanActorFlow_fast',
+#@     'InterurbanActorFlow_slow',
+#@     'InterurbanAdvancedActorFlow_fast',
+#@     'InterurbanAdvancedActorFlow_slow',
+#@     'InterurbanAdvancedActorFlow_slow_2',
+#@     'InvadingTurn_less_curve',
+#@     'InvadingTurn_much_curve',
+#@     'MergerIntoSlowTraffic',
+#@     'MergerIntoSlowTrafficV2',
+#@     'NonSignalizedJunctionLeftTurn_fast',
+#@     'NonSignalizedJunctionLeftTurn_slow',
+#@     'NonSignalizedJunctionRightTurn_fast',
+#@     'NonSignalizedJunctionRightTurn_slow',
+#@     'OppositeVehicleRunningRedLight',
+#@     'OppositeVehicleTakingPriority',
+#@     'ParkedObstacle',
+#@     'ParkedObstacleTwoWays',
+#@     'ParkingCrossingPedestrian',
+#@     'ParkingCutIn',
+#@     'ParkingExit',
+#@     'PedestrianCrossing',
+#@     'SignalizedJunctionLeftTurn_fast',
+#@     'SignalizedJunctionLeftTurn_slow',
+#@     'SignalizedJunctionRightTurn_fast',
+#@     'SignalizedJunctionRightTurn_slow',
+#@     'StaticCutIn',
+#@     'VehicleOpensDoorTwoWays',
+#@     'VehicleTurningRoutePedestrian',
+#@     'VehicleTurningRoute_right',
+#@     'YieldToEmergencyVehicle',
 #@ ]
 
 #@ cameras = [
@@ -43,9 +88,7 @@ inputs:
           - state.velocity.value
           - state.acceleration.value
 
-        filter: |
-          `control.throttle` > 0.5
-
+        filter: !!null
         transforms:
           - _target_: rbyte.io.table.transforms.FpsResampler
             source_fps: 20
