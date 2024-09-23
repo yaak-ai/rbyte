@@ -1,3 +1,3 @@
-from .builder import YaakMetadataTableBuilder
+from .reader import YaakMetadataTableReader
 
-__all__ = ["YaakMetadataTableBuilder"]
+__all__ = ["YaakMetadataTableReader"]

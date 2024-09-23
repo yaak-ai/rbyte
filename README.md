@@ -7,7 +7,7 @@ Multimodal dataset library.
 ## Installation
 
 ```bash
-uv add https://github.com/yaak-ai/rbyte/releases/latest/download/rbyte-X.Y.Z-py3-none-any.whl [--extra visualize]
+uv add https://github.com/yaak-ai/rbyte/releases/latest/download/rbyte-X.Y.Z-py3-none-any.whl [--extra visualize] [--extra jpeg] [--extra mcap]
 ```
 
 ## Usage

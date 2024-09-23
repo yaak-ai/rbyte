@@ -1,0 +1,15 @@
+---
+defaults:
+  - table_builder: !!null
+  - _self_
+
+path: ???
+writer:
+  _target_: polars.DataFrame.write_csv
+  _partial_: true
+  file: ???
+
+hydra:
+  output_subdir: !!null
+  run:
+    dir: .

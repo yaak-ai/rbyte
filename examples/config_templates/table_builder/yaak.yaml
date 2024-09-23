@@ -1,0 +1,77 @@
+#@yaml/text-templated-strings
+
+#@ cameras = [
+#@     'cam_front_left',
+#@     'cam_left_forward',
+#@     'cam_right_forward',
+#@ ]
+---
+_target_: rbyte.io.table.TableBuilder
+reader:
+  _target_: rbyte.io.table.yaak.YaakMetadataTableReader
+  _recursive_: false
+  _convert_: all
+  fields:
+    rbyte.io.table.yaak.proto.sensor_pb2.ImageMetadata:
+      time_stamp:
+        _target_: polars.Datetime
+        time_unit: ns
+
+      frame_idx: polars.UInt32
+      camera_name:
+        _target_: polars.Enum
+        categories:
+          - cam_front_center
+          - cam_front_left
+          - cam_front_right
+          - cam_left_forward
+          - cam_right_forward
+          - cam_left_backward
+          - cam_right_backward
+          - cam_rear
+
+    rbyte.io.table.yaak.proto.can_pb2.VehicleMotion:
+      time_stamp:
+        _target_: polars.Datetime
+        time_unit: ns
+
+      speed: polars.Float32
+      gear:
+        _target_: polars.Enum
+        categories: ["0", "1", "2", "3"]
+
+merger:
+  _target_: rbyte.io.table.TableMerger
+  separator: "."
+  merge:
+    ImageMetadata.(@=cameras[0]@):
+      time_stamp:
+        method: ref
+
+    #@ for camera in cameras[1:]:
+    ImageMetadata.(@=camera@):
+      time_stamp:
+        method: ref
+
+      frame_idx:
+        method: asof
+        tolerance: 10ms
+        strategy: nearest
+    #@ end
+
+    VehicleMotion:
+      time_stamp:
+        method: ref
+      speed:
+        method: interp
+      gear:
+        method: asof
+        tolerance: 100ms
+
+filter: |
+  `VehicleMotion.gear` == '3'
+
+cache:
+  _target_: rbyte.utils.dataframe.DataframeDiskCache
+  directory: /tmp/rbyte-cache
+  size_limit: 1GiB

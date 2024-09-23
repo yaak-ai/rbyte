@@ -26,4 +26,4 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
-      - uses: hynek/build-and-inspect-python-package@v2.8.0
+      - uses: hynek/build-and-inspect-python-package@v2.9.0

@@ -1,0 +1,18 @@
+---
+_target_: rbyte.io.table.carla.CarlaRecordsTableBuilder
+_convert_: all
+index_column: frame_idx
+select:
+  - control.brake
+  - control.throttle
+  - control.steer
+  - state.velocity.value
+  - state.acceleration.value
+
+filter: |
+  `control.throttle` > 0.5
+
+transforms:
+  - _target_: rbyte.io.table.transforms.FpsResampler
+    source_fps: 20
+    target_fps: 30

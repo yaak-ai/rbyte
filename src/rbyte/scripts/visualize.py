@@ -14,7 +14,8 @@ from rbyte.viz.loggers.base import Logger
 logger = get_logger(__name__)
 
 
-def run(config: DictConfig) -> None:
+@hydra.main(version_base=None)
+def main(config: DictConfig) -> None:
     logger = cast(Logger[Any], instantiate(config.logger))
     dataloader = cast(DataLoader[Any], instantiate(config.dataloader))
 
@@ -23,14 +24,6 @@ def run(config: DictConfig) -> None:
 
     for batch_idx, batch in enumerate(tqdm(dataloader)):
         logger.log(batch_idx, batch)
-
-
-@hydra.main(version_base=None)
-def main(config: DictConfig) -> None:
-    try:
-        run(config)
-    except Exception:
-        logger.exception("failed")
 
 
 if __name__ == "__main__":

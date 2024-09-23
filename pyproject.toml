@@ -1,22 +1,24 @@
 [project]
 name = "rbyte"
-version = "0.1.0"
+version = "0.2.0"
 description = "Multimodal dataset library"
 authors = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 maintainers = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 dependencies = [
-  "torch>=2.4.0",
-  "tensordict @ git+https://github.com/pytorch/tensordict.git",
-  "more-itertools",
-  "protobuf",
-  "pydantic>=2.8.2",
-  "diskcache",
-  "polars>=1.5.0",
-  "parse",
-  "hydra-core",
-  "simplejpeg",
-  "jaxtyping",
-  "structlog",
+  "tensordict @ git+https://github.com/pytorch/tensordict.git@85b6b81",
+  "torch>=2.4.1",
+  "polars>=1.8.0",
+  "pydantic>=2.9.2",
+  "more-itertools>=10.5.0",
+  "hydra-core>=1.3.2",
+  "optree>=0.12.1",
+  "cachetools>=5.5.0",
+  "diskcache>=5.6.3",
+  "jaxtyping>=0.2.34",
+  "parse>=1.20.2",
+  "structlog>=24.4.0",
+  "xxhash>=3.5.0",
+  "tqdm>=4.66.5",
 ]
 readme = "README.md"
 requires-python = ">=3.12"
@@ -32,11 +34,27 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-build = ["hatchling>=1.25.0", "grpcio-tools==1.62.2", "protoletariat==3.2.19"]
-visualize = ["rerun-sdk>=0.18.0", "tqdm"]
+build = [
+  "hatchling>=1.25.0",
+  "grpcio-tools",
+  "protoletariat==3.2.19",
+  "protobuf",
+]
+visualize = ["rerun-sdk>=0.18.2"]
+mcap = [
+  "mcap>=1.1.1",
+  "mcap-protobuf-support>=0.5.1",
+  "mcap-ros2-support>=0.5.3",
+  "protobuf",
+  "ptars>=0.0.2rc2",
+  "pyarrow-stubs>=17.6",
+]
+yaak = ["protobuf", "ptars>=0.0.2rc2"]
+jpeg = ["simplejpeg>=1.7.6"]
 
 [project.scripts]
 rbyte-build-table = 'rbyte.scripts.build_table:main'
+rbyte-read-frames = 'rbyte.scripts.read_frames:main'
 rbyte-visualize = 'rbyte.scripts.visualize:main'
 
 [build-system]
@@ -45,10 +63,12 @@ build-backend = "hatchling.build"
 
 [tool.uv]
 dev-dependencies = [
-  "wat-inspector>=0.3.3",
-  "lovely-tensors>=0.1.16",
+  "wat-inspector>=0.4.0",
+  "lovely-tensors>=0.1.17",
   "pudb>=2024.1.2",
 ]
+
+[tool.uv.sources]
 
 [tool.hatch.metadata]
 allow-direct-references = true

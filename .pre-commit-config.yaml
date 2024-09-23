@@ -8,7 +8,7 @@ repos:
       - id: validate-pyproject
 
   - repo: https://github.com/crate-ci/typos
-    rev: v1.23.7
+    rev: v1.24.6
     hooks:
       - id: typos
 
@@ -24,14 +24,14 @@ repos:
         exclude: examples/config
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.2
+    rev: v0.6.7
     hooks:
       - id: ruff
         args: [--fix]
       - id: ruff-format
 
   - repo: https://github.com/DetachHead/basedpyright-pre-commit-mirror
-    rev: 1.17.0
+    rev: 1.17.5
     hooks:
       - id: basedpyright
 
