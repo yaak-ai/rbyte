@@ -30,21 +30,26 @@ jobs:
         with:
           python-version-file: "pyproject.toml"
 
-      - name: install uv
+      - name: setup just
+        uses: extractions/setup-just@v2
+
+      - name: setup ytt
+        uses: carvel-dev/setup-action@v2
+        with:
+          only: ytt
+
+      - name: setup uv
         uses: astral-sh/setup-uv@v3
         with:
           version: "latest"
           enable-cache: true
           cache-dependency-glob: "**/pyproject.toml"
 
-      - name: uv sync
-        run: uv sync --all-extras --dev
+      - name: sync
+        run: just sync
 
-      - name: run build hooks
-        run: uvx --from hatch hatch build --clean --hooks-only --target sdist
-
-      - name: install pre-commit
-        run: uv tool install --upgrade pre-commit
+      - name: install tools
+        run: just install-tools
 
       - name: restore pre-commit cache
         uses: actions/cache@v4
@@ -52,7 +57,5 @@ jobs:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
 
-      - name: run pre-commit
-        run: uvx pre-commit run --all-files --color=always
-        env:
-          SKIP: just-format,generate-example-config
+      - name: pre-commit
+        run: just pre-commit

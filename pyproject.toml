@@ -21,7 +21,7 @@ dependencies = [
   "tqdm>=4.66.5",
 ]
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
 license = { text = "Apache-2.0" }
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -34,12 +34,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-build = [
-  "hatchling>=1.25.0",
-  "grpcio-tools",
-  "protoletariat==3.2.19",
-  "protobuf",
-]
+build = ["hatchling>=1.25.0", "grpcio-tools>=1.62.0", "protoletariat==3.2.19"]
 visualize = ["rerun-sdk>=0.18.2"]
 mcap = [
   "mcap>=1.1.1",
@@ -58,7 +53,11 @@ rbyte-read-frames = 'rbyte.scripts.read_frames:main'
 rbyte-visualize = 'rbyte.scripts.visualize:main'
 
 [build-system]
-requires = ["hatchling>=1.25.0"]
+requires = [
+  "hatchling>=1.25.0",
+  "grpcio-tools>=1.62.0",
+  "protoletariat==3.2.19",
+]
 build-backend = "hatchling.build"
 
 [tool.uv]

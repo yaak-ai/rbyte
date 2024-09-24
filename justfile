@@ -4,22 +4,26 @@ export HATCH_BUILD_CLEAN := "1"
 _default:
     @just --list --unsorted
 
-setup:
-    git submodule update --init --recursive --remote
-    uv sync --all-extras
+sync:
+    uv sync --all-extras --dev
+
+install-tools:
     for tool in basedpyright ruff pre-commit; do uv tool install --force --upgrade $tool;  done
+
+setup: sync install-tools
+    git submodule update --init --recursive --remote
     uvx pre-commit install --install-hooks
 
 clean:
     uvx --from hatch hatch clean
 
 build:
-    uvx --from build pyproject-build --installer uv
+    uv build
 
 build-protos:
     uvx --from hatch hatch build --clean --hooks-only --target sdist
 
-pre-commit *ARGS:
+pre-commit *ARGS: build-protos
     uvx pre-commit run --all-files --color=always {{ ARGS }}
 
 generate-example-config:
