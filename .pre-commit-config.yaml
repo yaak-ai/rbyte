@@ -49,6 +49,6 @@ repos:
         name: generate-example-config
         language: system
         stages: [commit]
-        entry: ytt --ignore-unknown-comments --file examples/config_templates --output-files examples/config --output yaml --strict
+        entry: just generate-example-config
         pass_filenames: false
         always_run: true
