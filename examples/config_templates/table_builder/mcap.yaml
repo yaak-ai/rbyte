@@ -1,0 +1,61 @@
+#@yaml/text-templated-strings
+
+#@ camera_topics = [
+#@     '/CAM_FRONT_LEFT/image_rect_compressed',
+#@     '/CAM_FRONT_RIGHT/image_rect_compressed',
+#@ ]
+---
+_target_: rbyte.io.table.TableBuilder
+_convert_: all
+reader:
+  _target_: rbyte.io.table.mcap.McapTableReader
+  _recursive_: false
+  decoder_factories:
+    - mcap_protobuf.decoder.DecoderFactory
+    - rbyte.utils.mcap.McapJsonDecoderFactory
+
+  fields:
+    #@ for topic in camera_topics:
+    (@=topic@):
+      log_time:
+        _target_: polars.Datetime
+        time_unit: ns
+
+      idx:
+    #@ end
+
+    /odom:
+      log_time:
+        _target_: polars.Datetime
+        time_unit: ns
+      vel.x:
+
+merger:
+  _target_: rbyte.io.table.TableMerger
+  separator: /
+  merge:
+    (@=camera_topics[0]@):
+      log_time:
+        method: ref
+
+    #@ for topic in camera_topics[1:]:
+    (@=topic@):
+      log_time:
+        method: ref
+      idx:
+        method: asof
+        tolerance: 10ms
+        strategy: nearest
+    #@ end
+
+    /odom:
+      log_time:
+        method: ref
+      vel.x:
+        method: interp
+
+filter: !!null
+cache:
+  _target_: rbyte.utils.dataframe.DataframeDiskCache
+  directory: /tmp/rbyte-cache
+  size_limit: 1GiB

@@ -3,7 +3,7 @@ fail_fast: true
 
 repos:
   - repo: https://github.com/abravalheri/validate-pyproject
-    rev: v0.19
+    rev: v0.20.2
     hooks:
       - id: validate-pyproject
 
@@ -24,14 +24,14 @@ repos:
         exclude: examples/config
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.7
+    rev: v0.6.8
     hooks:
       - id: ruff
         args: [--fix]
       - id: ruff-format
 
   - repo: https://github.com/DetachHead/basedpyright-pre-commit-mirror
-    rev: 1.17.5
+    rev: 1.18.0
     hooks:
       - id: basedpyright
 

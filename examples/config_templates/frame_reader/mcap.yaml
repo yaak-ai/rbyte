@@ -3,9 +3,7 @@ _target_: rbyte.io.frame.mcap.McapFrameReader
 _recursive_: true
 path: ???
 topic: ???
-message_decoder_factory:
-  _target_: mcap_protobuf.decoder.DecoderFactory
-
+decoder_factory: mcap_protobuf.decoder.DecoderFactory
 frame_decoder:
   _target_: simplejpeg.decode_jpeg
   _partial_: true

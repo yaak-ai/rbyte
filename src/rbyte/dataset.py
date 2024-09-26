@@ -126,9 +126,9 @@ class Dataset(TorchDataset[TensorDict]):
         logger.debug("building table")
 
         match sources:
-            case SourcesConfig(frame=frame_sources, table=None) if len(
-                frame_sources
-            ) == 1:
+            case SourcesConfig(frame=frame_sources, table=None) if (
+                len(frame_sources) == 1
+            ):
                 frame_source = mit.one(frame_sources.values())
                 frame_reader = frame_source.reader.instantiate()
                 frame_idxs = pl.Series(
