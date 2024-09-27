@@ -17,3 +17,5 @@ examples/config
 
 # lockfiles
 uv.lock
+
+.basedpyright

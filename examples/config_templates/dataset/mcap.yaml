@@ -6,10 +6,10 @@
 #@     'NuScenes-v1.0-mini-scene-0103',
 #@ ]
 
-#@ cameras = [
-#@     'CAM_FRONT',
-#@     'CAM_FRONT_LEFT',
-#@     'CAM_FRONT_RIGHT',
+#@ camera_topics = [
+#@     '/CAM_FRONT/image_rect_compressed',
+#@     '/CAM_FRONT_LEFT/image_rect_compressed',
+#@     '/CAM_FRONT_RIGHT/image_rect_compressed',
 #@ ]
 ---
 _target_: rbyte.Dataset
@@ -19,15 +19,14 @@ inputs:
   #@ for input_id in inputs:
   (@=input_id@):
     frame:
-      #@ for source_id in cameras:
-      (@=source_id@):
-        index_column: /(@=source_id@)/image_rect_compressed/frame_idx
+      #@ for topic in camera_topics:
+      (@=topic@):
+        index_column: (@=topic@)/idx
         reader:
           _target_: rbyte.io.frame.mcap.McapFrameReader
           path: "${data_dir}/(@=input_id@).mcap"
-          topic: /(@=source_id@)/image_rect_compressed
-          message_decoder_factory:
-            _target_: mcap_protobuf.decoder.DecoderFactory
+          topic: (@=topic@)
+          decoder_factory: mcap_protobuf.decoder.DecoderFactory
           frame_decoder:
             _target_: simplejpeg.decode_jpeg
             _partial_: true
@@ -40,62 +39,57 @@ inputs:
       path: "${data_dir}/(@=input_id@).mcap"
       builder:
         _target_: rbyte.io.table.TableBuilder
+        _convert_: all
         reader:
-          _target_: rbyte.io.table.mcap.McapProtobufTableReader
+          _target_: rbyte.io.table.mcap.McapTableReader
           _recursive_: false
-          _convert_: all
+          decoder_factories:
+            - mcap_protobuf.decoder.DecoderFactory
+            - rbyte.utils.mcap.McapJsonDecoderFactory
+
           fields:
-            #@ for camera in cameras:
-            /(@=camera@)/image_rect_compressed:
+            #@ for topic in camera_topics:
+            (@=topic@):
               log_time:
                 _target_: polars.Datetime
                 time_unit: ns
+
+              idx:
             #@ end
 
-            /gps:
+            /odom:
               log_time:
                 _target_: polars.Datetime
                 time_unit: ns
-
-              latitude: polars.Float64
-              longitude: polars.Float64
-              altitude: polars.Float64
+              vel.x:
 
         merger:
           _target_: rbyte.io.table.TableMerger
           separator: /
           merge:
-            /(@=cameras[0]@)/image_rect_compressed:
+            (@=camera_topics[0]@):
               log_time:
                 method: ref
 
-            #@ for camera in cameras[1:]:
-            /(@=camera@)/image_rect_compressed:
+            #@ for topic in camera_topics[1:]:
+            (@=topic@):
               log_time:
                 method: ref
-              frame_idx:
+              idx:
                 method: asof
                 tolerance: 10ms
                 strategy: nearest
             #@ end
 
-            /gps:
+            /odom:
               log_time:
                 method: ref
-              latitude:
-                method: asof
-                tolerance: 1000ms
-                strategy: nearest
-              longitude:
-                method: asof
-                tolerance: 1000ms
-                strategy: nearest
-              altitude:
-                method: asof
-                tolerance: 1000ms
-                strategy: nearest
+              vel.x:
+                method: interp
 
-        filter: !!null
+        filter: |
+          `/odom/vel.x` >= 8.6
+
         cache:
           _target_: rbyte.utils.dataframe.DataframeDiskCache
           directory: /tmp/rbyte-cache
@@ -104,7 +98,7 @@ inputs:
 
 sample_builder:
   _target_: rbyte.sample.builder.GreedySampleTableBuilder
-  index_column: /(@=cameras[0]@)/image_rect_compressed/frame_idx
+  index_column: (@=camera_topics[0]@)/idx
   length: 1
   stride: 1
   min_step: 1

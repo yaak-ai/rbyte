@@ -14,7 +14,7 @@ from mcap.opcode import Opcode
 from mcap.reader import SeekingReader
 from mcap.records import Chunk, ChunkIndex, Message
 from mcap.stream_reader import get_chunk_data_stream
-from pydantic import ConfigDict, FilePath, validate_call
+from pydantic import ConfigDict, FilePath, ImportString, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from torch import Tensor
@@ -37,16 +37,14 @@ class McapFrameReader(FrameReader):
         self,
         path: FilePath,
         topic: str,
-        message_decoder_factory: DecoderFactory,
+        decoder_factory: ImportString[type[DecoderFactory]],
         frame_decoder: Callable[[bytes], npt.ArrayLike],
         validate_crcs: bool = False,  # noqa: FBT001, FBT002
     ) -> None:
         super().__init__()
 
         with bound_contextvars(
-            path=path.as_posix(),
-            topic=topic,
-            message_decoder_factory=message_decoder_factory,
+            path=path.as_posix(), topic=topic, message_decoder_factory=decoder_factory
         ):
             self._path = path
             self._validate_crcs = validate_crcs
@@ -65,7 +63,7 @@ class McapFrameReader(FrameReader):
                 if channel.topic == topic
             )
 
-            message_decoder = message_decoder_factory.decoder_for(
+            message_decoder = decoder_factory().decoder_for(
                 message_encoding=self._channel.message_encoding,
                 schema=summary.schemas[self._channel.schema_id],
             )

@@ -1,0 +1,21 @@
+#@yaml/text-templated-strings
+
+#@ camera_topics = [
+#@     '/CAM_FRONT/image_rect_compressed',
+#@     '/CAM_FRONT_LEFT/image_rect_compressed',
+#@     '/CAM_FRONT_RIGHT/image_rect_compressed',
+#@ ]
+---
+_target_: rbyte.viz.loggers.RerunLogger
+schema:
+  frame:
+    #@ for topic in camera_topics:
+    (@=topic@): rerun.components.ImageBufferBatch
+    #@ end
+
+  table:
+    (@=camera_topics[0]@)/log_time: rerun.TimeNanosColumn
+    #@ for topic in camera_topics:
+    (@=topic@)/idx: rerun.TimeSequenceColumn
+    #@ end
+    /odom/vel.x: rerun.components.ScalarBatch

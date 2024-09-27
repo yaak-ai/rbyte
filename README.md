@@ -25,18 +25,18 @@ See [examples/config_templates](examples/config_templates) ([`ytt`](https://carv
 <details>
 <summary><a href=https://nuscenes.org> nuScenes </a> x <a href=https://mcap.dev> mcap </a></summary>
 
-1. Setup a new project with [`uv`](https://docs.astral.sh/uv/)
+Setup a new project with [`uv`](https://docs.astral.sh/uv/):
 ```shell
 uv init nuscenes_mcap
 cd nuscenes_mcap
 
 uv add hydra-core omegaconf
-uv add https://github.com/yaak-ai/rbyte/releases/latest/download/rbyte-0.2.0-py3-none-any.whl --extra mcap --extra jpeg --extra visualize
+uv add https://github.com/yaak-ai/rbyte/releases/latest/download/rbyte-0.3.0-py3-none-any.whl --extra mcap --extra jpeg --extra visualize
 
 mkdir data
 ```
 
-2. Follow the guide at [foxglove/nuscenes2mcap](https://github.com/foxglove/nuscenes2mcap) and move the resulting `.mcap` files under `data/`. In this example we're using a subset of topics from `NuScenes-v1.0-mini-scene-0103.mcap`:
+Follow the guide at [foxglove/nuscenes2mcap](https://github.com/foxglove/nuscenes2mcap) and move the resulting `.mcap` files under `data/`. In this example we're using a subset of topics from `NuScenes-v1.0-mini-scene-0103.mcap`:
 ```shell
 mcap info data/NuScenes-v1.0-mini-scene-0103.mcap
 library:   nuscenes2mcap
@@ -93,13 +93,13 @@ attachments: 0
 metadata: 1
 ```
 
-3. Create a `config.yaml` with the following:
+Create a `config.yaml` to extract frames from three cameras + velocity, aligning everything to the first camera's timestamp:
 ```yaml
 ---
 dataloader:
   _target_: torch.utils.data.DataLoader
   dataset: ${dataset}
-  batch_size: 32
+  batch_size: 1
   collate_fn:
     _target_: rbyte.utils.dataloader.collate_identity
     _partial_: true
@@ -111,50 +111,68 @@ dataset:
   inputs:
     NuScenes-v1.0-mini-scene-0103:
       frame:
-        CAM_FRONT:
-          index_column: /CAM_FRONT/image_rect_compressed/frame_idx
+        /CAM_FRONT/image_rect_compressed:
+          index_column: /CAM_FRONT/image_rect_compressed/idx
           reader:
             _target_: rbyte.io.frame.mcap.McapFrameReader
             path: data/NuScenes-v1.0-mini-scene-0103.mcap
             topic: /CAM_FRONT/image_rect_compressed
-            message_decoder_factory: ${message_decoder_factory}
-            frame_decoder: ${jpeg_decoder}
+            decoder_factory: mcap_protobuf.decoder.DecoderFactory
+            frame_decoder: ${frame_decoder}
 
-        CAM_FRONT_LEFT:
-          index_column: /CAM_FRONT_LEFT/image_rect_compressed/frame_idx
+        /CAM_FRONT_LEFT/image_rect_compressed:
+          index_column: /CAM_FRONT_LEFT/image_rect_compressed/idx
           reader:
             _target_: rbyte.io.frame.mcap.McapFrameReader
             path: data/NuScenes-v1.0-mini-scene-0103.mcap
             topic: /CAM_FRONT_LEFT/image_rect_compressed
-            message_decoder_factory: ${message_decoder_factory}
-            frame_decoder: ${jpeg_decoder}
+            decoder_factory: mcap_protobuf.decoder.DecoderFactory
+            frame_decoder: ${frame_decoder}
+
+        /CAM_FRONT_RIGHT/image_rect_compressed:
+          index_column: /CAM_FRONT_RIGHT/image_rect_compressed/idx
+          reader:
+            _target_: rbyte.io.frame.mcap.McapFrameReader
+            path: data/NuScenes-v1.0-mini-scene-0103.mcap
+            topic: /CAM_FRONT_RIGHT/image_rect_compressed
+            decoder_factory: mcap_protobuf.decoder.DecoderFactory
+            frame_decoder: ${frame_decoder}
 
       table:
         path: data/NuScenes-v1.0-mini-scene-0103.mcap
         builder:
           _target_: rbyte.io.table.TableBuilder
+          _convert_: all
           reader:
-            _target_: rbyte.io.table.mcap.McapProtobufTableReader
+            _target_: rbyte.io.table.mcap.McapTableReader
             _recursive_: false
-            _convert_: all
+            decoder_factories:
+              - mcap_protobuf.decoder.DecoderFactory
+              - rbyte.utils.mcap.McapJsonDecoderFactory
             fields:
               /CAM_FRONT/image_rect_compressed:
                 log_time:
                   _target_: polars.Datetime
                   time_unit: ns
+                idx: null
 
               /CAM_FRONT_LEFT/image_rect_compressed:
                 log_time:
                   _target_: polars.Datetime
                   time_unit: ns
+                idx: null
 
-              /gps:
+              /CAM_FRONT_RIGHT/image_rect_compressed:
                 log_time:
                   _target_: polars.Datetime
                   time_unit: ns
+                idx: null
 
-                latitude: polars.Float64
-                longitude: polars.Float64
+              /odom:
+                log_time:
+                  _target_: polars.Datetime
+                  time_unit: ns
+                vel.x: null
 
           merger:
             _target_: rbyte.io.table.TableMerger
@@ -167,40 +185,43 @@ dataset:
               /CAM_FRONT_LEFT/image_rect_compressed:
                 log_time:
                   method: ref
-                frame_idx:
+                idx:
                   method: asof
-                  tolerance: 100ms
+                  tolerance: 10ms
                   strategy: nearest
 
-              /gps:
+              /CAM_FRONT_RIGHT/image_rect_compressed:
                 log_time:
                   method: ref
-                latitude:
+                idx:
                   method: asof
-                  tolerance: 1000ms
+                  tolerance: 10ms
                   strategy: nearest
-                longitude:
-                  method: asof
-                  tolerance: 1000ms
-                  strategy: nearest
+
+              /odom:
+                log_time:
+                  method: ref
+                vel.x:
+                  method: interp
+
+          filter: |
+            `/odom/vel.x` >= 8.6
+
+          cache: !!null
 
   sample_builder:
     _target_: rbyte.sample.builder.GreedySampleTableBuilder
-    index_column: /CAM_FRONT/image_rect_compressed/frame_idx
-    length: 1
-    stride: 1
-    min_step: 1
+    index_column: /CAM_FRONT/image_rect_compressed/idx
 
-jpeg_decoder:
+frame_decoder:
   _target_: simplejpeg.decode_jpeg
   _partial_: true
   colorspace: rgb
-
-message_decoder_factory:
-  _target_: mcap_protobuf.decoder.DecoderFactory
+  fastdct: true
+  fastupsample: true
 ```
 
-3. Build a dataloader and inspect a batch:
+Build a dataloader and print a batch:
 ```python
 from omegaconf import OmegaConf
 from hydra.utils import instantiate
@@ -212,62 +233,58 @@ batch = next(iter(dataloader))
 print(batch)
 ```
 
+Inspect the batch:
 ```python
 Batch(
     frame=TensorDict(
         fields={
-            CAM_BACK: Tensor(shape=torch.Size([32, 1, 900, 1600, 3]), device=cpu, dtype=torch.uint8, is_shared=False),
-            CAM_FRONT: Tensor(shape=torch.Size([32, 1, 900, 1600, 3]), device=cpu, dtype=torch.uint8, is_shared=False)},
-        batch_size=torch.Size([32]),
+            /CAM_FRONT/image_rect_compressed: Tensor(shape=torch.Size([1, 1, 900, 1600, 3]), device=cpu, dtype=torch.uint8, is_shared=False),
+            /CAM_FRONT_LEFT/image_rect_compressed: Tensor(shape=torch.Size([1, 1, 900, 1600, 3]), device=cpu, dtype=torch.uint8, is_shared=False),
+            /CAM_FRONT_RIGHT/image_rect_compressed: Tensor(shape=torch.Size([1, 1, 900, 1600, 3]), device=cpu, dtype=torch.uint8, is_shared=False)},
+        batch_size=torch.Size([1]),
         device=None,
         is_shared=False),
     meta=BatchMeta(
-        input_id=NonTensorData(data=['NuScenes-v1.0-mini  ...  .0-mini-scene-0103'], batch_size=torch.Size([32]), device=None),
-        sample_idx=Tensor(shape=torch.Size([32]), device=cpu, dtype=torch.int64, is_shared=False),
-        batch_size=torch.Size([32]),
+        input_id=NonTensorData(data=['NuScenes-v1.0-mini-scene-0103'], batch_size=torch.Size([1]), device=None),
+        sample_idx=Tensor(shape=torch.Size([1]), device=cpu, dtype=torch.int64, is_shared=False),
+        batch_size=torch.Size([1]),
         device=None,
         is_shared=False),
     table=TensorDict(
         fields={
-            /CAM_BACK/image_rect_compressed/frame_idx: Tensor(shape=torch.Size([32, 1]), device=cpu, dtype=torch.int64, is_shared=False),
-            /CAM_BACK/image_rect_compressed/log_time: Tensor(shape=torch.Size([32, 1]), device=cpu, dtype=torch.int64, is_shared=False),
-            /CAM_FRONT/image_rect_compressed/frame_idx: Tensor(shape=torch.Size([32, 1]), device=cpu, dtype=torch.int64, is_shared=False),
-            /CAM_FRONT/image_rect_compressed/log_time: Tensor(shape=torch.Size([32, 1]), device=cpu, dtype=torch.int64, is_shared=False),
-            /gps/latitude: Tensor(shape=torch.Size([32, 1]), device=cpu, dtype=torch.float64, is_shared=False),
-            /gps/log_time: Tensor(shape=torch.Size([32, 1]), device=cpu, dtype=torch.int64, is_shared=False),
-            /gps/longitude: Tensor(shape=torch.Size([32, 1]), device=cpu, dtype=torch.float64, is_shared=False)},
-        batch_size=torch.Size([32]),
+            /CAM_FRONT/image_rect_compressed/idx: Tensor(shape=torch.Size([1, 1]), device=cpu, dtype=torch.int64, is_shared=False),
+            /CAM_FRONT/image_rect_compressed/log_time: Tensor(shape=torch.Size([1, 1]), device=cpu, dtype=torch.int64, is_shared=False),
+            /CAM_FRONT_LEFT/image_rect_compressed/idx: Tensor(shape=torch.Size([1, 1]), device=cpu, dtype=torch.int64, is_shared=False),
+            /CAM_FRONT_LEFT/image_rect_compressed/log_time: Tensor(shape=torch.Size([1, 1]), device=cpu, dtype=torch.int64, is_shared=False),
+            /CAM_FRONT_RIGHT/image_rect_compressed/idx: Tensor(shape=torch.Size([1, 1]), device=cpu, dtype=torch.int64, is_shared=False),
+            /CAM_FRONT_RIGHT/image_rect_compressed/log_time: Tensor(shape=torch.Size([1, 1]), device=cpu, dtype=torch.int64, is_shared=False),
+            /odom/vel.x: Tensor(shape=torch.Size([1, 1]), device=cpu, dtype=torch.float64, is_shared=False)},
+        batch_size=torch.Size([1]),
         device=None,
         is_shared=False),
-    batch_size=torch.Size([32]),
+    batch_size=torch.Size([1]),
     device=None,
     is_shared=False)
-
 ```
 
-<details>
-<summary>(optional) <a href=https://rerun.io.> rerun </a> visualization </a></summary>
-
-4. Add a `logger` to `config.yaml`:
+Append a `logger` to `config.yaml`:
 ```yaml
-# ...
-
 logger:
   _target_: rbyte.viz.loggers.RerunLogger
   schema:
     frame:
-      CAM_FRONT: rerun.components.ImageBufferBatch
-      CAM_FRONT_LEFT: rerun.components.ImageBufferBatch
-
+      /CAM_FRONT/image_rect_compressed: rerun.components.ImageBufferBatch
+      /CAM_FRONT_LEFT/image_rect_compressed: rerun.components.ImageBufferBatch
+      /CAM_FRONT_RIGHT/image_rect_compressed: rerun.components.ImageBufferBatch
     table:
       /CAM_FRONT/image_rect_compressed/log_time: rerun.TimeNanosColumn
-      /CAM_FRONT_LEFT/image_rect_compressed/frame_idx: rerun.TimeSequenceColumn
-      /gps/log_time: rerun.TimeNanosColumn
-      /gps/latitude: rerun.components.ScalarBatch
-      /gps/longitude: rerun.components.ScalarBatch
+      /CAM_FRONT/image_rect_compressed/idx: rerun.TimeSequenceColumn
+      /CAM_FRONT_LEFT/image_rect_compressed/idx: rerun.TimeSequenceColumn
+      /CAM_FRONT_RIGHT/image_rect_compressed/idx: rerun.TimeSequenceColumn
+      /odom/vel.x: rerun.components.ScalarBatch
 ```
 
-5. Visualize the dataset:
+Visualize the dataset:
 ```python
 from omegaconf import OmegaConf
 from hydra.utils import instantiate
@@ -280,13 +297,9 @@ logger = instantiate(config.logger)
 for batch_idx, batch in enumerate(dataloader):
     logger.log(batch_idx, batch)
 ```
-<img width="1510" alt="image" src="https://github.com/user-attachments/assets/f00d6b66-9e8b-4dce-9f1e-6af281141f84">
+<img alt="rerun" src="https://github.com/user-attachments/assets/c29965a7-787a-46fa-a5a0-a51f0133e5ba">
 
 </details>
-
-</details>
-
- 
 
 ## Development
 

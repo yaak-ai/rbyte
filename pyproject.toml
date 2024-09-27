@@ -1,6 +1,6 @@
 [project]
 name = "rbyte"
-version = "0.2.0"
+version = "0.3.0"
 description = "Multimodal dataset library"
 authors = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 maintainers = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
@@ -40,9 +40,7 @@ mcap = [
   "mcap>=1.1.1",
   "mcap-protobuf-support>=0.5.1",
   "mcap-ros2-support>=0.5.3",
-  "protobuf",
-  "ptars>=0.0.2rc2",
-  "pyarrow-stubs>=17.6",
+  "python-box>=7.2.0",
 ]
 yaak = ["protobuf", "ptars>=0.0.2rc2"]
 jpeg = ["simplejpeg>=1.7.6"]
