@@ -26,7 +26,7 @@ class DirectoryFrameReader(FrameReader):
 
     @cached_property
     def _path_posix(self) -> str:
-        return self._path.as_posix()
+        return self._path.resolve().as_posix()
 
     def _decode(self, path: str) -> npt.ArrayLike:
         with Path(path).open("rb") as f:

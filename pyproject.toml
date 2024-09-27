@@ -7,7 +7,7 @@ maintainers = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 dependencies = [
   "tensordict @ git+https://github.com/pytorch/tensordict.git@85b6b81",
   "torch>=2.4.1",
-  "polars>=1.8.0",
+  "polars>=1.8.2",
   "pydantic>=2.9.2",
   "more-itertools>=10.5.0",
   "hydra-core>=1.3.2",
@@ -44,6 +44,7 @@ mcap = [
 ]
 yaak = ["protobuf", "ptars>=0.0.2rc2"]
 jpeg = ["simplejpeg>=1.7.6"]
+video = ["video-reader-rs>=0.1.4"]
 
 [project.scripts]
 rbyte-build-table = 'rbyte.scripts.build_table:main'

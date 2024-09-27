@@ -2,8 +2,8 @@
 
 #@ cameras = [
 #@     'cam_front_left',
-#@     'cam_left_forward',
-#@     'cam_right_forward',
+#@     'cam_left_backward',
+#@     'cam_right_backward',
 #@ ]
 
 ---

@@ -1,0 +1,6 @@
+---
+_target_: rbyte.io.frame.VideoFrameReader
+path: ???
+threads: !!null
+resize_shorter_side: !!null
+with_fallback: !!null
