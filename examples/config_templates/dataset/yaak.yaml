@@ -1,13 +1,13 @@
 #@yaml/text-templated-strings
 
 #@ drives = [
-#@     'Niro102-HQ/2023-05-08--13-59-22',
+#@     'Niro098-HQ/2024-08-26--06-06-03',
 #@ ]
 
 #@ cameras = [
 #@     'cam_front_left',
-#@     'cam_left_forward',
-#@     'cam_right_forward',
+#@     'cam_left_backward',
+#@     'cam_right_backward',
 #@ ]
 ---
 _target_: rbyte.Dataset
@@ -21,14 +21,9 @@ inputs:
       (@=source_id@):
         index_column: "ImageMetadata.(@=source_id@).frame_idx"
         reader:
-          _target_: rbyte.io.frame.DirectoryFrameReader
-          path: "${data_dir}/(@=input_id@)/frames/(@=source_id@).defish.mp4/576x324/{:09d}.jpg"
-          frame_decoder:
-            _target_: simplejpeg.decode_jpeg
-            _partial_: true
-            colorspace: rgb
-            fastdct: true
-            fastupsample: true
+          _target_: rbyte.io.frame.VideoFrameReader
+          path: "${data_dir}/(@=input_id@)/(@=source_id@).defish.mp4"
+          resize_shorter_side: 324
         #@ end
 
     table:
@@ -83,7 +78,7 @@ inputs:
 
               frame_idx:
                 method: asof
-                tolerance: 10ms
+                tolerance: 20ms
                 strategy: nearest
             #@ end
 
@@ -112,4 +107,4 @@ sample_builder:
   stride: 1
   min_step: 6
   filter: |
-    array_mean(`VehicleMotion.speed`) > 47
+    array_lower(`VehicleMotion.speed`) > 80
