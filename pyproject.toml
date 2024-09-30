@@ -6,7 +6,7 @@ authors = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 maintainers = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 dependencies = [
   "torch>=2.4.0",
-  "tensordict @ git+https://github.com/pytorch/tensordict.git",
+  "tensordict",
   "more-itertools",
   "protobuf",
   "pydantic>=2.8.2",
@@ -49,6 +49,9 @@ dev-dependencies = [
   "lovely-tensors>=0.1.16",
   "pudb>=2024.1.2",
 ]
+
+[tool.uv.sources]
+tensordict = { git = "https://github.com/pytorch/tensordict.git", rev = "37feb13" }
 
 [tool.hatch.metadata]
 allow-direct-references = true
