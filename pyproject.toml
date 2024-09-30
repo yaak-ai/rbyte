@@ -51,7 +51,7 @@ dev-dependencies = [
 ]
 
 [tool.uv.sources]
-tensordict = { git = "https://github.com/pytorch/tensordict.git", rev = "37feb13" }
+tensordict = { git = "https://github.com/pytorch/tensordict.git", rev = "85b6b81" }
 
 [tool.hatch.metadata]
 allow-direct-references = true
