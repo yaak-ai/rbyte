@@ -1,23 +1,22 @@
 from collections.abc import Callable, Iterable, Sequence
 from functools import partial
-from os import PathLike
 from pathlib import Path
 from typing import override
 
 import torch
 import video_reader as vr
 from jaxtyping import UInt8
-from pydantic import NonNegativeInt, validate_call
+from pydantic import FilePath, NonNegativeInt, validate_call
 from torch import Tensor
 
 from rbyte.io.frame.base import FrameReader
 
 
-class VideoFrameReader(FrameReader):
+class FfmpegFrameReader(FrameReader):
     @validate_call
     def __init__(
         self,
-        path: PathLike[str],
+        path: FilePath,
         threads: NonNegativeInt | None = None,
         resize_shorter_side: NonNegativeInt | None = None,
         with_fallback: bool | None = None,  # noqa: FBT001
@@ -42,6 +41,6 @@ class VideoFrameReader(FrameReader):
 
     @override
     def get_available_indexes(self) -> Sequence[int]:
-        num_frames, *_ = vr.get_shape(self._path)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownVariableType, reportUnknownMemberType]
+        num_frames = int(vr.get_info(self._path)["frame_count"])  # pyright: ignore[reportAttributeAccessIssue, reportUnknownArgumentType, reportUnknownMemberType]
 
-        return range(num_frames)  # pyright: ignore[reportUnknownArgumentType]
+        return range(num_frames)

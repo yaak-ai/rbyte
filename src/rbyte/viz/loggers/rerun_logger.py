@@ -53,7 +53,7 @@ class ImageFormat(BaseModel):
     @model_validator(mode="after")
     def validate_model(self: Self) -> Self:
         if not (bool(self.pixel_format) ^ bool(self.color_model)):
-            msg = "either pixel_format or color_model must be specified"
+            msg = "pixel_format xor color_model must be specified"
             raise ValueError(msg)
 
         return self

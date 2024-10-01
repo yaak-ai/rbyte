@@ -1,0 +1,5 @@
+---
+_target_: rbyte.io.frame.ValiGpuFrameReader
+_convert_: all
+path: ???
+pixel_format_chain: [NV12]
