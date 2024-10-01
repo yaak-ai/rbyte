@@ -44,7 +44,7 @@ mcap = [
 ]
 yaak = ["protobuf", "ptars>=0.0.2rc2"]
 jpeg = ["simplejpeg>=1.7.6"]
-video = ["video-reader-rs>=0.1.4"]
+video = ["python-vali>=4.1.4.post0", "video-reader-rs>=0.1.4"]
 
 [project.scripts]
 rbyte-build-table = 'rbyte.scripts.build_table:main'
