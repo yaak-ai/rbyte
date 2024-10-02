@@ -11,7 +11,9 @@ _convert_: all
 schema:
   frame:
     #@ for camera in cameras:
-    (@=camera@): rerun.components.ImageBufferBatch
+    (@=camera@):
+      rerun.components.ImageBufferBatch:
+        color_model: RGB
     #@ end
 
   table:

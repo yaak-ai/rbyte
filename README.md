@@ -273,9 +273,18 @@ logger:
   _target_: rbyte.viz.loggers.RerunLogger
   schema:
     frame:
-      /CAM_FRONT/image_rect_compressed: rerun.components.ImageBufferBatch
-      /CAM_FRONT_LEFT/image_rect_compressed: rerun.components.ImageBufferBatch
-      /CAM_FRONT_RIGHT/image_rect_compressed: rerun.components.ImageBufferBatch
+      /CAM_FRONT/image_rect_compressed: 
+        rerun.components.ImageBufferBatch:
+          color_model: RGB
+
+      /CAM_FRONT_LEFT/image_rect_compressed:
+        rerun.components.ImageBufferBatch:
+          color_model: RGB
+
+      /CAM_FRONT_RIGHT/image_rect_compressed:
+        rerun.components.ImageBufferBatch:
+          color_model: RGB
+
     table:
       /CAM_FRONT/image_rect_compressed/log_time: rerun.TimeNanosColumn
       /CAM_FRONT/image_rect_compressed/idx: rerun.TimeSequenceColumn
