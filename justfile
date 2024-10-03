@@ -62,7 +62,7 @@ read-frames *ARGS: generate-example-config
 
 # rerun server and viewer
 rerun bind="0.0.0.0" port="9876" ws-server-port="9877" web-viewer-port="9090":
-    uv run rerun \
+    RUST_LOG=debug uv run rerun \
     	--bind {{ bind }} \
     	--port {{ port }} \
     	--ws-server-port {{ ws-server-port }} \
