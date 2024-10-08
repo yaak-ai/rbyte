@@ -41,7 +41,7 @@ reader:
         categories: ["0", "1", "2", "3"]
 
 merger:
-  _target_: rbyte.io.table.TableMerger
+  _target_: rbyte.io.table.TableAligner
   separator: "."
   merge:
     ImageMetadata.(@=cameras[0]@):

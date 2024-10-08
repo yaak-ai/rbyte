@@ -14,10 +14,10 @@ logger = get_logger(__name__)
 @hydra.main(version_base=None)
 def main(config: DictConfig) -> None:
     table_builder = cast(TableBuilderBase, instantiate(config.table_builder))
-    writer = cast(Callable[[Table], None], instantiate(config.writer))
+    table_writer = cast(Callable[[Table], None], instantiate(config.table_writer))
     table = table_builder.build(config.path)
 
-    return writer(table)
+    return table_writer(table)
 
 
 if __name__ == "__main__":

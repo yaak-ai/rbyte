@@ -12,14 +12,14 @@ schema:
   frame:
     #@ for camera in cameras:
     (@=camera@):
-      rerun.components.ImageBufferBatch:
+      Image:
         color_model: RGB
     #@ end
 
   table:
     #@ for camera in cameras:
-    ImageMetadata.(@=camera@).frame_idx: rerun.TimeSequenceColumn
-    ImageMetadata.(@=camera@).time_stamp: rerun.TimeNanosColumn
+    ImageMetadata.(@=camera@).frame_idx: TimeSequenceColumn
+    ImageMetadata.(@=camera@).time_stamp: TimeNanosColumn
     #@ end
-    VehicleMotion.time_stamp: rerun.TimeNanosColumn
-    VehicleMotion.speed: rerun.components.ScalarBatch
+    VehicleMotion.time_stamp: TimeNanosColumn
+    VehicleMotion.speed: Scalar

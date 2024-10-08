@@ -14,10 +14,10 @@ dataloader:
     _target_: rbyte.utils.dataloader.collate_identity
     _partial_: true
 
-  num_workers: 1
-  pin_memory: false
-  persistent_workers: true
-  multiprocessing_context: forkserver
+  # num_workers: 1
+  # pin_memory: false
+  # persistent_workers: true
+  # multiprocessing_context: forkserver
 
 hydra:
   output_subdir: !!null

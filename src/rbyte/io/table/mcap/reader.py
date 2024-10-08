@@ -12,6 +12,11 @@ import more_itertools as mit
 import polars as pl
 from mcap.decoder import DecoderFactory
 from mcap.reader import DecodedMessageTuple, SeekingReader
+from polars._typing import PolarsDataType
+from polars.datatypes import (
+    DataType,  # pyright: ignore[reportUnusedImport]  # noqa: F401
+    DataTypeClass,  # pyright: ignore[reportUnusedImport]  # noqa: F401
+)
 from pydantic import (
     ConfigDict,
     ImportString,
@@ -28,9 +33,6 @@ from rbyte.config.base import BaseModel, HydraConfig
 from rbyte.io.table.base import TableReaderBase
 
 logger = get_logger(__name__)
-
-
-PolarsDataType = pl.DataType | pl.DataTypeClass
 
 
 class Config(BaseModel):
@@ -64,7 +66,7 @@ class RowValues(NamedTuple):
 class SpecialFields(StrEnum):
     log_time = "log_time"
     publish_time = "publish_time"
-    idx = "idx"
+    idx = "_idx_"
 
 
 class McapTableReader(TableReaderBase, Hashable):
@@ -150,7 +152,7 @@ class McapTableReader(TableReaderBase, Hashable):
         return digest(config_str)
 
     @cached_property
-    def schemas(self) -> dict[str, dict[str, PolarsDataType | None]]:
+    def schemas(self) -> Mapping[str, Mapping[str, PolarsDataType | None]]:
         return {
             topic: {
                 path: leaf.instantiate() if isinstance(leaf, HydraConfig) else leaf

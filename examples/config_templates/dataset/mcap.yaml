@@ -21,7 +21,7 @@ inputs:
     frame:
       #@ for topic in camera_topics:
       (@=topic@):
-        index_column: (@=topic@)/idx
+        index_column: (@=topic@)/_idx_
         reader:
           _target_: rbyte.io.frame.mcap.McapFrameReader
           path: "${data_dir}/(@=input_id@).mcap"
@@ -54,7 +54,7 @@ inputs:
                 _target_: polars.Datetime
                 time_unit: ns
 
-              idx:
+              _idx_:
             #@ end
 
             /odom:
@@ -64,8 +64,8 @@ inputs:
               vel.x:
 
         merger:
-          _target_: rbyte.io.table.TableMerger
-          separator: /
+          _target_: rbyte.io.table.TableAligner
+          separator: "/"
           merge:
             (@=camera_topics[0]@):
               log_time:
@@ -75,7 +75,7 @@ inputs:
             (@=topic@):
               log_time:
                 method: ref
-              idx:
+              _idx_:
                 method: asof
                 tolerance: 10ms
                 strategy: nearest
@@ -98,7 +98,7 @@ inputs:
 
 sample_builder:
   _target_: rbyte.sample.builder.GreedySampleTableBuilder
-  index_column: (@=camera_topics[0]@)/idx
+  index_column: (@=camera_topics[0]@)/_idx_
   length: 1
   stride: 1
   min_step: 1
