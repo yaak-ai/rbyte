@@ -9,15 +9,15 @@
 _target_: rbyte.viz.loggers.RerunLogger
 schema:
   frame:
-    #@ for camera_topic in camera_topics:
-    (@=camera_topic@):
+    /obs/rgb:
       Image:
         color_model: RGB
-    #@ end
+
+    /obs/depth:
+      DepthImage:
+        color_model: L
 
   table:
-    (@=camera_topics[0]@)/log_time: TimeNanosColumn
-    #@ for camera_topic in camera_topics:
-    (@=camera_topic@)/_idx_: TimeSequenceColumn
-    #@ end
-    /odom/vel.x: Scalar
+    _idx_: TimeSequenceColumn
+    obs/object: Points3D
+    task_successes: Scalar

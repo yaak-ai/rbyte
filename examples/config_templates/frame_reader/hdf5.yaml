@@ -1,0 +1,5 @@
+---
+_target_: rbyte.io.frame.Hdf5FrameReader
+_recursive_: true
+path: ???
+key: ???

@@ -1,0 +1,64 @@
+#! https://sites.google.com/view/il-for-mm/datasets#h.cq0r3rd5nr9m
+
+#@yaml/map-key-override
+#@yaml/text-templated-strings
+
+#@ inputs = {
+#@     "table_setup_from_dishwasher_sample": [
+#@         "/data/demo_0",
+#@         "/data/demo_1",
+#@         "/data/demo_10",
+#@         "/data/demo_101",
+#@         "/data/demo_102",
+#@     ]
+#@ }
+
+#@ frame_keys = [
+#@     '/obs/rgb',
+#@     '/obs/depth',
+#@ ]
+---
+_target_: rbyte.Dataset
+_convert_: all
+_recursive_: false
+inputs:
+  #@ for input_id, input_keys in inputs.items():
+  #@ for input_key in input_keys:
+  (@=input_id@)(@=input_key@):
+    frame:
+      #@ for frame_key in frame_keys:
+      (@=frame_key@):
+        index_column: _idx_
+        reader:
+          _target_: rbyte.io.frame.hdf5.Hdf5FrameReader
+          path: "${data_dir}/(@=input_id@).hdf5"
+          key: (@=input_key@)(@=frame_key@)
+      #@ end
+
+    table:
+      path: "${data_dir}/(@=input_id@).hdf5"
+      builder:
+        _target_: rbyte.io.table.TableBuilder
+        _convert_: all
+        reader:
+          _target_: rbyte.io.table.hdf5.Hdf5TableReader
+          _recursive_: false
+          fields:
+            /data/demo_0:
+              _idx_:
+              obs/object:
+              task_successes:
+
+        merger:
+          _target_: rbyte.io.table.TableConcater
+          separator: "/"
+  #@ end
+  #@ end
+
+sample_builder:
+  _target_: rbyte.sample.builder.GreedySampleTableBuilder
+  index_column: _idx_
+  length: 1
+  stride: 1
+  min_step: 1
+  filter: !!null

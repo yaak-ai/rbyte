@@ -12,14 +12,14 @@ schema:
   frame:
     #@ for camera in cameras:
     (@=camera@):
-      rerun.components.ImageBufferBatch:
+      Image:
         color_model: RGB
     #@ end
 
   table:
-    frame_idx: rerun.TimeSequenceColumn
-    control.brake: rerun.components.ScalarBatch
-    control.steer: rerun.components.ScalarBatch
-    control.throttle: rerun.components.ScalarBatch
-    state.acceleration.value: rerun.components.ScalarBatch
-    state.velocity.value: rerun.components.ScalarBatch
+    frame_idx: TimeSequenceColumn
+    control.brake: Scalar
+    control.steer: Scalar
+    control.throttle: Scalar
+    state.acceleration.value: Scalar
+    state.velocity.value: Scalar

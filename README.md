@@ -112,7 +112,7 @@ dataset:
     NuScenes-v1.0-mini-scene-0103:
       frame:
         /CAM_FRONT/image_rect_compressed:
-          index_column: /CAM_FRONT/image_rect_compressed/idx
+          index_column: /CAM_FRONT/image_rect_compressed/_idx_
           reader:
             _target_: rbyte.io.frame.mcap.McapFrameReader
             path: data/NuScenes-v1.0-mini-scene-0103.mcap
@@ -121,7 +121,7 @@ dataset:
             frame_decoder: ${frame_decoder}
 
         /CAM_FRONT_LEFT/image_rect_compressed:
-          index_column: /CAM_FRONT_LEFT/image_rect_compressed/idx
+          index_column: /CAM_FRONT_LEFT/image_rect_compressed/_idx_
           reader:
             _target_: rbyte.io.frame.mcap.McapFrameReader
             path: data/NuScenes-v1.0-mini-scene-0103.mcap
@@ -130,7 +130,7 @@ dataset:
             frame_decoder: ${frame_decoder}
 
         /CAM_FRONT_RIGHT/image_rect_compressed:
-          index_column: /CAM_FRONT_RIGHT/image_rect_compressed/idx
+          index_column: /CAM_FRONT_RIGHT/image_rect_compressed/_idx_
           reader:
             _target_: rbyte.io.frame.mcap.McapFrameReader
             path: data/NuScenes-v1.0-mini-scene-0103.mcap
@@ -151,22 +151,22 @@ dataset:
               - rbyte.utils.mcap.McapJsonDecoderFactory
             fields:
               /CAM_FRONT/image_rect_compressed:
+                _idx_:
                 log_time:
                   _target_: polars.Datetime
                   time_unit: ns
-                idx: null
 
               /CAM_FRONT_LEFT/image_rect_compressed:
+                _idx_:
                 log_time:
                   _target_: polars.Datetime
                   time_unit: ns
-                idx: null
 
               /CAM_FRONT_RIGHT/image_rect_compressed:
+                _idx_:
                 log_time:
                   _target_: polars.Datetime
                   time_unit: ns
-                idx: null
 
               /odom:
                 log_time:
@@ -175,7 +175,7 @@ dataset:
                 vel.x: null
 
           merger:
-            _target_: rbyte.io.table.TableMerger
+            _target_: rbyte.io.table.TableAligner
             separator: /
             merge:
               /CAM_FRONT/image_rect_compressed:
@@ -183,20 +183,20 @@ dataset:
                   method: ref
 
               /CAM_FRONT_LEFT/image_rect_compressed:
-                log_time:
-                  method: ref
-                idx:
+                _idx_:
                   method: asof
                   tolerance: 10ms
                   strategy: nearest
+                log_time:
+                  method: ref
 
               /CAM_FRONT_RIGHT/image_rect_compressed:
-                log_time:
-                  method: ref
-                idx:
+                _idx_:
                   method: asof
                   tolerance: 10ms
                   strategy: nearest
+                log_time:
+                  method: ref
 
               /odom:
                 log_time:
@@ -211,7 +211,7 @@ dataset:
 
   sample_builder:
     _target_: rbyte.sample.builder.GreedySampleTableBuilder
-    index_column: /CAM_FRONT/image_rect_compressed/idx
+    index_column: /CAM_FRONT/image_rect_compressed/_idx_
 
 frame_decoder:
   _target_: simplejpeg.decode_jpeg
@@ -252,11 +252,11 @@ Batch(
         is_shared=False),
     table=TensorDict(
         fields={
-            /CAM_FRONT/image_rect_compressed/idx: Tensor(shape=torch.Size([1, 1]), device=cpu, dtype=torch.int64, is_shared=False),
+            /CAM_FRONT/image_rect_compressed/_idx_: Tensor(shape=torch.Size([1, 1]), device=cpu, dtype=torch.int64, is_shared=False),
             /CAM_FRONT/image_rect_compressed/log_time: Tensor(shape=torch.Size([1, 1]), device=cpu, dtype=torch.int64, is_shared=False),
-            /CAM_FRONT_LEFT/image_rect_compressed/idx: Tensor(shape=torch.Size([1, 1]), device=cpu, dtype=torch.int64, is_shared=False),
+            /CAM_FRONT_LEFT/image_rect_compressed/_idx_: Tensor(shape=torch.Size([1, 1]), device=cpu, dtype=torch.int64, is_shared=False),
             /CAM_FRONT_LEFT/image_rect_compressed/log_time: Tensor(shape=torch.Size([1, 1]), device=cpu, dtype=torch.int64, is_shared=False),
-            /CAM_FRONT_RIGHT/image_rect_compressed/idx: Tensor(shape=torch.Size([1, 1]), device=cpu, dtype=torch.int64, is_shared=False),
+            /CAM_FRONT_RIGHT/image_rect_compressed/_idx_: Tensor(shape=torch.Size([1, 1]), device=cpu, dtype=torch.int64, is_shared=False),
             /CAM_FRONT_RIGHT/image_rect_compressed/log_time: Tensor(shape=torch.Size([1, 1]), device=cpu, dtype=torch.int64, is_shared=False),
             /odom/vel.x: Tensor(shape=torch.Size([1, 1]), device=cpu, dtype=torch.float64, is_shared=False)},
         batch_size=torch.Size([1]),
@@ -273,24 +273,24 @@ logger:
   _target_: rbyte.viz.loggers.RerunLogger
   schema:
     frame:
-      /CAM_FRONT/image_rect_compressed: 
-        rerun.components.ImageBufferBatch:
+      /CAM_FRONT/image_rect_compressed:
+        Image:
           color_model: RGB
 
       /CAM_FRONT_LEFT/image_rect_compressed:
-        rerun.components.ImageBufferBatch:
+        Image:
           color_model: RGB
 
       /CAM_FRONT_RIGHT/image_rect_compressed:
-        rerun.components.ImageBufferBatch:
+        Image:
           color_model: RGB
 
     table:
-      /CAM_FRONT/image_rect_compressed/log_time: rerun.TimeNanosColumn
-      /CAM_FRONT/image_rect_compressed/idx: rerun.TimeSequenceColumn
-      /CAM_FRONT_LEFT/image_rect_compressed/idx: rerun.TimeSequenceColumn
-      /CAM_FRONT_RIGHT/image_rect_compressed/idx: rerun.TimeSequenceColumn
-      /odom/vel.x: rerun.components.ScalarBatch
+      /CAM_FRONT/image_rect_compressed/log_time: TimeNanosColumn
+      /CAM_FRONT/image_rect_compressed/_idx_: TimeSequenceColumn
+      /CAM_FRONT_LEFT/image_rect_compressed/_idx_: TimeSequenceColumn
+      /CAM_FRONT_RIGHT/image_rect_compressed/_idx_: TimeSequenceColumn
+      /odom/vel.x: Scalar
 ```
 
 Visualize the dataset:
