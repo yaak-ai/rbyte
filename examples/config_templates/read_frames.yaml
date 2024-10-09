@@ -4,7 +4,11 @@ defaults:
   - _self_
 
 batch_size: 1
+application_id: rbyte-read-frames
 entity_path: ???
+frame_config:
+  Image:
+    color_model: RGB
 
 hydra:
   output_subdir: !!null

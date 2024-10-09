@@ -1,16 +1,16 @@
 from collections.abc import Generator, Mapping
 
 import polars as pl
-import polars._typing as plt
+from polars._typing import PolarsDataType
 
 
 # TODO: https://github.com/pola-rs/polars/issues/12353  # noqa: FIX002
 def unnest_all(
-    schema: Mapping[str, plt.PolarsDataType], separator: str = "."
+    schema: Mapping[str, PolarsDataType], separator: str = "."
 ) -> Generator[pl.Expr]:
     def _unnest(
-        schema: Mapping[str, plt.PolarsDataType], path: tuple[str, ...] = ()
-    ) -> Generator[tuple[tuple[str, ...], plt.PolarsDataType]]:
+        schema: Mapping[str, PolarsDataType], path: tuple[str, ...] = ()
+    ) -> Generator[tuple[tuple[str, ...], PolarsDataType]]:
         for name, dtype in schema.items():
             match dtype:
                 case pl.Struct():

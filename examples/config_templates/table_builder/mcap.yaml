@@ -21,7 +21,7 @@ reader:
         _target_: polars.Datetime
         time_unit: ns
 
-      idx:
+      _idx_:
     #@ end
 
     /odom:
@@ -31,7 +31,7 @@ reader:
       vel.x:
 
 merger:
-  _target_: rbyte.io.table.TableMerger
+  _target_: rbyte.io.table.TableAligner
   separator: /
   merge:
     (@=camera_topics[0]@):
@@ -42,7 +42,7 @@ merger:
     (@=topic@):
       log_time:
         method: ref
-      idx:
+      _idx_:
         method: asof
         tolerance: 10ms
         strategy: nearest

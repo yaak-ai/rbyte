@@ -1,4 +1,5 @@
+from .aligner import TableAligner
 from .builder import TableBuilder
-from .merger import TableMerger
+from .concater import TableConcater
 
-__all__ = ["TableBuilder", "TableMerger"]
+__all__ = ["TableAligner", "TableBuilder", "TableConcater"]
