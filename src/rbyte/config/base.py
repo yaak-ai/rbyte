@@ -3,7 +3,7 @@ from typing import Literal, TypeVar
 
 from hydra.utils import instantiate
 from pydantic import BaseModel as _BaseModel
-from pydantic import ConfigDict, Field, ImportString, field_serializer
+from pydantic import ConfigDict, Field, ImportString, field_serializer, model_validator
 
 
 class BaseModel(_BaseModel):
@@ -35,3 +35,13 @@ class HydraConfig[T](BaseModel):
     @staticmethod
     def serialize_target(v: object) -> str:
         return ImportString._serialize(v)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType, reportAttributeAccessIssue]  # noqa: SLF001
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_model(cls, data: object) -> object:
+        match data:
+            case str():
+                return {"_target_": data}
+
+            case _:
+                return data

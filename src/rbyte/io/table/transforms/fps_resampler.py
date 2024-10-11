@@ -4,6 +4,8 @@ from typing import override
 import polars as pl
 from pydantic import PositiveInt, validate_call
 
+from rbyte.io.table.base import Table
+
 from .base import TableTransform
 
 
@@ -19,7 +21,7 @@ class FpsResampler(TableTransform):
         self._fps_lcm = lcm(source_fps, target_fps)
 
     @override
-    def __call__(self, src: pl.DataFrame) -> pl.DataFrame:
+    def __call__(self, src: Table) -> Table:
         return (
             src.with_row_index(self.IDX_COL)
             .with_columns(pl.col(self.IDX_COL) * (self._fps_lcm // self._source_fps))

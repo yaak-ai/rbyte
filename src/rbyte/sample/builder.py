@@ -58,5 +58,5 @@ class GreedySampleTableBuilder(SampleTableBuilder):
             .sort(sample_idx_col)
             .select(pl.exclude(sample_idx_col))
             # TODO: https://github.com/pola-rs/polars/issues/18810  # noqa: FIX002
-            # .select(pl.all().list.to_array(self.length))
+            # .select(pl.all().list.to_array(self._length))
         )

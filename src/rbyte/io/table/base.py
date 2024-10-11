@@ -4,12 +4,12 @@ from typing import Protocol, runtime_checkable
 
 import polars as pl
 
-type Table = pl.DataFrame
+Table = pl.DataFrame
 
 
 @runtime_checkable
 class TableBuilderBase(Protocol):
-    def build(self, path: PathLike[str]) -> Table: ...
+    def build(self) -> Table: ...
 
 
 @runtime_checkable

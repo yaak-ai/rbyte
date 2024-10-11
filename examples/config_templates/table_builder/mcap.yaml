@@ -7,28 +7,31 @@
 ---
 _target_: rbyte.io.table.TableBuilder
 _convert_: all
-reader:
-  _target_: rbyte.io.table.mcap.McapTableReader
-  _recursive_: false
-  decoder_factories:
-    - mcap_protobuf.decoder.DecoderFactory
-    - rbyte.utils.mcap.McapJsonDecoderFactory
+readers:
+  - path: ???
+    reader:
+      _target_: rbyte.io.table.mcap.McapTableReader
+      _recursive_: false
+      decoder_factories:
+        - rbyte.utils.mcap.ProtobufDecoderFactory
+        - rbyte.utils.mcap.JsonDecoderFactory
+        - mcap_ros2.decoder.DecoderFactory
 
-  fields:
-    #@ for topic in camera_topics:
-    (@=topic@):
-      log_time:
-        _target_: polars.Datetime
-        time_unit: ns
+      fields:
+        #@ for topic in camera_topics:
+        (@=topic@):
+          log_time:
+            _target_: polars.Datetime
+            time_unit: ns
 
-      _idx_:
-    #@ end
+          _idx_:
+        #@ end
 
-    /odom:
-      log_time:
-        _target_: polars.Datetime
-        time_unit: ns
-      vel.x:
+        /odom:
+          log_time:
+            _target_: polars.Datetime
+            time_unit: ns
+          vel.x:
 
 merger:
   _target_: rbyte.io.table.TableAligner

@@ -1,7 +1,7 @@
 #@yaml/text-templated-strings
 
 #@ drives = [
-#@     'Niro098-HQ/2024-08-26--06-06-03',
+#@     'Niro098-HQ/2024-01-22--09-03-16',
 #@ ]
 
 #@ cameras = [
@@ -21,47 +21,67 @@ inputs:
       (@=source_id@):
         index_column: "ImageMetadata.(@=source_id@).frame_idx"
         reader:
-          _target_: rbyte.io.frame.VideoFrameReader
-          path: "${data_dir}/(@=input_id@)/(@=source_id@).defish.mp4"
-          resize_shorter_side: 324
+          _target_: rbyte.io.frame.DirectoryFrameReader
+          _recursive_: true
+          path: "${data_dir}/(@=input_id@)/frames/(@=source_id@).pii.mp4/576x324/{:09d}.jpg"
+          frame_decoder:
+            _target_: simplejpeg.decode_jpeg
+            _partial_: true
+            colorspace: rgb
+            fastdct: true
+            fastupsample: true
         #@ end
 
     table:
-      path: ${data_dir}/(@=input_id@)/metadata.log
       builder:
         _target_: rbyte.io.table.TableBuilder
-        reader:
-          _target_: rbyte.io.table.yaak.YaakMetadataTableReader
-          _recursive_: false
-          _convert_: all
-          fields:
-            rbyte.io.table.yaak.proto.sensor_pb2.ImageMetadata:
-              time_stamp:
-                _target_: polars.Datetime
-                time_unit: ns
+        _convert_: all
+        readers:
+          - path: ${data_dir}/(@=input_id@)/metadata.log
+            reader:
+              _target_: rbyte.io.table.yaak.YaakMetadataTableReader
+              _recursive_: false
+              fields:
+                rbyte.io.table.yaak.proto.sensor_pb2.ImageMetadata:
+                  time_stamp:
+                    _target_: polars.Datetime
+                    time_unit: ns
 
-              frame_idx: polars.UInt32
-              camera_name:
-                _target_: polars.Enum
-                categories:
-                  - cam_front_center
-                  - cam_front_left
-                  - cam_front_right
-                  - cam_left_forward
-                  - cam_right_forward
-                  - cam_left_backward
-                  - cam_right_backward
-                  - cam_rear
+                  frame_idx: polars.UInt32
+                  camera_name:
+                    _target_: polars.Enum
+                    categories:
+                      - cam_front_center
+                      - cam_front_left
+                      - cam_front_right
+                      - cam_left_forward
+                      - cam_right_forward
+                      - cam_left_backward
+                      - cam_right_backward
+                      - cam_rear
 
-            rbyte.io.table.yaak.proto.can_pb2.VehicleMotion:
-              time_stamp:
-                _target_: polars.Datetime
-                time_unit: ns
+                rbyte.io.table.yaak.proto.can_pb2.VehicleMotion:
+                  time_stamp:
+                    _target_: polars.Datetime
+                    time_unit: ns
 
-              speed: polars.Float32
-              gear:
-                _target_: polars.Enum
-                categories: ["0", "1", "2", "3"]
+                  speed: polars.Float32
+                  gear:
+                    _target_: polars.Enum
+                    categories: ["0", "1", "2", "3"]
+
+          - path: ${data_dir}/(@=input_id@)/ai.mcap
+            reader:
+              _target_: rbyte.io.table.mcap.McapTableReader
+              _recursive_: false
+              decoder_factories: [rbyte.utils.mcap.ProtobufDecoderFactory]
+              fields:
+                /ai/safety_score:
+                  clip.end_timestamp:
+                    _target_: polars.Datetime
+                    time_unit: ns
+
+                  score: polars.Float32
 
         merger:
           _target_: rbyte.io.table.TableAligner
@@ -91,6 +111,15 @@ inputs:
                 method: asof
                 tolerance: 100ms
 
+            /ai/safety_score:
+              clip.end_timestamp:
+                method: ref
+
+              score:
+                method: asof
+                tolerance: 100ms
+                strategy: nearest
+
         filter: |
           `VehicleMotion.gear` == '3'
 
@@ -104,7 +133,7 @@ sample_builder:
   _target_: rbyte.sample.builder.GreedySampleTableBuilder
   index_column: ImageMetadata.(@=cameras[0]@).frame_idx
   length: 6
-  stride: 1
+  stride: 10
   min_step: 6
   filter: |
-    array_lower(`VehicleMotion.speed`) > 80
+    array_lower(`VehicleMotion.speed`) > 50

@@ -1,10 +1,8 @@
 ---
 defaults:
   - table_builder: !!null
-  - table_writer: !!null
+  - table_writer: console
   - _self_
-
-path: ???
 
 hydra:
   output_subdir: !!null
