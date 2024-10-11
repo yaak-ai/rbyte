@@ -39,7 +39,7 @@ MergeConfig = RefColumnMergeConfig | AsofColumnMergeConfig | InterpColumnMergeCo
 
 class Config(BaseModel):
     merge: OrderedDict[str, Mapping[str, MergeConfig]]
-    separator: Annotated[str, StringConstraints(strip_whitespace=True)] = "."
+    separator: Annotated[str, StringConstraints(strip_whitespace=True)] = "/"
 
     @model_validator(mode="after")
     def validate_refs(self) -> Self:
@@ -72,7 +72,7 @@ class Config(BaseModel):
         }
 
 
-class TableMerger(TableMergerBase, Hashable):
+class TableAligner(TableMergerBase, Hashable):
     def __init__(self, **kwargs: object) -> None:
         self._config = Config.model_validate(kwargs)
 

@@ -7,11 +7,11 @@ maintainers = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 dependencies = [
   "tensordict @ git+https://github.com/pytorch/tensordict.git@85b6b81",
   "torch>=2.4.1",
-  "polars>=1.8.2",
+  "polars>=1.9.0",
   "pydantic>=2.9.2",
   "more-itertools>=10.5.0",
   "hydra-core>=1.3.2",
-  "optree>=0.12.1",
+  "optree>=0.13.0",
   "cachetools>=5.5.0",
   "diskcache>=5.6.3",
   "jaxtyping>=0.2.34",
@@ -42,9 +42,10 @@ mcap = [
   "mcap-ros2-support>=0.5.3",
   "python-box>=7.2.0",
 ]
-yaak = ["protobuf", "ptars>=0.0.2rc2"]
+yaak = ["protobuf", "ptars>=0.0.2"]
 jpeg = ["simplejpeg>=1.7.6"]
 video = ["video-reader-rs>=0.1.4"]
+hdf5 = ["h5py>=3.12.1"]
 
 [project.scripts]
 rbyte-build-table = 'rbyte.scripts.build_table:main'
@@ -64,6 +65,8 @@ dev-dependencies = [
   "wat-inspector>=0.4.0",
   "lovely-tensors>=0.1.17",
   "pudb>=2024.1.2",
+  "ipython>=8.28.0",
+  "ipython-autoimport>=0.5",
 ]
 
 [tool.uv.sources]

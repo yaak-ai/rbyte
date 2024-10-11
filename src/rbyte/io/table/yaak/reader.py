@@ -11,6 +11,11 @@ import more_itertools as mit
 import polars as pl
 from google.protobuf.message import Message
 from optree import tree_map
+from polars._typing import PolarsDataType
+from polars.datatypes import (
+    DataType,  # pyright: ignore[reportUnusedImport]  # noqa: F401
+    DataTypeClass,  # pyright: ignore[reportUnusedImport]  # noqa: F401
+)
 from ptars import HandlerPool
 from pydantic import ConfigDict, ImportString
 from structlog import get_logger
@@ -24,9 +29,6 @@ from .message_iterator import YaakMetadataMessageIterator
 from .proto import sensor_pb2
 
 logger = get_logger(__name__)
-
-
-PolarsDataType = pl.DataType | pl.DataTypeClass
 
 
 class Config(BaseModel):

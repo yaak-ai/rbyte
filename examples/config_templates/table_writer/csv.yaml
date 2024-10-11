@@ -1,0 +1,4 @@
+---
+_target_: polars.DataFrame.write_csv
+_partial_: true
+file: ???
