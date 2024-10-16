@@ -1,0 +1,4 @@
+---
+_target_: polars.DataFrame.glimpse
+_partial_: true
+max_items_per_column: 3

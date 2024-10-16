@@ -1,3 +1,3 @@
-from .json_decoder_factory import McapJsonDecoderFactory
+from .decoders import JsonDecoderFactory, ProtobufDecoderFactory
 
-__all__ = ["McapJsonDecoderFactory"]
+__all__ = ["JsonDecoderFactory", "ProtobufDecoderFactory"]

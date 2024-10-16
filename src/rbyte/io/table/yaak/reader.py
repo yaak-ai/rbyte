@@ -35,8 +35,7 @@ class Config(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     fields: Mapping[
-        ImportString[type[Message]],
-        Mapping[str, HydraConfig[PolarsDataType] | ImportString[PolarsDataType] | None],
+        ImportString[type[Message]], Mapping[str, HydraConfig[PolarsDataType] | None]
     ]
 
 
@@ -70,6 +69,7 @@ class YaakMetadataTableReader(TableReaderBase):
                         ])
                         .select(schema),
                         schema=schema,  # pyright: ignore[reportArgumentType]
+                        rechunk=True,
                     ),
                 )
                 for msg_type, schema in self._fields.items()
@@ -95,7 +95,4 @@ class YaakMetadataTableReader(TableReaderBase):
 
     @cached_property
     def _fields(self) -> Mapping[type[Message], Mapping[str, PolarsDataType | None]]:
-        return tree_map(  # pyright: ignore[reportUnknownVariableType, reportReturnType]
-            lambda x: x.instantiate() if isinstance(x, HydraConfig) else x,  # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
-            self._config.fields,  # pyright: ignore[reportArgumentType]
-        )
+        return tree_map(HydraConfig.instantiate, self._config.fields)  # pyright: ignore[reportArgumentType, reportUnknownVariableType, reportReturnType, reportUnknownMemberType, reportUnknownArgumentType]

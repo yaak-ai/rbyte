@@ -23,3 +23,6 @@ schema:
     #@ end
     VehicleMotion.time_stamp: TimeNanosColumn
     VehicleMotion.speed: Scalar
+
+    /ai/safety_score.clip.end_timestamp: TimeNanosColumn
+    /ai/safety_score.score: Scalar

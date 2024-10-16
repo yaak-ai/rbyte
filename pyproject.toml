@@ -1,6 +1,6 @@
 [project]
 name = "rbyte"
-version = "0.4.0"
+version = "0.5.0"
 description = "Multimodal dataset library"
 authors = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 maintainers = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
@@ -37,14 +37,17 @@ classifiers = [
 build = ["hatchling>=1.25.0", "grpcio-tools>=1.62.0", "protoletariat==3.2.19"]
 visualize = ["rerun-sdk>=0.18.2"]
 mcap = [
-  "mcap>=1.1.1",
-  "mcap-protobuf-support>=0.5.1",
-  "mcap-ros2-support>=0.5.3",
-  "python-box>=7.2.0",
+  "mcap>=1.2.1",
+  "mcap-ros2-support>=0.5.5",
+  "protobuf",
+  "mcap-protobuf-support>=0.5.2",
 ]
-yaak = ["protobuf", "ptars>=0.0.2"]
+yaak = ["protobuf", "ptars>=0.0.3"]
 jpeg = ["simplejpeg>=1.7.6"]
-video = ["python-vali>=4.2.0.post0", "video-reader-rs>=0.1.5"]
+video = [
+  "python-vali>=4.2.0.post0; sys_platform == 'linux'",
+  "video-reader-rs>=0.1.5",
+]
 hdf5 = ["h5py>=3.12.1"]
 
 [project.scripts]

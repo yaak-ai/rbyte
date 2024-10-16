@@ -6,7 +6,7 @@ from typing import Annotated
 import more_itertools as mit
 import polars as pl
 import torch
-from pydantic import ConfigDict, Field, FilePath, StringConstraints, validate_call
+from pydantic import ConfigDict, Field, StringConstraints, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from tensordict import TensorDict
@@ -33,7 +33,6 @@ class FrameSourceConfig(BaseModel):
 
 
 class TableSourceConfig(BaseModel):
-    path: FilePath
     builder: HydraConfig[TableBuilderBase]
 
 
@@ -140,10 +139,10 @@ class Dataset(TorchDataset[TensorDict]):
                 return pl.LazyFrame(frame_idxs)
 
             case SourcesConfig(
-                frame=frame_sources, table=TableSourceConfig(path=path, builder=builder)
+                frame=frame_sources, table=TableSourceConfig(builder=builder)
             ):
                 table_builder = builder.instantiate()
-                table = table_builder.build(path).lazy()
+                table = table_builder.build().lazy()
                 schema = table.collect_schema()
 
                 for frame_source_id, frame_source in frame_sources.items():
@@ -162,6 +161,8 @@ class Dataset(TorchDataset[TensorDict]):
                 return table
 
             case _:
+                logger.error("not implemented")
+
                 raise NotImplementedError
 
     @property

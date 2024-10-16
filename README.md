@@ -139,40 +139,41 @@ dataset:
             frame_decoder: ${frame_decoder}
 
       table:
-        path: data/NuScenes-v1.0-mini-scene-0103.mcap
         builder:
           _target_: rbyte.io.table.TableBuilder
           _convert_: all
-          reader:
-            _target_: rbyte.io.table.mcap.McapTableReader
-            _recursive_: false
-            decoder_factories:
-              - mcap_protobuf.decoder.DecoderFactory
-              - rbyte.utils.mcap.McapJsonDecoderFactory
-            fields:
-              /CAM_FRONT/image_rect_compressed:
-                _idx_:
-                log_time:
-                  _target_: polars.Datetime
-                  time_unit: ns
+          readers:
+            - path: data/NuScenes-v1.0-mini-scene-0103.mcap
+              reader:
+                _target_: rbyte.io.table.mcap.McapTableReader
+                _recursive_: false
+                decoder_factories:
+                  - mcap_protobuf.decoder.DecoderFactory
+                  - rbyte.utils.mcap.McapJsonDecoderFactory
+                fields:
+                  /CAM_FRONT/image_rect_compressed:
+                    _idx_:
+                    log_time:
+                      _target_: polars.Datetime
+                      time_unit: ns
 
-              /CAM_FRONT_LEFT/image_rect_compressed:
-                _idx_:
-                log_time:
-                  _target_: polars.Datetime
-                  time_unit: ns
+                  /CAM_FRONT_LEFT/image_rect_compressed:
+                    _idx_:
+                    log_time:
+                      _target_: polars.Datetime
+                      time_unit: ns
 
-              /CAM_FRONT_RIGHT/image_rect_compressed:
-                _idx_:
-                log_time:
-                  _target_: polars.Datetime
-                  time_unit: ns
+                  /CAM_FRONT_RIGHT/image_rect_compressed:
+                    _idx_:
+                    log_time:
+                      _target_: polars.Datetime
+                      time_unit: ns
 
-              /odom:
-                log_time:
-                  _target_: polars.Datetime
-                  time_unit: ns
-                vel.x: null
+                  /odom:
+                    log_time:
+                      _target_: polars.Datetime
+                      time_unit: ns
+                    vel.x: null
 
           merger:
             _target_: rbyte.io.table.TableAligner

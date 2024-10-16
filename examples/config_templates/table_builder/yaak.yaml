@@ -7,38 +7,53 @@
 #@ ]
 ---
 _target_: rbyte.io.table.TableBuilder
-reader:
-  _target_: rbyte.io.table.yaak.YaakMetadataTableReader
-  _recursive_: false
-  _convert_: all
-  fields:
-    rbyte.io.table.yaak.proto.sensor_pb2.ImageMetadata:
-      time_stamp:
-        _target_: polars.Datetime
-        time_unit: ns
+_convert_: all
+readers:
+  - path: ???
+    reader:
+      _target_: rbyte.io.table.yaak.YaakMetadataTableReader
+      _recursive_: false
+      fields:
+        rbyte.io.table.yaak.proto.sensor_pb2.ImageMetadata:
+          time_stamp:
+            _target_: polars.Datetime
+            time_unit: ns
 
-      frame_idx: polars.UInt32
-      camera_name:
-        _target_: polars.Enum
-        categories:
-          - cam_front_center
-          - cam_front_left
-          - cam_front_right
-          - cam_left_forward
-          - cam_right_forward
-          - cam_left_backward
-          - cam_right_backward
-          - cam_rear
+          frame_idx: polars.UInt32
+          camera_name:
+            _target_: polars.Enum
+            categories:
+              - cam_front_center
+              - cam_front_left
+              - cam_front_right
+              - cam_left_forward
+              - cam_right_forward
+              - cam_left_backward
+              - cam_right_backward
+              - cam_rear
 
-    rbyte.io.table.yaak.proto.can_pb2.VehicleMotion:
-      time_stamp:
-        _target_: polars.Datetime
-        time_unit: ns
+        rbyte.io.table.yaak.proto.can_pb2.VehicleMotion:
+          time_stamp:
+            _target_: polars.Datetime
+            time_unit: ns
 
-      speed: polars.Float32
-      gear:
-        _target_: polars.Enum
-        categories: ["0", "1", "2", "3"]
+          speed: polars.Float32
+          gear:
+            _target_: polars.Enum
+            categories: ["0", "1", "2", "3"]
+
+  - path: ???
+    reader:
+      _target_: rbyte.io.table.mcap.McapTableReader
+      _recursive_: false
+      decoder_factories: [rbyte.utils.mcap.ProtobufDecoderFactory]
+      fields:
+        /ai/safety_score:
+          clip.end_timestamp:
+            _target_: polars.Datetime
+            time_unit: ns
+
+          score: polars.Float32
 
 merger:
   _target_: rbyte.io.table.TableAligner
@@ -67,6 +82,15 @@ merger:
       gear:
         method: asof
         tolerance: 100ms
+
+    /ai/safety_score:
+      clip.end_timestamp:
+        method: ref
+
+      score:
+        method: asof
+        tolerance: 100ms
+        strategy: nearest
 
 filter: |
   `VehicleMotion.gear` == '3'

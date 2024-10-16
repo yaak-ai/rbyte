@@ -1,4 +1,5 @@
 import json
+from collections import defaultdict
 from collections.abc import Hashable, Iterable, Mapping, Sequence
 from enum import StrEnum, unique
 from functools import cached_property
@@ -11,7 +12,8 @@ from typing import Any, NamedTuple, override
 import more_itertools as mit
 import polars as pl
 from mcap.decoder import DecoderFactory
-from mcap.reader import DecodedMessageTuple, SeekingReader
+from mcap.reader import SeekingReader
+from optree import tree_map
 from polars._typing import PolarsDataType
 from polars.datatypes import (
     DataType,  # pyright: ignore[reportUnusedImport]  # noqa: F401
@@ -31,6 +33,7 @@ from xxhash import xxh3_64_intdigest as digest
 
 from rbyte.config.base import BaseModel, HydraConfig
 from rbyte.io.table.base import TableReaderBase
+from rbyte.utils.dataframe import unnest_all
 
 logger = get_logger(__name__)
 
@@ -38,13 +41,8 @@ logger = get_logger(__name__)
 class Config(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    decoder_factories: Sequence[ImportString[type[DecoderFactory]]]
-
-    fields: Mapping[
-        str,
-        Mapping[str, HydraConfig[PolarsDataType] | ImportString[PolarsDataType] | None],
-    ]
-
+    decoder_factories: frozenset[ImportString[type[DecoderFactory]]]
+    fields: Mapping[str, Mapping[str, HydraConfig[PolarsDataType] | None]]
     validate_crcs: bool = False
 
     @field_serializer("decoder_factories", when_used="json", mode="wrap")
@@ -63,7 +61,7 @@ class RowValues(NamedTuple):
 
 
 @unique
-class SpecialFields(StrEnum):
+class SpecialField(StrEnum):
     log_time = "log_time"
     publish_time = "publish_time"
     idx = "_idx_"
@@ -90,7 +88,7 @@ class McapTableReader(TableReaderBase, Hashable):
                 logger.error(msg := "missing summary")
                 raise ValueError(msg)
 
-            topics = self.schemas.keys()
+            topics = self._fields.keys()
             if missing_topics := topics - (
                 available_topics := {ch.topic for ch in summary.channels.values()}
             ):
@@ -111,35 +109,46 @@ class McapTableReader(TableReaderBase, Hashable):
                 else None
             )
 
-            row_values = (
-                RowValues(
-                    dmt.channel.topic,
-                    self._get_values(dmt, self.schemas[dmt.channel.topic]),
-                )
-                for dmt in tqdm(
-                    reader.iter_decoded_messages(topics),
-                    desc="messages",
-                    total=message_count,
-                )
-            )
+            rows: Mapping[str, list[pl.DataFrame]] = defaultdict(list)
 
-            row_values_by_topic = mit.bucket(row_values, key=lambda rd: rd.topic)
-
-            dfs: Mapping[str, pl.DataFrame] = {}
-            for topic, schema in self.schemas.items():
-                df_schema = {k: v for k, v in schema.items() if k != SpecialFields.idx}
-                df = pl.DataFrame(
-                    data=(tuple(x.values) for x in row_values_by_topic[topic]),
-                    schema=df_schema,  # pyright: ignore[reportArgumentType]
-                    orient="row",
+            for dmt in tqdm(
+                reader.iter_decoded_messages(topics),
+                desc="messages",
+                total=message_count,
+            ):
+                schema = self._fields[dmt.channel.topic]
+                message_fields, special_fields = map(
+                    dict,
+                    mit.partition(lambda kv: kv[0] in SpecialField, schema.items()),
                 )
 
-                if (idx_name := SpecialFields.idx) in schema:
-                    df = df.with_row_index(idx_name).cast({
-                        idx_name: schema[idx_name] or pl.UInt32
-                    })
+                special_fields = {
+                    k: v for k, v in special_fields.items() if k != SpecialField.idx
+                }
 
-                dfs[topic] = df
+                row_df = pl.DataFrame(
+                    [getattr(dmt.message, field) for field in special_fields],
+                    schema=special_fields,  # pyright: ignore[reportArgumentType]
+                )
+
+                if (
+                    message_df := self._build_message_df(
+                        dmt.decoded_message, message_fields
+                    )
+                ) is not None:
+                    row_df = row_df.hstack(message_df)
+
+                rows[dmt.channel.topic].append(row_df)
+
+        dfs: Mapping[str, pl.DataFrame] = {}
+        for topic, row_dfs in rows.items():
+            df = pl.concat(row_dfs, how="vertical")
+            if (idx_name := SpecialField.idx) in (schema := self._fields[topic]):
+                df = df.with_row_index(idx_name).cast({
+                    idx_name: schema[idx_name] or pl.UInt32
+                })
+
+            dfs[topic] = df.rechunk()
 
         return dfs
 
@@ -152,27 +161,28 @@ class McapTableReader(TableReaderBase, Hashable):
         return digest(config_str)
 
     @cached_property
-    def schemas(self) -> Mapping[str, Mapping[str, PolarsDataType | None]]:
-        return {
-            topic: {
-                path: leaf.instantiate() if isinstance(leaf, HydraConfig) else leaf
-                for path, leaf in fields.items()
-            }
-            for topic, fields in self._config.fields.items()
-        }
+    def _fields(self) -> Mapping[str, Mapping[str, PolarsDataType | None]]:
+        return tree_map(HydraConfig.instantiate, self._config.fields)  # pyright: ignore[reportArgumentType, reportUnknownArgumentType, reportUnknownMemberType, reportUnknownVariableType, reportReturnType]
 
     @staticmethod
-    def _get_values(dmt: DecodedMessageTuple, fields: Iterable[str]) -> Iterable[Any]:
-        for field in fields:
-            match field:
-                case SpecialFields.log_time:
-                    yield dmt.message.log_time
+    def _build_message_df(
+        message: object, fields: Mapping[str, PolarsDataType | None]
+    ) -> pl.DataFrame | None:
+        if not fields:
+            return None
 
-                case SpecialFields.publish_time:
-                    yield dmt.message.publish_time
+        df_schema = {name: dtype for name, dtype in fields.items() if dtype is not None}
 
-                case SpecialFields.idx:
-                    pass  # added later
+        match message:
+            case pl.DataFrame():
+                return (
+                    message.lazy()
+                    .select(unnest_all(message.collect_schema()))
+                    .select(fields)
+                    .cast(df_schema)  # pyright: ignore[reportArgumentType]
+                ).collect()
 
-                case _:
-                    yield attrgetter(field)(dmt.decoded_message)
+            case _:
+                return pl.from_dict({
+                    field: attrgetter(field)(message) for field in fields
+                }).cast(df_schema)  # pyright: ignore[reportArgumentType]
