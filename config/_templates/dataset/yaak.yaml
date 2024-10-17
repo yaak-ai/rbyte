@@ -1,7 +1,7 @@
 #@yaml/text-templated-strings
 
 #@ drives = [
-#@     'Niro098-HQ/2024-01-22--09-03-16',
+#@     'Niro098-HQ/2024-06-18--13-39-54',
 #@ ]
 
 #@ cameras = [
@@ -21,16 +21,11 @@ inputs:
       (@=source_id@):
         index_column: "ImageMetadata.(@=source_id@).frame_idx"
         reader:
-          _target_: rbyte.io.frame.DirectoryFrameReader
+          _target_: rbyte.io.frame.FfmpegFrameReader
           _recursive_: true
-          path: "${data_dir}/(@=input_id@)/frames/(@=source_id@).pii.mp4/576x324/{:09d}.jpg"
-          frame_decoder:
-            _target_: simplejpeg.decode_jpeg
-            _partial_: true
-            colorspace: rgb
-            fastdct: true
-            fastupsample: true
-        #@ end
+          path: "${data_dir}/(@=input_id@)/(@=source_id@).pii.mp4"
+          resize_shorter_side: 324
+      #@ end
 
     table:
       builder:
@@ -72,7 +67,7 @@ inputs:
 
           - path: ${data_dir}/(@=input_id@)/ai.mcap
             reader:
-              _target_: rbyte.io.table.mcap.McapTableReader
+              _target_: rbyte.io.table.McapTableReader
               _recursive_: false
               decoder_factories: [rbyte.utils.mcap.ProtobufDecoderFactory]
               fields:
@@ -110,6 +105,7 @@ inputs:
               gear:
                 method: asof
                 tolerance: 100ms
+                strategy: nearest
 
             /ai/safety_score:
               clip.end_timestamp:
@@ -117,7 +113,7 @@ inputs:
 
               score:
                 method: asof
-                tolerance: 100ms
+                tolerance: 500ms
                 strategy: nearest
 
         filter: |
@@ -132,8 +128,8 @@ inputs:
 sample_builder:
   _target_: rbyte.sample.builder.GreedySampleTableBuilder
   index_column: ImageMetadata.(@=cameras[0]@).frame_idx
-  length: 6
-  stride: 10
-  min_step: 6
+  length: 1
+  stride: 1
+  min_step: 1
   filter: |
-    array_lower(`VehicleMotion.speed`) > 50
+    array_mean(`VehicleMotion.speed`) > 40

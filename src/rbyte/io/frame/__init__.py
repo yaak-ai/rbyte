@@ -23,10 +23,3 @@ except ImportError:
     pass
 else:
     __all__ += ["FfmpegFrameReader"]
-
-try:
-    from .video.vali_reader import ValiGpuFrameReader
-except ImportError:
-    pass
-else:
-    __all__ += ["ValiGpuFrameReader"]
