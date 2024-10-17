@@ -3,7 +3,7 @@
 #@yaml/text-templated-strings
 
 #@ inputs = [
-#@     'NuScenes-v1.0-mini-scene-0103',
+#@     'NuScenes-v1.0-mini-scene-0061-cut',
 #@ ]
 
 #@ camera_topics = [
@@ -78,7 +78,7 @@ inputs:
                 method: ref
               _idx_:
                 method: asof
-                tolerance: 10ms
+                tolerance: 40ms
                 strategy: nearest
             #@ end
 
@@ -89,7 +89,7 @@ inputs:
                 method: interp
 
         filter: |
-          `/odom/vel.x` >= 8.6
+          `/odom/vel.x` >= 8
 
         cache:
           _target_: rbyte.utils.dataframe.DataframeDiskCache

@@ -1,6 +1,5 @@
 #! https://sites.google.com/view/il-for-mm/datasets#h.cq0r3rd5nr9m
 
-#@yaml/map-key-override
 #@yaml/text-templated-strings
 
 #@ inputs = {

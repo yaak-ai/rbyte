@@ -70,6 +70,7 @@ dev-dependencies = [
   "pudb>=2024.1.2",
   "ipython>=8.28.0",
   "ipython-autoimport>=0.5",
+  "pytest>=8.3.3",
 ]
 
 [tool.uv.sources]
@@ -125,3 +126,7 @@ ignore = ["D", "CPY", "COM812", "F722", "PD901", "ISC001", "TD"]
 
 [tool.ruff.lint.isort]
 split-on-trailing-comma = false
+
+[tool.pytest.ini_options]
+addopts = ["-ra", "-q", "--import-mode=importlib"]
+testpaths = ["tests"]

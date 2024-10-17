@@ -30,7 +30,7 @@ inputs:
             colorspace: rgb
             fastdct: true
             fastupsample: true
-        #@ end
+      #@ end
 
     table:
       builder:

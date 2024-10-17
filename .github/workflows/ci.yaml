@@ -20,7 +20,7 @@ jobs:
           ssh-private-key: ${{ secrets.YAAK_IDL_REPO_SSH_KEY }}
 
       - name: checkout
-        uses: actions/checkout@v4
+        uses: nschloe/action-cached-lfs-checkout@v1
         with:
           submodules: recursive
           persist-credentials: false
@@ -59,3 +59,6 @@ jobs:
 
       - name: pre-commit
         run: just pre-commit
+
+      - name: test
+        run: just test

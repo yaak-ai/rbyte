@@ -26,35 +26,38 @@ build-protos:
 pre-commit *ARGS: build-protos
     uvx pre-commit run --all-files --color=always {{ ARGS }}
 
-generate-example-config:
+generate-config:
     ytt --ignore-unknown-comments \
-        --file {{ justfile_directory() }}/examples/config_templates \
-        --output-files examples/config \
+        --file {{ justfile_directory() }}/config/_templates \
+        --output-files config \
         --output yaml \
         --strict
 
+test *ARGS: generate-config
+    uv run pytest --capture=no {{ ARGS }}
+
 [group('scripts')]
-visualize *ARGS: generate-example-config
+visualize *ARGS: generate-config
     uv run rbyte-visualize \
-        --config-path {{ justfile_directory() }}/examples/config \
+        --config-path {{ justfile_directory() }}/config \
         --config-name visualize.yaml \
         hydra/hydra_logging=disabled \
         hydra/job_logging=disabled \
         {{ ARGS }}
 
 [group('scripts')]
-build-table *ARGS: generate-example-config
+build-table *ARGS: generate-config
     uv run rbyte-build-table \
-        --config-path {{ justfile_directory() }}/examples/config \
+        --config-path {{ justfile_directory() }}/config \
         --config-name build_table.yaml \
         hydra/hydra_logging=disabled \
         hydra/job_logging=disabled \
         {{ ARGS }}
 
 [group('scripts')]
-read-frames *ARGS: generate-example-config
+read-frames *ARGS: generate-config
     uv run rbyte-read-frames \
-        --config-path {{ justfile_directory() }}/examples/config \
+        --config-path {{ justfile_directory() }}/config \
         --config-name read_frames.yaml \
         hydra/hydra_logging=disabled \
         hydra/job_logging=disabled \

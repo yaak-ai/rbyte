@@ -20,7 +20,9 @@ uv add https://github.com/yaak-ai/rbyte/releases/latest/download/rbyte-X.Y.Z-py3
 
 ## Examples
 
-See [examples/config_templates](examples/config_templates) ([`ytt`](https://carvel.dev/ytt/) templates) and [justfile](justfile) for usage examples.
+TODO: upd
+
+See [config/_templates](./config/_templates) ([`ytt`](https://carvel.dev/ytt/) templates) and [justfile](./justfile) for usage examples.
 
 <details>
 <summary><a href=https://nuscenes.org> nuScenes </a> x <a href=https://mcap.dev> mcap </a></summary>
