@@ -16,17 +16,3 @@ except ImportError:
     pass
 else:
     __all__ += ["Hdf5FrameReader"]
-
-try:
-    from .video.ffmpeg_reader import FfmpegFrameReader
-except ImportError:
-    pass
-else:
-    __all__ += ["FfmpegFrameReader"]
-
-try:
-    from .video.vali_reader import ValiGpuFrameReader
-except ImportError:
-    pass
-else:
-    __all__ += ["ValiGpuFrameReader"]

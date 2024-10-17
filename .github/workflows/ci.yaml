@@ -10,9 +10,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  pre-commit:
+  ci:
     runs-on: ubuntu-latest
-
     steps:
       - name: setup ssh
         uses: webfactory/ssh-agent@v0.9.0
@@ -24,14 +23,18 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: false
+          lfs: true
+
+      - name: git lfs checkout
+        run: git lfs checkout
+
+      - name: setup just
+        uses: extractions/setup-just@v2
 
       - name: setup python
         uses: actions/setup-python@v5
         with:
           python-version-file: "pyproject.toml"
-
-      - name: setup just
-        uses: extractions/setup-just@v2
 
       - name: setup ytt
         uses: carvel-dev/setup-action@v2
@@ -48,14 +51,17 @@ jobs:
       - name: sync
         run: just sync
 
-      - name: install tools
-        run: just install-tools
+      - name: build protos
+        run: just build-protos
 
-      - name: restore pre-commit cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pre-commit
-          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+      - name: format
+        run: just format --check
 
-      - name: pre-commit
-        run: just pre-commit
+      - name: lint
+        run: just lint
+
+      - name: typecheck
+        run: just typecheck
+
+      - name: test
+        run: just test

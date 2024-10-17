@@ -1,0 +1,11 @@
+---
+defaults:
+  - /dataloader: torch
+  - /dataset: !!null
+  - /logger: !!null
+  - _self_
+
+hydra:
+  output_subdir: !!null
+  run:
+    dir: .

@@ -105,7 +105,7 @@ inputs:
         filter: |
           `control.throttle` > 0.5
 
-    #@ end
+  #@ end
 
 sample_builder:
   _target_: rbyte.sample.builder.GreedySampleTableBuilder

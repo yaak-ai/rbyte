@@ -1,5 +1,5 @@
 ---
-_target_: rbyte.io.frame.mcap.McapFrameReader
+_target_: rbyte.io.frame.McapFrameReader
 _recursive_: true
 path: ???
 topic: ???

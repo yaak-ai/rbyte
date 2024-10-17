@@ -1,21 +1,16 @@
-#! https://sites.google.com/view/il-for-mm/datasets#h.cq0r3rd5nr9m
+#! https://huggingface.co/datasets/amandlek/mimicgen_datasets/blob/main/source/coffee.hdf5
 
-#@yaml/map-key-override
 #@yaml/text-templated-strings
 
 #@ inputs = {
-#@     "table_setup_from_dishwasher_sample": [
+#@     "coffee": [
 #@         "/data/demo_0",
 #@         "/data/demo_1",
-#@         "/data/demo_10",
-#@         "/data/demo_101",
-#@         "/data/demo_102",
 #@     ]
 #@ }
 
 #@ frame_keys = [
-#@     '/obs/rgb',
-#@     '/obs/depth',
+#@     'obs/agentview_image',
 #@ ]
 ---
 _target_: rbyte.Dataset
@@ -30,9 +25,9 @@ inputs:
       (@=frame_key@):
         index_column: _idx_
         reader:
-          _target_: rbyte.io.frame.hdf5.Hdf5FrameReader
+          _target_: rbyte.io.frame.Hdf5FrameReader
           path: "${data_dir}/(@=input_id@).hdf5"
-          key: (@=input_key@)(@=frame_key@)
+          key: (@=input_key@)/(@=frame_key@)
       #@ end
 
     table:
@@ -42,13 +37,12 @@ inputs:
         readers:
           - path: "${data_dir}/(@=input_id@).hdf5"
             reader:
-              _target_: rbyte.io.table.hdf5.Hdf5TableReader
+              _target_: rbyte.io.table.Hdf5TableReader
               _recursive_: false
               fields:
                 (@=input_key@):
                   _idx_:
-                  obs/object:
-                  task_successes:
+                  obs/robot0_eef_pos:
 
         merger:
           _target_: rbyte.io.table.TableConcater

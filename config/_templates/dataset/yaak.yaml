@@ -30,7 +30,7 @@ inputs:
             colorspace: rgb
             fastdct: true
             fastupsample: true
-        #@ end
+      #@ end
 
     table:
       builder:
@@ -72,7 +72,7 @@ inputs:
 
           - path: ${data_dir}/(@=input_id@)/ai.mcap
             reader:
-              _target_: rbyte.io.table.mcap.McapTableReader
+              _target_: rbyte.io.table.McapTableReader
               _recursive_: false
               decoder_factories: [rbyte.utils.mcap.ProtobufDecoderFactory]
               fields:

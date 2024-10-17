@@ -3,7 +3,6 @@
 #@ cameras = [
 #@     'cam_front_left',
 #@ ]
-
 ---
 _target_: rbyte.viz.loggers.RerunLogger
 _recursive_: true

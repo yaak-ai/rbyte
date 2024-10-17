@@ -1,0 +1,2 @@
+tests/data/coffee.hdf5 filter=lfs diff=lfs merge=lfs -text
+tests/data/nuScenes-v1.0-mini-scene-0061-cut.mcap filter=lfs diff=lfs merge=lfs -text
