@@ -10,7 +10,9 @@ wheels/
 .venv
 
 # generated
-examples/config
+config/*
+!config/_templates
+
 **/*_pb2.py
 **/*_pb2.pyi
 **/outputs/*

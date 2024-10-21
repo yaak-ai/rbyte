@@ -3,7 +3,7 @@
 #@yaml/text-templated-strings
 
 #@ inputs = [
-#@     'NuScenes-v1.0-mini-scene-0103',
+#@     'nuScenes-v1.0-mini-scene-0061-cut',
 #@ ]
 
 #@ camera_topics = [
@@ -23,7 +23,7 @@ inputs:
       (@=topic@):
         index_column: (@=topic@)/_idx_
         reader:
-          _target_: rbyte.io.frame.mcap.McapFrameReader
+          _target_: rbyte.io.frame.McapFrameReader
           path: "${data_dir}/(@=input_id@).mcap"
           topic: (@=topic@)
           decoder_factory: mcap_protobuf.decoder.DecoderFactory
@@ -42,7 +42,7 @@ inputs:
         readers:
           - path: "${data_dir}/(@=input_id@).mcap"
             reader:
-              _target_: rbyte.io.table.mcap.McapTableReader
+              _target_: rbyte.io.table.McapTableReader
               _recursive_: false
               decoder_factories:
                 - rbyte.utils.mcap.ProtobufDecoderFactory
@@ -78,7 +78,7 @@ inputs:
                 method: ref
               _idx_:
                 method: asof
-                tolerance: 10ms
+                tolerance: 40ms
                 strategy: nearest
             #@ end
 
@@ -89,7 +89,7 @@ inputs:
                 method: interp
 
         filter: |
-          `/odom/vel.x` >= 8.6
+          `/odom/vel.x` >= 8
 
         cache:
           _target_: rbyte.utils.dataframe.DataframeDiskCache

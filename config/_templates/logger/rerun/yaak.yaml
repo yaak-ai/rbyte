@@ -5,7 +5,6 @@
 #@     'cam_left_backward',
 #@     'cam_right_backward',
 #@ ]
-
 ---
 _target_: rbyte.viz.loggers.RerunLogger
 schema:

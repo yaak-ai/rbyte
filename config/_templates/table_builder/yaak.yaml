@@ -44,7 +44,7 @@ readers:
 
   - path: ???
     reader:
-      _target_: rbyte.io.table.mcap.McapTableReader
+      _target_: rbyte.io.table.McapTableReader
       _recursive_: false
       decoder_factories: [rbyte.utils.mcap.ProtobufDecoderFactory]
       fields:

@@ -7,7 +7,7 @@ from typing import Annotated, Literal, Self, override
 
 import more_itertools as mit
 import polars as pl
-from polars.type_aliases import AsofJoinStrategy
+from polars._typing import AsofJoinStrategy
 from pydantic import StringConstraints, model_validator
 from structlog import get_logger
 from xxhash import xxh3_64_intdigest as digest

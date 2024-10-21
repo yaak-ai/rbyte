@@ -1,0 +1,13 @@
+---
+_target_: torch.utils.data.DataLoader
+dataset: ${dataset}
+shuffle: false
+batch_size: 1
+collate_fn:
+  _target_: rbyte.utils.dataloader.collate_identity
+  _partial_: true
+
+num_workers: 1
+pin_memory: false
+persistent_workers: true
+multiprocessing_context: forkserver
