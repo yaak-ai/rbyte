@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 def main(config: DictConfig) -> None:
     table_builder = cast(TableBuilderBase, instantiate(config.table_builder))
     table_writer = cast(Callable[[Table], None], instantiate(config.table_writer))
-    table = table_builder.build(config.path)
+    table = table_builder.build()
 
     return table_writer(table)
 

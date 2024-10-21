@@ -1,23 +1,25 @@
 ---
 _target_: rbyte.io.table.TableBuilder
 _convert_: all
-reader:
-  _target_: rbyte.io.table.hdf5.Hdf5TableReader
-  _recursive_: false
-  fields:
-    /data/demo_0:
-      _idx_:
-      actions:
-      dones:
-      obs/gt_nav:
-      obs/object:
-      obs/proprio:
-      obs/proprio_nav:
-      obs/scan:
-      rewards:
-      states:
-      task_successes:
+readers:
+  - path: ???
+    reader:
+      _target_: rbyte.io.table.hdf5.Hdf5TableReader
+      _recursive_: false
+      fields:
+        /data/demo_0:
+          _idx_:
+          actions:
+          dones:
+          obs/gt_nav:
+          obs/object:
+          obs/proprio:
+          obs/proprio_nav:
+          obs/scan:
+          rewards:
+          states:
+          task_successes:
 
 merger:
   _target_: rbyte.io.table.TableConcater
-  separator: "/"
+  method: vertical

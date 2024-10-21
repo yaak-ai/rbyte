@@ -8,12 +8,13 @@ from typing import Any, cast, override
 import numpy.typing as npt
 import polars as pl
 from h5py import Dataset, File, Group
+from optree import tree_map
 from polars._typing import PolarsDataType
 from polars.datatypes import (
     DataType,  # pyright: ignore[reportUnusedImport]  # noqa: F401
     DataTypeClass,  # pyright: ignore[reportUnusedImport]  # noqa: F401
 )
-from pydantic import ConfigDict, ImportString
+from pydantic import ConfigDict
 from xxhash import xxh3_64_intdigest as digest
 
 from rbyte.config import BaseModel
@@ -24,14 +25,11 @@ from rbyte.io.table.base import TableReaderBase
 class Config(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    fields: Mapping[
-        str,
-        Mapping[str, HydraConfig[PolarsDataType] | ImportString[PolarsDataType] | None],
-    ]
+    fields: Mapping[str, Mapping[str, HydraConfig[PolarsDataType] | None]]
 
 
 @unique
-class SpecialFields(StrEnum):
+class SpecialField(StrEnum):
     idx = "_idx_"
 
 
@@ -52,13 +50,13 @@ class Hdf5TableReader(TableReaderBase, Hashable):
         dfs: Mapping[str, pl.DataFrame] = {}
 
         with File(path) as f:
-            for group_key, schema in self.schemas.items():
+            for group_key, schema in self._fields.items():
                 match group := f[group_key]:
                     case Group():
                         series: list[pl.Series] = []
                         for name, dtype in schema.items():
                             match name:
-                                case SpecialFields.idx:
+                                case SpecialField.idx:
                                     pass
 
                                 case _:
@@ -77,12 +75,12 @@ class Hdf5TableReader(TableReaderBase, Hashable):
                                             raise NotImplementedError
 
                         df = pl.DataFrame(data=series)  # pyright: ignore[reportGeneralTypeIssues]
-                        if (idx_name := SpecialFields.idx) in schema:
+                        if (idx_name := SpecialField.idx) in schema:
                             df = df.with_row_index(idx_name).cast({
                                 idx_name: schema[idx_name] or pl.UInt32
                             })
 
-                        dfs[group_key] = df
+                        dfs[group_key] = df.rechunk()
 
                     case _:
                         raise NotImplementedError
@@ -90,13 +88,5 @@ class Hdf5TableReader(TableReaderBase, Hashable):
         return dfs
 
     @cached_property
-    def schemas(self) -> Mapping[str, Mapping[str, PolarsDataType | None]]:
-        return {
-            group_key: {
-                dataset_key: leaf.instantiate()
-                if isinstance(leaf, HydraConfig)
-                else leaf
-                for dataset_key, leaf in fields.items()
-            }
-            for group_key, fields in self._config.fields.items()
-        }
+    def _fields(self) -> Mapping[str, Mapping[str, PolarsDataType | None]]:
+        return tree_map(HydraConfig.instantiate, self._config.fields)  # pyright: ignore[reportArgumentType, reportUnknownArgumentType, reportUnknownMemberType, reportUnknownVariableType, reportReturnType]

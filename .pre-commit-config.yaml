@@ -3,7 +3,7 @@ fail_fast: true
 
 repos:
   - repo: https://github.com/abravalheri/validate-pyproject
-    rev: v0.20.2
+    rev: v0.21
     hooks:
       - id: validate-pyproject
 
@@ -13,7 +13,7 @@ repos:
       - id: typos
 
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.17.0
+    rev: v3.18.0
     hooks:
       - id: pyupgrade
 
@@ -31,7 +31,7 @@ repos:
       - id: ruff-format
 
   - repo: https://github.com/DetachHead/basedpyright-pre-commit-mirror
-    rev: 1.18.3
+    rev: 1.18.4
     hooks:
       - id: basedpyright
 

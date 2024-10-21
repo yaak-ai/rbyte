@@ -62,7 +62,7 @@ inputs:
     frame:
       #@ for source_id in cameras:
       (@=source_id@):
-        index_column: frame_idx
+        index_column: _idx_
         reader:
           _target_: rbyte.io.frame.DirectoryFrameReader
           path: "${data_dir}/(@=input_id@)/frames/(@=source_id@).defish.mp4/576x324/{:09d}.jpg"
@@ -76,28 +76,40 @@ inputs:
       #@ end
 
     table:
-      path: ${data_dir}/(@=input_id@)/ego_logs.json
       builder:
-        _target_: rbyte.io.table.carla.CarlaRecordsTableBuilder
+        _target_: rbyte.io.table.TableBuilder
         _convert_: all
-        index_column: frame_idx
-        select:
-          - control.brake
-          - control.throttle
-          - control.steer
-          - state.velocity.value
-          - state.acceleration.value
+        readers:
+          - path: ${data_dir}/(@=input_id@)/ego_logs.json
+            reader:
+              _target_: rbyte.io.table.JsonTableReader
+              _recursive_: false
+              fields:
+                records:
+                  _idx_:
+                  control.brake:
+                  control.throttle:
+                  control.steer:
+                  state.velocity.value:
+                  state.acceleration.value:
 
-        filter: !!null
-        transforms:
-          - _target_: rbyte.io.table.transforms.FpsResampler
-            source_fps: 20
-            target_fps: 30
+              transforms:
+                - _target_: rbyte.io.table.transforms.FpsResampler
+                  source_fps: 20
+                  target_fps: 30
+
+        merger:
+          _target_: rbyte.io.table.TableConcater
+          method: vertical
+
+        filter: |
+          `control.throttle` > 0.5
+
     #@ end
 
 sample_builder:
   _target_: rbyte.sample.builder.GreedySampleTableBuilder
-  index_column: frame_idx
+  index_column: _idx_
   length: 1
   stride: 1
   min_step: 1

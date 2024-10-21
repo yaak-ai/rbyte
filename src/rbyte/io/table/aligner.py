@@ -81,6 +81,9 @@ class TableAligner(TableMergerBase, Hashable):
 
     @override
     def merge(self, src: Mapping[str, pl.DataFrame]) -> pl.DataFrame:
+        if unused_keys := src.keys() - self._config.merge.keys():
+            logger.warning("unused", keys=sorted(unused_keys))
+
         dfs = {
             k: src[k]
             .sort(self._config.ref_columns[k])
