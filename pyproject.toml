@@ -35,7 +35,7 @@ classifiers = [
 
 [project.optional-dependencies]
 build = ["hatchling>=1.25.0", "grpcio-tools>=1.62.0", "protoletariat==3.2.19"]
-visualize = ["rerun-sdk>=0.18.2"]
+visualize = ["rerun-sdk[notebook]>=0.19.0"]
 mcap = [
   "mcap>=1.2.1",
   "mcap-ros2-support>=0.5.5",
@@ -71,6 +71,8 @@ dev-dependencies = [
   "ipython>=8.28.0",
   "ipython-autoimport>=0.5",
   "pytest>=8.3.3",
+  "testbook>=0.4.2",
+  "ipykernel>=6.29.5",
 ]
 
 [tool.uv.sources]

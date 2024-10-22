@@ -15,6 +15,7 @@ import more_itertools as mit
 import numpy as np
 import numpy.typing as npt
 import rerun as rr
+import rerun.blueprint as rrb
 from pydantic import (
     BeforeValidator,
     ConfigDict,
@@ -91,17 +92,29 @@ class Schema(BaseModel):
 
 
 class RerunLogger(Logger[Batch]):
-    @validate_call
-    def __init__(self, schema: Schema) -> None:
+    @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
+    def __init__(
+        self,
+        *,
+        schema: Schema,
+        spawn: bool = True,
+        blueprint: rrb.BlueprintLike | None = None,
+    ) -> None:
         super().__init__()
 
         self._schema = schema
+        self._spawn = spawn
+        self._blueprint = blueprint
 
     @cache  # noqa: B019
-    def _get_recording(self, *, application_id: str) -> rr.RecordingStream:  # noqa: PLR6301
-        return rr.new_recording(
-            application_id=application_id, spawn=True, make_default=True
+    def _get_recording(self, application_id: str) -> rr.RecordingStream:
+        recording = rr.new_recording(
+            application_id, spawn=self._spawn, make_default=True
         )
+        if self._blueprint is not None:
+            rr.send_blueprint(self._blueprint, recording=recording)
+
+        return recording
 
     @override
     def log(self, batch_idx: int, batch: Batch) -> None:
@@ -111,7 +124,7 @@ class RerunLogger(Logger[Batch]):
             batch.exclude(path),  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType, reportAttributeAccessIssue]
             strict=True,
         ):
-            with self._get_recording(application_id=input_id):  # pyright: ignore[reportUnknownArgumentType]
+            with self._get_recording(input_id):  # pyright: ignore[reportUnknownArgumentType]
                 times: Sequence[TimeColumn] = [
                     v(timeline="/".join(k), times=sample.get(k).numpy())  # pyright: ignore[reportUnknownMemberType, reportCallIssue]
                     for k, v in self._schema.times.items()

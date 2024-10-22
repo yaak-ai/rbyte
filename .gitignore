@@ -21,3 +21,5 @@ config/*
 uv.lock
 
 .basedpyright
+
+.ipynb_checkpoints
