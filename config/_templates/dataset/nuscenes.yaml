@@ -92,9 +92,6 @@ inputs:
           `/odom/vel.x` >= 8
 
         cache:
-          _target_: rbyte.utils.dataframe.DataframeDiskCache
-          directory: /tmp/rbyte-cache
-          size_limit: 1GiB
   #@ end
 
 sample_builder:

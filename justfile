@@ -12,7 +12,7 @@ install-tools:
 
 setup: sync install-tools
     git submodule update --init --recursive --force --remote
-    git lfs checkout
+    git lfs pull
     uvx pre-commit install --install-hooks
 
 clean:
@@ -39,12 +39,15 @@ pre-commit *ARGS: build-protos
 generate-config:
     ytt --ignore-unknown-comments \
         --file {{ justfile_directory() }}/config/_templates \
-        --output-files config \
+        --output-files {{ justfile_directory() }}/config \
         --output yaml \
         --strict
 
 test *ARGS: generate-config
     uv run pytest --capture=no {{ ARGS }}
+
+example NAME *ARGS: sync generate-config
+    uv run --with=jupyter,jupyterlab-vim,rerun-notebook jupyter lab ./examples/{{ NAME }}.ipynb {{ ARGS }}
 
 [group('scripts')]
 visualize *ARGS: generate-config
