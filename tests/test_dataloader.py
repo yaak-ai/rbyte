@@ -41,7 +41,9 @@ def test_mimicgen() -> None:
                 "sample_idx": Tensor(shape=[c.B]),
                 **meta_rest,
             },
+            **batch_rest,
         } if set(input_id).issubset(cfg.dataloader.dataset.inputs) and not any((
+            batch_rest,
             frame_rest,
             table_rest,
             meta_rest,
@@ -96,7 +98,9 @@ def test_nuscenes() -> None:
                 "sample_idx": Tensor(shape=[c.B]),
                 **meta_rest,
             },
+            **batch_rest,
         } if set(input_id).issubset(cfg.dataloader.dataset.inputs) and not any((
+            batch_rest,
             frame_rest,
             table_rest,
             meta_rest,
