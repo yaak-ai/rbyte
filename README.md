@@ -18,9 +18,9 @@
 uv add rbyte [--extra <EXTRA>]
 ```
 
-See [pyproject.toml](./pyproject.toml) for available extras.
+See [pyproject.toml](https://github.com/yaak-ai/rbyte/blob/main/pyproject.toml) for available extras.
 
-## [Examples](./examples)
+## [Examples](https://github.com/yaak-ai/rbyte/tree/main/examples)
 
 1. Install required tools:
 - [`uv`](https://github.com/astral-sh/uv)
