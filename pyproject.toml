@@ -1,12 +1,12 @@
 [project]
 name = "rbyte"
-version = "0.5.1"
+version = "0.5.2"
 description = "Multimodal dataset library"
 authors = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 maintainers = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 dependencies = [
-  "tensordict @ git+https://github.com/pytorch/tensordict.git@85b6b81",
-  "torch>=2.4.1",
+  "tensordict>=0.6.0",
+  "torch",
   "polars>=1.10.0",
   "pydantic>=2.9.2",
   "more-itertools>=10.5.0",

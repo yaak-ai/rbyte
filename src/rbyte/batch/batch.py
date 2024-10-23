@@ -1,15 +1,18 @@
-from jaxtyping import Int
-from tensordict import NonTensorData, TensorDict, tensorclass
+from tensordict import (
+    NonTensorData,
+    TensorDict,
+    tensorclass,  # pyright: ignore[reportUnknownVariableType]
+)
 from torch import Tensor
 
 
-@tensorclass  # pyright: ignore[reportUntypedClassDecorator, reportArgumentType, reportCallIssue]
+@tensorclass(autocast=True)  # pyright: ignore[reportUntypedClassDecorator]
 class BatchMeta:
-    sample_idx: Int[Tensor, "b 1"]  # pyright: ignore[reportUninitializedInstanceVariable]
+    sample_idx: Tensor  # pyright: ignore[reportUninitializedInstanceVariable]
     input_id: NonTensorData  # pyright: ignore[reportUninitializedInstanceVariable]
 
 
-@tensorclass  # pyright: ignore[reportUntypedClassDecorator, reportArgumentType, reportCallIssue]
+@tensorclass(autocast=True)  # pyright: ignore[reportUntypedClassDecorator]
 class Batch:
     meta: BatchMeta  # pyright: ignore[reportUninitializedInstanceVariable]
     frame: TensorDict  # pyright: ignore[reportUninitializedInstanceVariable]
