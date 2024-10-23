@@ -15,7 +15,7 @@
 ## Installation
 
 ```bash
-uv add https://github.com/yaak-ai/rbyte/releases/latest/download/rbyte-X.Y.Z-py3-none-any.whl [--extra <EXTRA>]
+uv add rbyte [--extra <EXTRA>]
 ```
 
 See [pyproject.toml](./pyproject.toml) for available extras.
