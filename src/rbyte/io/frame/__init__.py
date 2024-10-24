@@ -18,6 +18,13 @@ else:
     __all__ += ["Hdf5FrameReader"]
 
 try:
+    from .rrd import RrdFrameReader
+except ImportError:
+    pass
+else:
+    __all__ += ["RrdFrameReader"]
+
+try:
     from .video.ffmpeg_reader import FfmpegFrameReader
 except ImportError:
     pass

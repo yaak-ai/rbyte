@@ -61,7 +61,7 @@ class BuildYaakIdlProtosHook(BuildHookInterface):  # pyright: ignore[reportMissi
         with NamedTemporaryFile() as descriptor_set_out:
             protoc_cmd = [
                 "grpc_tools.protoc",
-                f"--proto_path={resources.files("grpc_tools") / "_proto"}",
+                f"--proto_path={resources.files('grpc_tools') / '_proto'}",
                 f"--proto_path={cls.YAAK_IDL_PROTO_PATH}",
                 f"--python_out={cls.YAAK_IDL_PYTHON_OUT}",
                 f"--pyi_out={cls.YAAK_IDL_PYTHON_OUT}",

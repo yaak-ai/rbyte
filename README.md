@@ -18,9 +18,9 @@
 uv add rbyte [--extra <EXTRA>]
 ```
 
-See [pyproject.toml](./pyproject.toml) for available extras.
+See `pyproject.toml` for available extras.
 
-## [Examples](./examples)
+## Examples
 
 1. Install required tools:
 - [`uv`](https://github.com/astral-sh/uv)
@@ -35,7 +35,7 @@ git clone https://github.com/yaak-ai/rbyte
 3. Run:
 ```shell
 cd rbyte
-just example nuscenes
+just notebook examples/nuscenes_mcap.ipynb
 ```
 
 ## Development

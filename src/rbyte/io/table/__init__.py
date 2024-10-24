@@ -25,3 +25,10 @@ except ImportError:
     pass
 else:
     __all__ += ["YaakMetadataTableReader"]
+
+try:
+    from .rrd import RrdTableReader
+except ImportError:
+    pass
+else:
+    __all__ += ["RrdTableReader"]

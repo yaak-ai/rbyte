@@ -59,7 +59,8 @@ merger:
   _target_: rbyte.io.table.TableAligner
   separator: "."
   merge:
-    ImageMetadata.(@=cameras[0]@):
+    #@ camera = cameras[0]
+    ImageMetadata.(@=camera@):
       time_stamp:
         method: ref
 

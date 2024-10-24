@@ -8,7 +8,9 @@ sync:
     uv sync --all-extras --dev
 
 install-tools:
-    for tool in basedpyright ruff pre-commit; do uv tool install --force --upgrade $tool;  done
+    uv tool install --force --upgrade ruff
+    uv tool install --force --upgrade basedpyright
+    uv tool install --force --upgrade pre-commit --with pre-commit-uv
 
 setup: sync install-tools
     git submodule update --init --recursive --force --remote
@@ -46,8 +48,8 @@ generate-config:
 test *ARGS: generate-config
     uv run pytest --capture=no {{ ARGS }}
 
-example NAME *ARGS: sync generate-config
-    uv run --with=jupyter,jupyterlab-vim,rerun-notebook jupyter lab ./examples/{{ NAME }}.ipynb {{ ARGS }}
+notebook FILE *ARGS: sync generate-config
+    uv run --with=jupyter,jupyterlab-vim,rerun-notebook jupyter lab {{ FILE }} {{ ARGS }}
 
 [group('scripts')]
 visualize *ARGS: generate-config

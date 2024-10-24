@@ -141,11 +141,12 @@ class RerunLogger(Logger[Batch]):
                                 ]
 
                             case rr.Points3D:
+                                s, n, *_ = arr.shape
                                 components = [
                                     schema.indicator(),
-                                    rr.components.Position3DBatch(arr).partition(
-                                        arr.shape[0]
-                                    ),
+                                    rr.components.Position3DBatch(
+                                        arr.reshape(s * n, -1)
+                                    ).partition([n for _ in range(s)]),
                                 ]
 
                             case rr.Tensor:

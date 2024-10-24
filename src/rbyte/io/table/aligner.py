@@ -1,6 +1,7 @@
 import json
 from collections import OrderedDict
 from collections.abc import Hashable, Mapping, Sequence
+from datetime import timedelta
 from functools import cached_property
 from operator import itemgetter
 from typing import Annotated, Literal, Self, override
@@ -24,10 +25,8 @@ class RefColumnMergeConfig(BaseModel):
 
 class AsofColumnMergeConfig(BaseModel):
     method: Literal["asof"] = "asof"
-    tolerance: Annotated[
-        str, StringConstraints(strip_whitespace=True, to_lower=True, pattern=r"\d+ms$")
-    ] = "100ms"
-    strategy: AsofJoinStrategy = "nearest"
+    strategy: AsofJoinStrategy = "backward"
+    tolerance: str | int | float | timedelta | None = None
 
 
 class InterpColumnMergeConfig(BaseModel):
@@ -149,7 +148,7 @@ class TableAligner(TableMergerBase, Hashable):
                 logger.debug(
                     "merged",
                     merge_rows=f"{df_ref_height_pre}->{df_ref.height}",
-                    merge_other=f"{k_merge}[{", ".join(_df_merge_cols)}]",
+                    merge_other=f"{k_merge}[{', '.join(_df_merge_cols)}]",
                 )
 
         return df_ref
