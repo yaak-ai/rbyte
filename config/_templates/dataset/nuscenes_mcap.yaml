@@ -6,11 +6,11 @@
 #@     'nuScenes-v1.0-mini-scene-0061-cut',
 #@ ]
 
-#@ camera_topics = [
-#@     '/CAM_FRONT/image_rect_compressed',
-#@     '/CAM_FRONT_LEFT/image_rect_compressed',
-#@     '/CAM_FRONT_RIGHT/image_rect_compressed',
-#@ ]
+#@ camera_topics = {
+#@     'CAM_FRONT': '/CAM_FRONT/image_rect_compressed',
+#@     'CAM_FRONT_LEFT': '/CAM_FRONT_LEFT/image_rect_compressed',
+#@     'CAM_FRONT_RIGHT': '/CAM_FRONT_RIGHT/image_rect_compressed',
+#@ }
 ---
 _target_: rbyte.Dataset
 _convert_: all
@@ -19,8 +19,8 @@ inputs:
   #@ for input_id in inputs:
   (@=input_id@):
     frame:
-      #@ for topic in camera_topics:
-      (@=topic@):
+      #@ for camera, topic in camera_topics.items():
+      (@=camera@):
         index_column: (@=topic@)/_idx_
         reader:
           _target_: rbyte.io.frame.McapFrameReader
@@ -49,7 +49,7 @@ inputs:
                 - rbyte.utils.mcap.JsonDecoderFactory
 
               fields:
-                #@ for topic in camera_topics:
+                #@ for topic in camera_topics.values():
                 (@=topic@):
                   log_time:
                     _target_: polars.Datetime
@@ -68,14 +68,15 @@ inputs:
           _target_: rbyte.io.table.TableAligner
           separator: "/"
           merge:
-            (@=camera_topics[0]@):
+            (@=camera_topics.values()[0]@):
               log_time:
                 method: ref
 
-            #@ for topic in camera_topics[1:]:
+            #@ for topic in camera_topics.values()[1:]:
             (@=topic@):
               log_time:
                 method: ref
+
               _idx_:
                 method: asof
                 tolerance: 40ms
@@ -96,7 +97,7 @@ inputs:
 
 sample_builder:
   _target_: rbyte.sample.builder.GreedySampleTableBuilder
-  index_column: (@=camera_topics[0]@)/_idx_
+  index_column: (@=camera_topics.values()[0]@)/_idx_
   length: 1
   stride: 1
   min_step: 1

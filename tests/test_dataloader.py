@@ -56,10 +56,10 @@ def test_mimicgen() -> None:
             raise AssertionError(msg)
 
 
-def test_nuscenes() -> None:
+def test_nuscenes_mcap() -> None:
     with initialize(version_base=None, config_path=CONFIG_PATH):
         cfg = compose(
-            "visualize", overrides=["dataset=nuscenes", f"+data_dir={DATA_DIR}"]
+            "visualize", overrides=["dataset=nuscenes_mcap", f"+data_dir={DATA_DIR}"]
         )
 
     dataloader = instantiate(cfg.dataloader)
@@ -72,9 +72,9 @@ def test_nuscenes() -> None:
     match batch.to_dict():
         case {
             "frame": {
-                "/CAM_FRONT/image_rect_compressed": Tensor(shape=[c.B, c.S, *_]),
-                "/CAM_FRONT_LEFT/image_rect_compressed": Tensor(shape=[c.B, c.S, *_]),
-                "/CAM_FRONT_RIGHT/image_rect_compressed": Tensor(shape=[c.B, c.S, *_]),
+                "CAM_FRONT": Tensor(shape=[c.B, c.S, *_]),
+                "CAM_FRONT_LEFT": Tensor(shape=[c.B, c.S, *_]),
+                "CAM_FRONT_RIGHT": Tensor(shape=[c.B, c.S, *_]),
                 **frame_rest,
             },
             "table": {
@@ -91,6 +91,64 @@ def test_nuscenes() -> None:
                     shape=[c.B, c.S]
                 ),
                 "/odom/vel.x": Tensor(shape=[c.B, c.S]),
+                **table_rest,
+            },
+            "meta": {
+                "input_id": input_id,
+                "sample_idx": Tensor(shape=[c.B]),
+                **meta_rest,
+            },
+            **batch_rest,
+        } if set(input_id).issubset(cfg.dataloader.dataset.inputs) and not any((
+            batch_rest,
+            frame_rest,
+            table_rest,
+            meta_rest,
+        )):
+            pass
+
+        case _:
+            logger.error(msg := "invalid batch structure", batch=batch)
+
+            raise AssertionError(msg)
+
+
+def test_nuscenes_rrd() -> None:
+    with initialize(version_base=None, config_path=CONFIG_PATH):
+        cfg = compose(
+            "visualize", overrides=["dataset=nuscenes_rrd", f"+data_dir={DATA_DIR}"]
+        )
+
+    dataloader = instantiate(cfg.dataloader)
+
+    c = SimpleNamespace(
+        B=cfg.dataloader.batch_size, S=cfg.dataloader.dataset.sample_builder.length
+    )
+
+    batch = next(iter(dataloader))
+    match batch.to_dict():
+        case {
+            "frame": {
+                "CAM_FRONT": Tensor(shape=[c.B, c.S, *_]),
+                "CAM_FRONT_LEFT": Tensor(shape=[c.B, c.S, *_]),
+                "CAM_FRONT_RIGHT": Tensor(shape=[c.B, c.S, *_]),
+                **frame_rest,
+            },
+            "table": {
+                "/world/ego_vehicle/CAM_FRONT/timestamp": Tensor(shape=[c.B, c.S, *_]),
+                "/world/ego_vehicle/CAM_FRONT/_idx_": Tensor(shape=[c.B, c.S, *_]),
+                "/world/ego_vehicle/CAM_FRONT_LEFT/timestamp": Tensor(
+                    shape=[c.B, c.S, *_]
+                ),
+                "/world/ego_vehicle/CAM_FRONT_LEFT/_idx_": Tensor(shape=[c.B, c.S, *_]),
+                "/world/ego_vehicle/CAM_FRONT_RIGHT/timestamp": Tensor(
+                    shape=[c.B, c.S, *_]
+                ),
+                "/world/ego_vehicle/CAM_FRONT_RIGHT/_idx_": Tensor(
+                    shape=[c.B, c.S, *_]
+                ),
+                "/world/ego_vehicle/LIDAR_TOP/timestamp": Tensor(shape=[c.B, c.S, *_]),
+                "/world/ego_vehicle/LIDAR_TOP/Position3D": Tensor(shape=[c.B, c.S, *_]),
                 **table_rest,
             },
             "meta": {

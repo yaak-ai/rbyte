@@ -1,13 +1,13 @@
 [project]
 name = "rbyte"
 version = "0.5.2"
-description = "Multimodal dataset library"
+description = "Multimodal PyTorch dataset library"
 authors = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 maintainers = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 dependencies = [
   "tensordict>=0.6.0",
   "torch",
-  "polars>=1.10.0",
+  "polars>=1.12.0",
   "pydantic>=2.9.2",
   "more-itertools>=10.5.0",
   "hydra-core>=1.3.2",
@@ -33,6 +33,9 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
+[project.urls]
+repo = "https://github.com/yaak-ai/rbyte"
+
 [project.optional-dependencies]
 build = ["hatchling>=1.25.0", "grpcio-tools>=1.62.0", "protoletariat==3.2.19"]
 visualize = ["rerun-sdk[notebook]>=0.19.0"]
@@ -49,6 +52,7 @@ video = [
   "video-reader-rs>=0.1.7",
 ]
 hdf5 = ["h5py>=3.12.1"]
+rrd = ["rerun-sdk>=0.19.0", "pyarrow-stubs"]
 
 [project.scripts]
 rbyte-build-table = 'rbyte.scripts.build_table:main'

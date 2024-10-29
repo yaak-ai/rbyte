@@ -57,4 +57,5 @@ class GreedySampleTableBuilder(SampleTableBuilder):
             .sql(f"select * from self where ({self._filter or True})")  # noqa: S608
             .sort(sample_idx_col)
             .select(pl.exclude(sample_idx_col))
+            .select(pl.all().list.to_array(self._length))
         )

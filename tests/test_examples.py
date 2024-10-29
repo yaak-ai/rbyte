@@ -4,9 +4,11 @@ import pytest
 from testbook import testbook
 
 
-def test_nuscenes(monkeypatch: pytest.MonkeyPatch) -> None:
-    # hydra needs a relative `config_path`
-    monkeypatch.chdir(Path(__file__).parent.parent.resolve() / "examples")
+@pytest.mark.parametrize("file", ["nuscenes_mcap.ipynb", "nuscenes_rrd.ipynb"])
+def test_example(file: str) -> None:
+    with pytest.MonkeyPatch.context() as mp:
+        # hydra needs a relative `config_path`
+        mp.chdir(Path(__file__).parent.parent.resolve() / "examples")
 
-    with testbook("nuscenes.ipynb") as tb:
-        tb.execute()
+        with testbook(file) as tb:
+            tb.execute()

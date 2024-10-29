@@ -1,24 +1,24 @@
 #@yaml/text-templated-strings
 
 #@ camera_topics = {
-#@   camera: '/{}/image_rect_compressed'.format(camera)
-#@   for camera in ['CAM_FRONT_LEFT', 'CAM_FRONT', 'CAM_FRONT_RIGHT']
+#@     'CAM_FRONT': '/CAM_FRONT/image_rect_compressed',
+#@     'CAM_FRONT_LEFT': '/CAM_FRONT_LEFT/image_rect_compressed',
+#@     'CAM_FRONT_RIGHT': '/CAM_FRONT_RIGHT/image_rect_compressed',
 #@ }
 ---
 _target_: rbyte.viz.loggers.RerunLogger
 schema:
   frame:
-    #@ for camera_topic in camera_topics.values():
-    (@=camera_topic@):
+    #@ for camera in camera_topics.keys():
+    (@=camera@):
       Image:
         color_model: RGB
     #@ end
 
   table:
-    #@ camera_topic = camera_topics.values()[0]
-    (@=camera_topic@)/log_time: TimeNanosColumn
-    #@ for camera_topic in camera_topics.values():
-    (@=camera_topic@)/_idx_: TimeSequenceColumn
+    #@ for topic in camera_topics.values():
+    (@=topic@)/_idx_: TimeSequenceColumn
+    (@=topic@)/log_time: TimeNanosColumn
     #@ end
     /odom/vel.x: Scalar
 
@@ -30,10 +30,10 @@ blueprint:
       contents:
         - _target_: rerun.blueprint.Horizontal
           contents:
-            #@ for camera, camera_topic in camera_topics.items():
+            #@ for camera in camera_topics.keys():
             - _target_: rerun.blueprint.Spatial2DView
               name: #@ camera
-              origin: #@ "frame/{}".format(camera_topic)
+              origin: #@ "frame/{}".format(camera)
             #@ end
 
         - _target_: rerun.blueprint.TimeSeriesView

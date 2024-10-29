@@ -1,29 +1,29 @@
 ---
 repos:
   - repo: https://github.com/abravalheri/validate-pyproject
-    rev: v0.21
+    rev: v0.22
     hooks:
       - id: validate-pyproject
 
   - repo: https://github.com/crate-ci/typos
-    rev: v1.26.0
+    rev: v1.26.8
     hooks:
       - id: typos
 
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.18.0
+    rev: v3.19.0
     hooks:
       - id: pyupgrade
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.7.0
+    rev: v0.7.1
     hooks:
       - id: ruff
         args: [--fix]
       - id: ruff-format
 
   - repo: https://github.com/DetachHead/basedpyright-pre-commit-mirror
-    rev: 1.19.0
+    rev: 1.19.1
     hooks:
       - id: basedpyright
 
