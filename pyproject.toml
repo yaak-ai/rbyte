@@ -1,17 +1,18 @@
 [project]
 name = "rbyte"
-version = "0.6.0"
+version = "0.7.0"
 description = "Multimodal PyTorch dataset library"
 authors = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 maintainers = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 dependencies = [
-  "tensordict>=0.6.0",
+  "tensordict>=0.6.2",
   "torch",
-  "polars>=1.12.0",
+  "numpy",
+  "polars>=1.14.0",
   "pydantic>=2.9.2",
   "more-itertools>=10.5.0",
   "hydra-core>=1.3.2",
-  "optree>=0.13.0",
+  "optree>=0.13.1",
   "cachetools>=5.5.0",
   "diskcache>=5.6.3",
   "jaxtyping>=0.2.34",
@@ -38,7 +39,7 @@ repo = "https://github.com/yaak-ai/rbyte"
 
 [project.optional-dependencies]
 build = ["hatchling>=1.25.0", "grpcio-tools>=1.62.0", "protoletariat==3.2.19"]
-visualize = ["rerun-sdk[notebook]>=0.19.0"]
+visualize = ["rerun-sdk[notebook]>=0.20.0"]
 mcap = [
   "mcap>=1.2.1",
   "mcap-ros2-support>=0.5.5",
@@ -49,14 +50,12 @@ yaak = ["protobuf", "ptars>=0.0.3"]
 jpeg = ["simplejpeg>=1.7.6"]
 video = [
   "python-vali>=4.2.0.post0; sys_platform == 'linux'",
-  "video-reader-rs>=0.1.9",
+  "video-reader-rs>=0.2.1",
 ]
 hdf5 = ["h5py>=3.12.1"]
-rrd = ["rerun-sdk>=0.19.0", "pyarrow-stubs"]
+rrd = ["rerun-sdk>=0.20.0", "pyarrow-stubs"]
 
 [project.scripts]
-rbyte-build-table = 'rbyte.scripts.build_table:main'
-rbyte-read-frames = 'rbyte.scripts.read_frames:main'
 rbyte-visualize = 'rbyte.scripts.visualize:main'
 
 [build-system]
@@ -69,10 +68,10 @@ build-backend = "hatchling.build"
 
 [tool.uv]
 dev-dependencies = [
-  "wat-inspector>=0.4.0",
+  "wat-inspector>=0.4.2",
   "lovely-tensors>=0.1.17",
   "pudb>=2024.1.2",
-  "ipython>=8.28.0",
+  "ipython>=8.29.0",
   "ipython-autoimport>=0.5",
   "pytest>=8.3.3",
   "testbook>=0.4.2",

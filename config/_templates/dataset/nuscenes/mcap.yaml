@@ -1,0 +1,102 @@
+#@yaml/text-templated-strings
+
+#@ inputs = [
+#@     "nuScenes-v1.0-mini-scene-0061-cut",
+#@ ]
+
+#@ camera_topics = {
+#@     "CAM_FRONT": "/CAM_FRONT/image_rect_compressed",
+#@     "CAM_FRONT_LEFT": "/CAM_FRONT_LEFT/image_rect_compressed",
+#@     "CAM_FRONT_RIGHT": "/CAM_FRONT_RIGHT/image_rect_compressed",
+#@ }
+---
+_target_: rbyte.Dataset
+_convert_: all
+_recursive_: false
+inputs:
+  #@ for input_id in inputs:
+  (@=input_id@):
+    sources:
+      #@ for camera, topic in camera_topics.items():
+      (@=camera@):
+        index_column: mcap/(@=topic@)/_idx_
+        source:
+          _target_: rbyte.io.McapTensorSource
+          path: "${data_dir}/(@=input_id@).mcap"
+          topic: (@=topic@)
+          decoder_factory: mcap_protobuf.decoder.DecoderFactory
+          decoder:
+            _target_: simplejpeg.decode_jpeg
+            _partial_: true
+            colorspace: rgb
+            fastdct: true
+            fastupsample: true
+      #@ end
+
+    table_builder:
+      _target_: rbyte.io.TableBuilder
+      _convert_: all
+      readers:
+        mcap:
+          path: "${data_dir}/(@=input_id@).mcap"
+          reader:
+            _target_: rbyte.io.McapTableReader
+            _recursive_: false
+            decoder_factories:
+              - rbyte.utils.mcap.ProtobufDecoderFactory
+              - rbyte.utils.mcap.JsonDecoderFactory
+
+            fields:
+              #@ for topic in camera_topics.values():
+              (@=topic@):
+                log_time:
+                  _target_: polars.Datetime
+                  time_unit: ns
+
+                _idx_:
+              #@ end
+
+              /odom:
+                log_time:
+                  _target_: polars.Datetime
+                  time_unit: ns
+                vel.x:
+
+      merger:
+        _target_: rbyte.io.TableAligner
+        separator: "/"
+        merge:
+          mcap:
+            #@ topic = camera_topics.values()[0]
+            (@=topic@):
+              key: log_time
+
+            #@ for topic in camera_topics.values()[1:]:
+            (@=topic@):
+              key: log_time
+              columns:
+                _idx_:
+                  method: asof
+                  tolerance: 40ms
+                  strategy: nearest
+            #@ end
+
+            /odom:
+              key: log_time
+              columns:
+                vel.x:
+                  method: interp
+
+      filter: |
+        `mcap//odom/vel.x` >= 8
+
+      cache:
+  #@ end
+
+sample_builder:
+  _target_: rbyte.sample.GreedySampleBuilder
+  index_column: mcap/(@=camera_topics.values()[0]@)/_idx_
+  length: 1
+  stride: 1
+  min_step: 1
+  filter: !!null

@@ -1,5 +1,6 @@
 export PYTHONOPTIMIZE := "1"
 export HATCH_BUILD_CLEAN := "1"
+export HYDRA_FULL_ERROR := "1"
 
 _default:
     @just --list --unsorted
@@ -56,24 +57,6 @@ visualize *ARGS: generate-config
     uv run rbyte-visualize \
         --config-path {{ justfile_directory() }}/config \
         --config-name visualize.yaml \
-        hydra/hydra_logging=disabled \
-        hydra/job_logging=disabled \
-        {{ ARGS }}
-
-[group('scripts')]
-build-table *ARGS: generate-config
-    uv run rbyte-build-table \
-        --config-path {{ justfile_directory() }}/config \
-        --config-name build_table.yaml \
-        hydra/hydra_logging=disabled \
-        hydra/job_logging=disabled \
-        {{ ARGS }}
-
-[group('scripts')]
-read-frames *ARGS: generate-config
-    uv run rbyte-read-frames \
-        --config-path {{ justfile_directory() }}/config \
-        --config-name read_frames.yaml \
         hydra/hydra_logging=disabled \
         hydra/job_logging=disabled \
         {{ ARGS }}

@@ -1,5 +1,3 @@
-#! https://huggingface.co/datasets/amandlek/mimicgen_datasets/blob/main/source/coffee.hdf5
-
 #@yaml/text-templated-strings
 
 #@ inputs = {
@@ -10,7 +8,7 @@
 #@ }
 
 #@ frame_keys = [
-#@     'obs/agentview_image',
+#@     "obs/agentview_image",
 #@ ]
 ---
 _target_: rbyte.Dataset
@@ -20,38 +18,38 @@ inputs:
   #@ for input_id, input_keys in inputs.items():
   #@ for input_key in input_keys:
   (@=input_id@)(@=input_key@):
-    frame:
+    sources:
       #@ for frame_key in frame_keys:
       (@=frame_key@):
         index_column: _idx_
-        reader:
-          _target_: rbyte.io.frame.Hdf5FrameReader
+        source:
+          _target_: rbyte.io.Hdf5TensorSource
           path: "${data_dir}/(@=input_id@).hdf5"
           key: (@=input_key@)/(@=frame_key@)
       #@ end
 
-    table:
-      builder:
-        _target_: rbyte.io.table.TableBuilder
-        _convert_: all
-        readers:
-          - path: "${data_dir}/(@=input_id@).hdf5"
-            reader:
-              _target_: rbyte.io.table.Hdf5TableReader
-              _recursive_: false
-              fields:
-                (@=input_key@):
-                  _idx_:
-                  obs/robot0_eef_pos:
+    table_builder:
+      _target_: rbyte.io.TableBuilder
+      _convert_: all
+      readers:
+        hdf5:
+          path: "${data_dir}/(@=input_id@).hdf5"
+          reader:
+            _target_: rbyte.io.Hdf5TableReader
+            _recursive_: false
+            fields:
+              (@=input_key@):
+                _idx_:
+                obs/robot0_eef_pos:
 
-        merger:
-          _target_: rbyte.io.table.TableConcater
-          method: vertical
+      merger:
+        _target_: rbyte.io.TableConcater
+        method: vertical
   #@ end
   #@ end
 
 sample_builder:
-  _target_: rbyte.sample.builder.GreedySampleTableBuilder
+  _target_: rbyte.sample.GreedySampleBuilder
   index_column: _idx_
   length: 1
   stride: 1

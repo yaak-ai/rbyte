@@ -14,6 +14,5 @@ class BatchMeta:
 
 @tensorclass(autocast=True)  # pyright: ignore[reportUntypedClassDecorator]
 class Batch:
+    data: TensorDict  # pyright: ignore[reportUninitializedInstanceVariable]
     meta: BatchMeta  # pyright: ignore[reportUninitializedInstanceVariable]
-    frame: TensorDict  # pyright: ignore[reportUninitializedInstanceVariable]
-    table: TensorDict  # pyright: ignore[reportUninitializedInstanceVariable]

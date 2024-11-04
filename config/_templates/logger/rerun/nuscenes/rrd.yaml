@@ -1,0 +1,39 @@
+#@yaml/text-templated-strings
+
+#@ camera_entities = {
+#@     "CAM_FRONT": "/world/ego_vehicle/CAM_FRONT",
+#@     "CAM_FRONT_LEFT": "/world/ego_vehicle/CAM_FRONT_LEFT",
+#@     "CAM_FRONT_RIGHT": "/world/ego_vehicle/CAM_FRONT_RIGHT",
+#@ }
+---
+_target_: rbyte.viz.loggers.RerunLogger
+spawn: true
+schema:
+  #@ for camera in camera_entities.keys():
+  (@=camera@):
+    Image:
+      color_model: RGB
+  #@ end
+
+  #@ entity = camera_entities.values()[0]
+  rrd/(@=entity@)/_idx_: TimeSequenceColumn
+  rrd/(@=entity@)/timestamp: TimeNanosColumn
+  #@ for entity in camera_entities.values()[1:]:
+  rrd/(@=entity@)/_idx_: TimeSequenceColumn
+  #@ end
+  #! rrd//world/ego_vehicle/LIDAR_TOP/Position3D: Points3D
+
+blueprint:
+  _target_: rerun.blueprint.Blueprint
+  _args_:
+    - _target_: rerun.blueprint.Vertical
+      contents:
+        - _target_: rerun.blueprint.Spatial3DView
+          origin: rrd/
+
+        - _target_: rerun.blueprint.Horizontal
+          contents:
+            #@ for camera in camera_entities.keys():
+            - _target_: rerun.blueprint.Spatial2DView
+              origin : #@ camera
+            #@ end

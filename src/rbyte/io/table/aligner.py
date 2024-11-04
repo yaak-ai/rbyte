@@ -1,26 +1,34 @@
 import json
 from collections import OrderedDict
-from collections.abc import Hashable, Mapping, Sequence
+from collections.abc import Hashable
 from datetime import timedelta
 from functools import cached_property
-from operator import itemgetter
-from typing import Annotated, Literal, Self, override
+from typing import Annotated, Literal, override
+from uuid import uuid4
 
-import more_itertools as mit
 import polars as pl
+from optree import (
+    PyTree,
+    PyTreeAccessor,
+    tree_accessors,
+    tree_map_with_accessor,
+    tree_map_with_path,
+)
 from polars._typing import AsofJoinStrategy
-from pydantic import StringConstraints, model_validator
+from pydantic import Field, StringConstraints
 from structlog import get_logger
+from structlog.contextvars import bound_contextvars
 from xxhash import xxh3_64_intdigest as digest
 
 from rbyte.config.base import BaseModel
-from rbyte.io.table.base import TableMergerBase
+
+from .base import TableMerger
 
 logger = get_logger(__name__)
 
 
-class RefColumnMergeConfig(BaseModel):
-    method: Literal["ref"] = "ref"
+class InterpColumnMergeConfig(BaseModel):
+    method: Literal["interp"] = "interp"
 
 
 class AsofColumnMergeConfig(BaseModel):
@@ -29,129 +37,113 @@ class AsofColumnMergeConfig(BaseModel):
     tolerance: str | int | float | timedelta | None = None
 
 
-class InterpColumnMergeConfig(BaseModel):
-    method: Literal["interp"] = "interp"
+ColumnMergeConfig = InterpColumnMergeConfig | AsofColumnMergeConfig
 
 
-MergeConfig = RefColumnMergeConfig | AsofColumnMergeConfig | InterpColumnMergeConfig
+class TableMergeConfig(BaseModel):
+    key: str
+    columns: OrderedDict[str, ColumnMergeConfig] = Field(default_factory=OrderedDict)
+
+
+type MergeConfig = TableMergeConfig | OrderedDict[str, "MergeConfig"]
 
 
 class Config(BaseModel):
-    merge: OrderedDict[str, Mapping[str, MergeConfig]]
+    merge: MergeConfig
     separator: Annotated[str, StringConstraints(strip_whitespace=True)] = "/"
 
-    @model_validator(mode="after")
-    def validate_refs(self) -> Self:
-        ref_config = RefColumnMergeConfig()
-        for k, v in self.columns_by_merge_config.items():
-            match v.get(ref_config, None):
-                case [_column]:
-                    pass
-
-                case _:
-                    msg = f"merge `{k}` must have exactly one column with {ref_config}"
-                    raise ValueError(msg)
-
-        return self
-
     @cached_property
-    def columns_by_merge_config(
-        self,
-    ) -> Mapping[str, Mapping[MergeConfig, Sequence[str]]]:
-        return {
-            k: mit.map_reduce(v.items(), keyfunc=itemgetter(1), valuefunc=itemgetter(0))
-            for k, v in self.merge.items()
-        }
+    def merge_fqn(self) -> PyTree[TableMergeConfig]:
+        # fully qualified key/column names
+        def fqn(path: tuple[str, ...], cfg: TableMergeConfig) -> TableMergeConfig:
+            key = self.separator.join((*path, cfg.key))
+            columns = OrderedDict({
+                self.separator.join((*path, k)): v for k, v in cfg.columns.items()
+            })
 
-    @cached_property
-    def ref_columns(self) -> Mapping[str, str]:
-        return {
-            k: mit.one(v[RefColumnMergeConfig()])
-            for k, v in self.columns_by_merge_config.items()
-        }
+            return TableMergeConfig(key=key, columns=columns)
+
+        return tree_map_with_path(fqn, self.merge)  # pyright: ignore[reportArgumentType]
 
 
-class TableAligner(TableMergerBase, Hashable):
+class TableAligner(TableMerger, Hashable):
     def __init__(self, **kwargs: object) -> None:
-        self._config = Config.model_validate(kwargs)
-
-    def _col_name(self, *args: str) -> str:
-        return self._config.separator.join(args)
+        self._config: Config = Config.model_validate(kwargs)
 
     @override
-    def merge(self, src: Mapping[str, pl.DataFrame]) -> pl.DataFrame:
-        if unused_keys := src.keys() - self._config.merge.keys():
-            logger.warning("unused", keys=sorted(unused_keys))
+    def merge(self, src: PyTree[pl.DataFrame]) -> pl.DataFrame:
+        merge_configs = self._config.merge_fqn
 
-        dfs = {
-            k: src[k]
-            .sort(self._config.ref_columns[k])
-            .rename(lambda col, k=k: self._col_name(k, col))
-            for k in self._config.merge
-        }
-        k_df_ref = mit.first(self._config.merge.keys())
-        df_ref = dfs.pop(k_df_ref)
-        df_ref_col_ref = self._col_name(k_df_ref, self._config.ref_columns[k_df_ref])
-
-        logger.debug(
-            "merging", merge_ref=f"{k_df_ref}[{self._config.ref_columns[k_df_ref]}]"
-        )
-
-        for k_merge, df_merge in dfs.items():
-            cols_by_merge_config = self._config.columns_by_merge_config[k_merge]
-            df_merge_col_ref = self._col_name(
-                k_merge, self._config.ref_columns[k_merge]
+        def get_df(accessor: PyTreeAccessor, cfg: TableMergeConfig) -> pl.DataFrame:
+            return (
+                accessor(src)
+                .rename(lambda col: self._config.separator.join((*accessor.path, col)))  # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+                .sort(cfg.key)
             )
 
-            for merge_cfg, _df_merge_cols in cols_by_merge_config.items():
-                if isinstance(merge_cfg, RefColumnMergeConfig):
-                    continue
+        dfs = tree_map_with_accessor(get_df, merge_configs)
+        accessor, *accessors_rest = tree_accessors(merge_configs)
+        df: pl.DataFrame = accessor(dfs)
+        left_on = accessor(merge_configs).key
 
-                df_merge_cols = tuple(
-                    self._col_name(k_merge, col) for col in _df_merge_cols
-                )
+        for accessor in accessors_rest:
+            other: pl.DataFrame = accessor(dfs)
+            merge_config: TableMergeConfig = accessor(merge_configs)
+            key = merge_config.key
 
-                df_ref_height_pre = df_ref.height
-                match merge_cfg:
-                    case AsofColumnMergeConfig(strategy=strategy, tolerance=tolerance):
-                        df_ref = df_ref.join_asof(
-                            other=df_merge.select(df_merge_col_ref, *df_merge_cols),
-                            left_on=df_ref_col_ref,
-                            right_on=df_merge_col_ref,
-                            strategy=strategy,
-                            tolerance=tolerance,
-                        ).drop_nulls(df_merge_cols)
+            for column, config in merge_config.columns.items():
+                df_height_pre = df.height
 
-                    case InterpColumnMergeConfig():
-                        df_ref = (
-                            # take a union of timestamps
-                            df_ref.join(
-                                df_merge.select(df_merge_col_ref, *df_merge_cols),
-                                how="full",
-                                left_on=df_ref_col_ref,
-                                right_on=df_merge_col_ref,
-                                coalesce=True,
+                with bound_contextvars(key=key, column=column, config=config):
+                    match config:
+                        case AsofColumnMergeConfig(
+                            strategy=strategy, tolerance=tolerance
+                        ):
+                            right_on = key if key == column else uuid4().hex
+
+                            df = (
+                                df.join_asof(
+                                    other=other.select({key, column}).rename({
+                                        key: right_on
+                                    }),
+                                    left_on=left_on,
+                                    right_on=right_on,
+                                    strategy=strategy,
+                                    tolerance=tolerance,
+                                )
+                                .drop_nulls(column)
+                                .drop({right_on} - {key})
                             )
-                            # interpolate
-                            .with_columns(
-                                pl.col(df_merge_cols).interpolate_by(df_ref_col_ref)
-                            )
-                            # narrow back to original ref col
-                            .join(
-                                df_ref.select(df_ref_col_ref),
-                                on=df_ref_col_ref,
-                                how="semi",
-                            )
-                            .sort(df_ref_col_ref)
-                        ).drop_nulls(df_merge_cols)
+
+                        case InterpColumnMergeConfig():
+                            if key == column:
+                                logger.error(msg := "cannot interpolate key")
+
+                                raise ValueError(msg)
+
+                            right_on = key
+
+                            df = (
+                                # take a union of timestamps
+                                df.join(
+                                    other.select(right_on, column),
+                                    how="full",
+                                    left_on=left_on,
+                                    right_on=right_on,
+                                    coalesce=True,
+                                )
+                                # interpolate
+                                .with_columns(pl.col(column).interpolate_by(left_on))
+                                # narrow back to original ref col
+                                .join(df.select(left_on), on=left_on, how="semi")
+                                .sort(left_on)
+                            ).drop_nulls(column)
 
                 logger.debug(
-                    "merged",
-                    merge_rows=f"{df_ref_height_pre}->{df_ref.height}",
-                    merge_other=f"{k_merge}[{', '.join(_df_merge_cols)}]",
+                    "merged", column=column, height=f"{df_height_pre}->{df.height}"
                 )
 
-        return df_ref
+        return df
 
     @override
     def __hash__(self) -> int:

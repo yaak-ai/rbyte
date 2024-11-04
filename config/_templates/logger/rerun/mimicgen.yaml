@@ -1,11 +1,9 @@
 ---
 _target_: rbyte.viz.loggers.RerunLogger
 schema:
-  frame:
-    obs/agentview_image:
-      Image:
-        color_model: RGB
+  obs/agentview_image:
+    Image:
+      color_model: RGB
 
-  table:
-    _idx_: TimeSequenceColumn
-    obs/robot0_eef_pos: Points3D
+  _idx_: TimeSequenceColumn
+  obs/robot0_eef_pos: Points3D

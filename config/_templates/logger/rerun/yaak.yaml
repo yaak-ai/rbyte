@@ -8,20 +8,19 @@
 ---
 _target_: rbyte.viz.loggers.RerunLogger
 schema:
-  frame:
-    #@ for camera in cameras:
-    (@=camera@):
-      Image:
-        color_model: RGB
-    #@ end
+  #@ for camera in cameras:
+  (@=camera@):
+    Image:
+      color_model: RGB
+  #@ end
 
-  table:
-    #@ for camera in cameras:
-    ImageMetadata.(@=camera@).frame_idx: TimeSequenceColumn
-    ImageMetadata.(@=camera@).time_stamp: TimeNanosColumn
-    #@ end
-    VehicleMotion.time_stamp: TimeNanosColumn
-    VehicleMotion.speed: Scalar
+  #@ camera = cameras[0]
+  meta/ImageMetadata.(@=camera@)/frame_idx: TimeSequenceColumn
+  meta/ImageMetadata.(@=camera@)/time_stamp: TimeNanosColumn
+  #@ for camera in cameras[1:]:
+  meta/ImageMetadata.(@=camera@)/frame_idx: TimeSequenceColumn
+  #@ end
+  meta/VehicleMotion/speed: Scalar
 
-    /ai/safety_score.clip.end_timestamp: TimeNanosColumn
-    /ai/safety_score.score: Scalar
+  mcap//ai/safety_score/clip.end_timestamp: TimeNanosColumn
+  mcap//ai/safety_score/score: Scalar

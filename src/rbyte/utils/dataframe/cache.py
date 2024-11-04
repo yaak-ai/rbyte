@@ -7,16 +7,16 @@ import polars as pl
 from diskcache import Cache
 from pydantic import ByteSize, DirectoryPath, NewPath, validate_call
 
-from rbyte.io.table.base import TableCacheBase
+from rbyte.io.table.base import TableCache
 
 
-class DataframeDiskCache(TableCacheBase):
+class DataframeDiskCache(TableCache):
     @validate_call
     def __init__(
         self, directory: DirectoryPath | NewPath, size_limit: ByteSize | None = None
     ) -> None:
         super().__init__()
-        self._cache = Cache(directory=directory, size_limit=size_limit)
+        self._cache: Cache = Cache(directory=directory, size_limit=size_limit)
 
     @override
     def __contains__(self, key: Hashable) -> bool:

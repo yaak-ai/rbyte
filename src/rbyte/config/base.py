@@ -1,5 +1,5 @@
 from functools import cached_property
-from typing import Literal, TypeVar
+from typing import ClassVar, Literal, TypeVar
 
 from hydra.utils import instantiate
 from pydantic import BaseModel as _BaseModel
@@ -7,7 +7,8 @@ from pydantic import ConfigDict, Field, ImportString, field_serializer, model_va
 
 
 class BaseModel(_BaseModel):
-    model_config = ConfigDict(
+    model_config: ClassVar[ConfigDict] = ConfigDict(
+        arbitrary_types_allowed=True,
         frozen=True,
         extra="forbid",
         validate_assignment=True,
@@ -19,7 +20,7 @@ T = TypeVar("T")
 
 
 class HydraConfig[T](BaseModel):
-    model_config = ConfigDict(extra="allow")
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow")
 
     target: ImportString[type[T]] = Field(alias="_target_")
     recursive: bool = Field(alias="_recursive_", default=True)

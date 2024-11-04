@@ -1,0 +1,16 @@
+---
+_target_: rbyte.viz.loggers.RerunLogger
+spawn: true
+schema:
+  camera_front_blur/timestamp: TimeNanosColumn
+  camera_front_blur:
+    Image:
+      color_model: RGB
+
+  lidar_velodyne/timestamp: TimeNanosColumn
+  lidar_velodyne: Points3D
+
+  vehicle_data/ego_vehicle_controls/timestamp/nanoseconds/value: TimeNanosColumn
+  vehicle_data/ego_vehicle_controls/acceleration_pedal/ratio/unitless/value: Scalar
+  vehicle_data/ego_vehicle_controls/steering_wheel_angle/angle/radians/value: Scalar
+  vehicle_data/satellite/speed/meters_per_second/value: Scalar

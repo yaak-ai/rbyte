@@ -3,7 +3,7 @@ from collections.abc import Generator
 from importlib import resources
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Any, override
+from typing import Any, final, override
 
 from grpc_tools import protoc
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface
@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 
+@final
 class BuildYaakIdlProtosHook(BuildHookInterface):  # pyright: ignore[reportMissingTypeArgument]
     PLUGIN_NAME = "build-yaak-idl-protos"
 
@@ -21,20 +22,13 @@ class BuildYaakIdlProtosHook(BuildHookInterface):  # pyright: ignore[reportMissi
         / "src"
         / "rbyte"
         / "io"
-        / "table"
         / "yaak"
         / "idl-repo"
         / "intercom"
         / "proto"
     )
     YAAK_IDL_PYTHON_OUT = (
-        Path(__file__).resolve().parent
-        / "src"
-        / "rbyte"
-        / "io"
-        / "table"
-        / "yaak"
-        / "proto"
+        Path(__file__).resolve().parent / "src" / "rbyte" / "io" / "yaak" / "proto"
     )
     YAAK_IDL_PROTOS = ("can.proto", "sensor.proto")
 
