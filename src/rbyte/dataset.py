@@ -3,20 +3,20 @@ from enum import StrEnum, unique
 from functools import cache
 from typing import Annotated
 
-import more_itertools as mit
 import polars as pl
 import torch
-from pydantic import ConfigDict, Field, StringConstraints, validate_call
+from pydantic import Field, StringConstraints, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from tensordict import TensorDict
 from torch.utils.data import Dataset as TorchDataset
 
 from rbyte.batch import Batch, BatchMeta
-from rbyte.config.base import BaseModel, HydraConfig
-from rbyte.io.frame.base import FrameReader
-from rbyte.io.table.base import TableBuilderBase
-from rbyte.sample.base import SampleTableBuilder
+from rbyte.config import BaseModel, HydraConfig
+from rbyte.io.base import TensorSource
+from rbyte.io.table.base import TableBuilder
+from rbyte.sample.base import SampleBuilder
+from rbyte.utils.functional import pad_sequence
 
 __all__ = ["Dataset"]
 
@@ -27,36 +27,32 @@ type Id = Annotated[
 ]
 
 
-class FrameSourceConfig(BaseModel):
-    reader: HydraConfig[FrameReader]
+class SourceConfig(BaseModel):
+    source: HydraConfig[TensorSource]
     index_column: str
 
 
-class TableSourceConfig(BaseModel):
-    builder: HydraConfig[TableBuilderBase]
-
-
-class SourcesConfig(BaseModel):
-    frame: Mapping[Id, FrameSourceConfig] = Field(min_length=1)
-    table: TableSourceConfig | None = None
+class InputConfig(BaseModel):
+    sources: Mapping[Id, SourceConfig] = Field(min_length=1)
+    table_builder: HydraConfig[TableBuilder]
 
 
 @unique
 class Column(StrEnum):
     input_id = "__input_id"
     sample_idx = "__sample_idx"
-    frame_idx = "__frame_idx"
-    source_id = "source.id"
-    source_reader = "source.reader"
-    source_index_column = "source.index_column"
+    source_idxs = "__source_idxs"
+    source_id = "__source.id"
+    source_config = "__source.config"
+    source_index_column = "__source.index_column"
 
 
 class Dataset(TorchDataset[TensorDict]):
-    @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
+    @validate_call(config=BaseModel.model_config)
     def __init__(
         self,
-        inputs: Annotated[Mapping[Id, SourcesConfig], Field(min_length=1)],
-        sample_builder: HydraConfig[SampleTableBuilder],
+        inputs: Annotated[Mapping[Id, InputConfig], Field(min_length=1)],
+        sample_builder: HydraConfig[SampleBuilder],
     ) -> None:
         logger.debug("initializing dataset")
 
@@ -66,7 +62,7 @@ class Dataset(TorchDataset[TensorDict]):
         samples: Mapping[str, pl.LazyFrame] = {}
         for input_id, input_cfg in inputs.items():
             with bound_contextvars(input_id=input_id):
-                table = self._build_table(input_cfg)
+                table = input_cfg.table_builder.instantiate().build().lazy()
                 samples[input_id] = _sample_builder.build(table)
                 logger.debug(
                     "built samples",
@@ -76,7 +72,7 @@ class Dataset(TorchDataset[TensorDict]):
 
         input_id_enum = pl.Enum(sorted(samples))
 
-        self._samples = (
+        self._samples: pl.DataFrame = (
             pl.concat(
                 [
                     df.select(
@@ -93,20 +89,20 @@ class Dataset(TorchDataset[TensorDict]):
             .rechunk()
         )
 
-        self._frame_sources = (
+        self._sources: pl.DataFrame = (
             pl.LazyFrame(
                 [
                     {
                         Column.input_id: input_id,
-                        (k := "source"): [
-                            source_cfg.model_dump(exclude={"reader"})
+                        (k := "__source"): [
+                            source_cfg.model_dump(exclude={"source"})
                             | {
                                 "id": source_id,
-                                "reader": source_cfg.reader.model_dump_json(
+                                "config": source_cfg.source.model_dump_json(
                                     by_alias=True
                                 ),
                             }
-                            for source_id, source_cfg in input_cfg.frame.items()
+                            for source_id, source_cfg in input_cfg.sources.items()
                         ],
                     }
                     for input_id, input_cfg in inputs.items()
@@ -120,66 +116,56 @@ class Dataset(TorchDataset[TensorDict]):
             .rechunk()
         )
 
-    @classmethod
-    def _build_table(cls, sources: SourcesConfig) -> pl.LazyFrame:
-        logger.debug("building table")
-
-        match sources:
-            case SourcesConfig(frame=frame_sources, table=None) if (
-                len(frame_sources) == 1
-            ):
-                frame_source = mit.one(frame_sources.values())
-                frame_reader = frame_source.reader.instantiate()
-                frame_idxs = pl.Series(
-                    name=frame_source.index_column,
-                    values=frame_reader.get_available_indexes(),
-                    dtype=pl.UInt32,
-                ).sort()
-
-                return pl.LazyFrame(frame_idxs)
-
-            case SourcesConfig(
-                frame=frame_sources, table=TableSourceConfig(builder=builder)
-            ):
-                table_builder = builder.instantiate()
-                table = table_builder.build().lazy()
-                schema = table.collect_schema()
-
-                for frame_source_id, frame_source in frame_sources.items():
-                    logger.debug("pruning table", frame_source=frame_source_id)
-                    frame_reader = frame_source.reader.instantiate()
-                    frame_idxs = pl.Series(
-                        name=(col := frame_source.index_column),
-                        values=frame_reader.get_available_indexes(),
-                        dtype=schema[col],
-                    ).sort()
-
-                    table = table.join(
-                        pl.LazyFrame(frame_idxs), on=frame_idxs.name, how="semi"
-                    )
-
-                return table
-
-            case _:
-                logger.error("not implemented")
-
-                raise NotImplementedError
-
     @property
     def samples(self) -> pl.DataFrame:
         return self._samples
 
     @property
-    def frame_sources(self) -> pl.DataFrame:
-        return self._frame_sources
+    def sources(self) -> pl.DataFrame:
+        return self._sources
 
     @cache  # noqa: B019
-    def _get_frame_reader(self, reader_json: str) -> FrameReader:  # noqa: PLR6301
-        return HydraConfig[FrameReader].model_validate_json(reader_json).instantiate()
+    def _get_source(self, config: str) -> TensorSource:  # noqa: PLR6301
+        return HydraConfig[TensorSource].model_validate_json(config).instantiate()
 
     def __getitems__(self, indexes: Sequence[int]) -> Batch:  # noqa: PLW3201
         samples = self.samples[indexes]
         batch_size = [samples.height]
+
+        source_idx_cols = self._sources[Column.source_index_column].unique()
+
+        sources = (
+            samples.lazy()
+            .join(self.sources.lazy(), on=Column.input_id, how="left")
+            .with_columns(
+                pl.coalesce(
+                    pl.when(pl.col(Column.source_index_column) == idx_col).then(idx_col)
+                    for idx_col in source_idx_cols
+                ).alias(Column.source_idxs)
+            )
+            .group_by(Column.source_id)
+            .agg(Column.source_config, Column.source_idxs)
+        )
+
+        tensors: Mapping[str, torch.Tensor] = {
+            row[Column.source_id]: pad_sequence(
+                [
+                    self._get_source(source)[idxs]
+                    for (source, idxs) in zip(
+                        row[Column.source_config], row[Column.source_idxs], strict=True
+                    )
+                ],
+                dim=1,
+                value=torch.nan,
+            )
+            for row in sources.collect().iter_rows(named=True)
+        }
+
+        table: Mapping[str, Sequence[object]] = samples.select(
+            pl.exclude(Column.sample_idx, Column.input_id).to_physical()
+        ).to_dict(as_series=False)
+
+        data = TensorDict(tensors | table, batch_size=batch_size)  # pyright: ignore[reportArgumentType]
 
         meta = BatchMeta(
             sample_idx=samples[Column.sample_idx].to_torch(),  # pyright: ignore[reportCallIssue]
@@ -187,42 +173,7 @@ class Dataset(TorchDataset[TensorDict]):
             batch_size=batch_size,  # pyright: ignore[reportCallIssue]
         )
 
-        frame_source_idx_cols = self._frame_sources[Column.source_index_column].unique()
-
-        frame_sources = (
-            samples.lazy()
-            .join(self._frame_sources.lazy(), on=Column.input_id, how="left")
-            .with_columns(
-                pl.coalesce(
-                    pl.when(pl.col(Column.source_index_column) == idx_col).then(idx_col)
-                    for idx_col in frame_source_idx_cols
-                ).alias(Column.frame_idx)
-            )
-            .group_by(Column.source_id)
-            .agg(Column.source_reader, Column.frame_idx)
-        )
-
-        frames = TensorDict(
-            {
-                row[Column.source_id]: torch.stack([
-                    self._get_frame_reader(reader).read(frame_idxs)
-                    for (reader, frame_idxs) in zip(
-                        row[Column.source_reader], row[Column.frame_idx], strict=True
-                    )
-                ])
-                for row in frame_sources.collect().iter_rows(named=True)
-            },
-            batch_size=batch_size,
-        )
-
-        table = TensorDict(
-            samples.select(  # pyright: ignore[reportArgumentType]
-                pl.exclude(Column.sample_idx, Column.input_id).to_physical()
-            ).to_dict(as_series=False),
-            batch_size=batch_size,
-        )
-
-        return Batch(meta=meta, frame=frames, table=table, batch_size=batch_size)  # pyright: ignore[reportCallIssue]
+        return Batch(data=data, meta=meta, batch_size=batch_size)  # pyright: ignore[reportCallIssue]
 
     def __len__(self) -> int:
         return len(self.samples)

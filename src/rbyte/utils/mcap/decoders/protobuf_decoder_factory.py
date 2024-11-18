@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 
 class ProtobufDecoderFactory(McapDecoderFactory):
     def __init__(self) -> None:
-        self._handler_pool = HandlerPool()
+        self._handler_pool: HandlerPool = HandlerPool()
 
     @override
     def decoder_for(

@@ -59,14 +59,14 @@ _convert_: all
 inputs:
   #@ for input_id in drives:
   (@=input_id@):
-    frame:
+    sources:
       #@ for source_id in cameras:
       (@=source_id@):
         index_column: _idx_
-        reader:
-          _target_: rbyte.io.frame.DirectoryFrameReader
+        source:
+          _target_: rbyte.io.PathTensorSource
           path: "${data_dir}/(@=input_id@)/frames/(@=source_id@).defish.mp4/576x324/{:09d}.jpg"
-          frame_decoder:
+          decoder:
             _target_: simplejpeg.decode_jpeg
             _partial_: true
             colorspace: rgb
@@ -75,40 +75,40 @@ inputs:
 
       #@ end
 
-    table:
-      builder:
-        _target_: rbyte.io.table.TableBuilder
-        _convert_: all
-        readers:
-          - path: ${data_dir}/(@=input_id@)/ego_logs.json
-            reader:
-              _target_: rbyte.io.table.JsonTableReader
-              _recursive_: false
-              fields:
-                records:
-                  _idx_:
-                  control.brake:
-                  control.throttle:
-                  control.steer:
-                  state.velocity.value:
-                  state.acceleration.value:
+    table_builder:
+      _target_: rbyte.io.table.TableBuilder
+      _convert_: all
+      readers:
+        ego_logs:
+          path: ${data_dir}/(@=input_id@)/ego_logs.json
+          reader:
+            _target_: rbyte.io.JsonTableReader
+            _recursive_: false
+            fields:
+              records:
+                _idx_:
+                control.brake:
+                control.throttle:
+                control.steer:
+                state.velocity.value:
+                state.acceleration.value:
 
-              transforms:
-                - _target_: rbyte.io.table.transforms.FpsResampler
-                  source_fps: 20
-                  target_fps: 30
+            transforms:
+              - _target_: rbyte.io.FpsResampler
+                source_fps: 20
+                target_fps: 30
 
-        merger:
-          _target_: rbyte.io.table.TableConcater
-          method: vertical
+      merger:
+        _target_: rbyte.io.TableConcater
+        method: vertical
 
-        filter: |
-          `control.throttle` > 0.5
+      filter: |
+        `control.throttle` > 0.5
 
   #@ end
 
 sample_builder:
-  _target_: rbyte.sample.builder.GreedySampleTableBuilder
+  _target_: rbyte.sample.GreedySampleBuilder
   index_column: _idx_
   length: 1
   stride: 1

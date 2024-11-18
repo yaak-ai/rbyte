@@ -1,4 +1,0 @@
----
-_target_: polars.DataFrame.write_parquet
-_partial_: true
-file: ???

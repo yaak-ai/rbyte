@@ -16,120 +16,124 @@ _convert_: all
 inputs:
   #@ for input_id in drives:
   (@=input_id@):
-    frame:
+    sources:
       #@ for source_id in cameras:
       (@=source_id@):
-        index_column: "ImageMetadata.(@=source_id@).frame_idx"
-        reader:
-          _target_: rbyte.io.frame.FfmpegFrameReader
+        index_column: "meta/ImageMetadata.(@=source_id@)/frame_idx"
+        source:
+          _target_: rbyte.io.FfmpegFrameSource
           _recursive_: true
           path: "${data_dir}/(@=input_id@)/(@=source_id@).pii.mp4"
           resize_shorter_side: 324
       #@ end
 
-    table:
-      builder:
-        _target_: rbyte.io.table.TableBuilder
-        _convert_: all
-        readers:
-          - path: ${data_dir}/(@=input_id@)/metadata.log
-            reader:
-              _target_: rbyte.io.table.yaak.YaakMetadataTableReader
-              _recursive_: false
-              fields:
-                rbyte.io.table.yaak.proto.sensor_pb2.ImageMetadata:
-                  time_stamp:
-                    _target_: polars.Datetime
-                    time_unit: ns
+    table_builder:
+      _target_: rbyte.io.TableBuilder
+      _convert_: all
+      readers:
+        meta:
+          path: ${data_dir}/(@=input_id@)/metadata.log
+          reader:
+            _target_: rbyte.io.YaakMetadataTableReader
+            _recursive_: false
+            fields:
+              rbyte.io.yaak.proto.sensor_pb2.ImageMetadata:
+                time_stamp:
+                  _target_: polars.Datetime
+                  time_unit: ns
 
-                  frame_idx: polars.UInt32
-                  camera_name:
-                    _target_: polars.Enum
-                    categories:
-                      - cam_front_center
-                      - cam_front_left
-                      - cam_front_right
-                      - cam_left_forward
-                      - cam_right_forward
-                      - cam_left_backward
-                      - cam_right_backward
-                      - cam_rear
+                frame_idx: polars.UInt32
+                camera_name:
+                  _target_: polars.Enum
+                  categories:
+                    - cam_front_center
+                    - cam_front_left
+                    - cam_front_right
+                    - cam_left_forward
+                    - cam_right_forward
+                    - cam_left_backward
+                    - cam_right_backward
+                    - cam_rear
 
-                rbyte.io.table.yaak.proto.can_pb2.VehicleMotion:
-                  time_stamp:
-                    _target_: polars.Datetime
-                    time_unit: ns
+              rbyte.io.yaak.proto.can_pb2.VehicleMotion:
+                time_stamp:
+                  _target_: polars.Datetime
+                  time_unit: ns
 
-                  speed: polars.Float32
-                  gear:
-                    _target_: polars.Enum
-                    categories: ["0", "1", "2", "3"]
+                speed: polars.Float32
+                gear:
+                  _target_: polars.Enum
+                  categories: ["0", "1", "2", "3"]
 
-          - path: ${data_dir}/(@=input_id@)/ai.mcap
-            reader:
-              _target_: rbyte.io.table.McapTableReader
-              _recursive_: false
-              decoder_factories: [rbyte.utils.mcap.ProtobufDecoderFactory]
-              fields:
-                /ai/safety_score:
-                  clip.end_timestamp:
-                    _target_: polars.Datetime
-                    time_unit: ns
+        mcap:
+          path: ${data_dir}/(@=input_id@)/ai.mcap
+          reader:
+            _target_: rbyte.io.McapTableReader
+            _recursive_: false
+            decoder_factories: [rbyte.utils.mcap.ProtobufDecoderFactory]
+            fields:
+              /ai/safety_score:
+                clip.end_timestamp:
+                  _target_: polars.Datetime
+                  time_unit: ns
 
-                  score: polars.Float32
+                score: polars.Float32
 
-        merger:
-          _target_: rbyte.io.table.TableAligner
-          separator: "."
-          merge:
+      merger:
+        _target_: rbyte.io.TableAligner
+        separator: "/"
+        merge:
+          meta:
             ImageMetadata.(@=cameras[0]@):
-              time_stamp:
-                method: ref
+              key: time_stamp
 
             #@ for camera in cameras[1:]:
             ImageMetadata.(@=camera@):
-              time_stamp:
-                method: ref
-
-              frame_idx:
-                method: asof
-                tolerance: 20ms
-                strategy: nearest
+              key: time_stamp
+              columns:
+                frame_idx:
+                  method: asof
+                  tolerance: 20ms
+                  strategy: nearest
             #@ end
 
             VehicleMotion:
-              time_stamp:
-                method: ref
-              speed:
-                method: interp
-              gear:
-                method: asof
-                tolerance: 100ms
-                strategy: nearest
+              key: time_stamp
+              columns:
+                speed:
+                  method: interp
+                gear:
+                  method: asof
+                  tolerance: 100ms
+                  strategy: nearest
 
+          mcap:
             /ai/safety_score:
-              clip.end_timestamp:
-                method: ref
+              key: clip.end_timestamp
+              columns:
+                clip.end_timestamp:
+                  method: asof
+                  tolerance: 500ms
+                  strategy: nearest
+                score:
+                  method: asof
+                  tolerance: 500ms
+                  strategy: nearest
 
-              score:
-                method: asof
-                tolerance: 500ms
-                strategy: nearest
+      filter: |
+        `meta/VehicleMotion/gear` == '3'
 
-        filter: |
-          `VehicleMotion.gear` == '3'
-
-        cache:
-          _target_: rbyte.utils.dataframe.DataframeDiskCache
-          directory: /tmp/rbyte-cache
-          size_limit: 1GiB
+      cache:
+        _target_: rbyte.utils.dataframe.DataframeDiskCache
+        directory: /tmp/rbyte-cache
+        size_limit: 1GiB
   #@ end
 
 sample_builder:
-  _target_: rbyte.sample.builder.GreedySampleTableBuilder
-  index_column: ImageMetadata.(@=cameras[0]@).frame_idx
+  _target_: rbyte.sample.GreedySampleBuilder
+  index_column: meta/ImageMetadata.(@=cameras[0]@)/frame_idx
   length: 1
   stride: 1
   min_step: 1
   filter: |
-    array_mean(`VehicleMotion.speed`) > 40
+    array_mean(`meta/VehicleMotion/speed`) > 40

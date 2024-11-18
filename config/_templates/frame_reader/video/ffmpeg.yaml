@@ -1,6 +1,0 @@
----
-_target_: rbyte.io.frame.FfmpegFrameReader
-path: ???
-threads: !!null
-resize_shorter_side: !!null
-with_fallback: !!null

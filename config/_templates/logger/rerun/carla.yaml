@@ -8,17 +8,15 @@ _target_: rbyte.viz.loggers.RerunLogger
 _recursive_: true
 _convert_: all
 schema:
-  frame:
-    #@ for camera in cameras:
-    (@=camera@):
-      Image:
-        color_model: RGB
-    #@ end
+  #@ for camera in cameras:
+  (@=camera@):
+    Image:
+      color_model: RGB
+  #@ end
 
-  table:
-    _idx_: TimeSequenceColumn
-    control.brake: Scalar
-    control.steer: Scalar
-    control.throttle: Scalar
-    state.acceleration.value: Scalar
-    state.velocity.value: Scalar
+  _idx_: TimeSequenceColumn
+  control.brake: Scalar
+  control.steer: Scalar
+  control.throttle: Scalar
+  state.acceleration.value: Scalar
+  state.velocity.value: Scalar

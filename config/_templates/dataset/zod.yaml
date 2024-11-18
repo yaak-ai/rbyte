@@ -1,0 +1,114 @@
+---
+_target_: rbyte.Dataset
+_convert_: all
+_recursive_: false
+inputs:
+  000002_short:
+    sources:
+      camera_front_blur:
+        index_column: camera_front_blur/timestamp
+        source:
+          _target_: rbyte.io.PathTensorSource
+          path: "${data_dir}/zod/sequences/000002_short/camera_front_blur/000002_romeo_{:%Y-%m-%dT%H:%M:%S.%f}Z.jpg"
+          decoder:
+            _target_: simplejpeg.decode_jpeg
+            _partial_: true
+            colorspace: rgb
+            fastdct: true
+            fastupsample: true
+
+      lidar_velodyne:
+        index_column: lidar_velodyne/timestamp
+        source:
+          _target_: rbyte.io.NumpyTensorSource
+          path: "${data_dir}/zod/sequences/000002_short/lidar_velodyne/000002_romeo_{:%Y-%m-%dT%H:%M:%S.%f}Z.npy"
+          select: ["x", "y", "z"]
+
+    table_builder:
+      _target_: rbyte.io.TableBuilder
+      _convert_: all
+      readers:
+        camera_front_blur:
+          path: "${data_dir}/zod/sequences/000002_short/camera_front_blur/000002_romeo_{timestamp:%Y-%m-%dT%H:%M:%S.%f}Z.jpg"
+          reader:
+            _target_: rbyte.io.PathTableReader
+            _recursive_: false
+            fields:
+              timestamp:
+                _target_: polars.Datetime
+                time_unit: ns
+
+        lidar_velodyne:
+          path: "${data_dir}/zod/sequences/000002_short/lidar_velodyne/000002_romeo_{timestamp:%Y-%m-%dT%H:%M:%S.%f}Z.npy"
+          reader:
+            _target_: rbyte.io.PathTableReader
+            _recursive_: false
+            fields:
+              timestamp:
+                _target_: polars.Datetime
+                time_unit: ns
+
+        vehicle_data:
+          path: "${data_dir}/zod/sequences/000002_short/vehicle_data.hdf5"
+          reader:
+            _target_: rbyte.io.Hdf5TableReader
+            _recursive_: false
+            fields:
+              ego_vehicle_controls:
+                timestamp/nanoseconds/value:
+                  _target_: polars.Datetime
+                  time_unit: ns
+
+                acceleration_pedal/ratio/unitless/value:
+                steering_wheel_angle/angle/radians/value:
+
+              satellite:
+                timestamp/nanoseconds/value:
+                  _target_: polars.Datetime
+                  time_unit: ns
+
+                speed/meters_per_second/value:
+
+      merger:
+        _target_: rbyte.io.TableAligner
+        separator: "/"
+        merge:
+          camera_front_blur:
+            key: timestamp
+
+          lidar_velodyne:
+            key: timestamp
+            columns:
+              timestamp:
+                method: asof
+                strategy: nearest
+                tolerance: 50ms
+
+          vehicle_data:
+            ego_vehicle_controls:
+              key: timestamp/nanoseconds/value
+              columns:
+                timestamp/nanoseconds/value:
+                  method: asof
+                  strategy: nearest
+                  tolerance: 50ms
+
+                acceleration_pedal/ratio/unitless/value:
+                  method: asof
+                  strategy: nearest
+                  tolerance: 50ms
+
+                steering_wheel_angle/angle/radians/value:
+                  method: asof
+                  strategy: nearest
+                  tolerance: 50ms
+
+            satellite:
+              key: timestamp/nanoseconds/value
+              columns:
+                speed/meters_per_second/value:
+                  method: interp
+
+sample_builder:
+  _target_: rbyte.sample.GreedySampleBuilder
+  length: 1

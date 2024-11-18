@@ -1,0 +1,93 @@
+#@yaml/text-templated-strings
+
+#@ inputs = [
+#@     "nuscenes_dataset",
+#@ ]
+
+#@ camera_entities = {
+#@     "CAM_FRONT": "/world/ego_vehicle/CAM_FRONT",
+#@     "CAM_FRONT_LEFT": "/world/ego_vehicle/CAM_FRONT_LEFT",
+#@     "CAM_FRONT_RIGHT": "/world/ego_vehicle/CAM_FRONT_RIGHT",
+#@ }
+---
+_target_: rbyte.Dataset
+_convert_: all
+_recursive_: false
+inputs:
+  #@ for input_id in inputs:
+  (@=input_id@):
+    sources:
+      #@ for camera, entity in camera_entities.items():
+      (@=camera@):
+        index_column: rrd/(@=entity@)/_idx_
+        source:
+          _target_: rbyte.io.RrdFrameSource
+          path: "${data_dir}/(@=input_id@).rrd"
+          index: timestamp
+          entity_path: (@=entity@)
+          decoder:
+            _target_: simplejpeg.decode_jpeg
+            _partial_: true
+            colorspace: rgb
+            fastdct: true
+            fastupsample: true
+      #@ end
+
+    table_builder:
+      _target_: rbyte.io.TableBuilder
+      _convert_: all
+      readers:
+        rrd:
+          path: "${data_dir}/(@=input_id@).rrd"
+          reader:
+            _target_: rbyte.io.RrdTableReader
+            _recursive_: false
+            index: timestamp
+            contents:
+              #@ for entity in camera_entities.values():
+              (@=entity@):
+                - _idx_
+              #@ end
+
+              /world/ego_vehicle/LIDAR_TOP:
+                - Position3D
+
+      merger:
+        _target_: rbyte.io.TableAligner
+        separator: /
+        merge:
+          rrd:
+            #@ entity = camera_entities.values()[0]
+            (@=entity@):
+              key: timestamp
+
+            #@ for entity in camera_entities.values()[1:]:
+            (@=entity@):
+              key: timestamp
+              columns:
+                _idx_:
+                  method: asof
+                  strategy: nearest
+                  tolerance: 40ms
+            #@ end
+
+            /world/ego_vehicle/LIDAR_TOP:
+              key: timestamp
+              columns:
+                Position3D:
+                  method: asof
+                  strategy: nearest
+                  tolerance: 40ms
+                  
+      filter: |
+        `rrd//world/ego_vehicle/CAM_FRONT/timestamp` between '2018-07-24 03:28:48' and '2018-07-24 03:28:50'
+  #@ end
+
+sample_builder:
+  _target_: rbyte.sample.GreedySampleBuilder
+  index_column: rrd/(@=camera_entities.values()[0]@)/_idx_
+  length: 1
+  stride: 1
+  min_step: 1
+  filter: !!null
+  

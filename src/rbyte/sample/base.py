@@ -4,5 +4,5 @@ import polars as pl
 
 
 @runtime_checkable
-class SampleTableBuilder(Protocol):
+class SampleBuilder(Protocol):
     def build(self, source: pl.LazyFrame) -> pl.LazyFrame: ...
