@@ -42,7 +42,7 @@ inputs:
                   _target_: polars.Datetime
                   time_unit: ns
 
-                frame_idx: polars.UInt32
+                frame_idx: polars.Int32
                 camera_name:
                   _target_: polars.Enum
                   categories:
@@ -130,10 +130,10 @@ inputs:
   #@ end
 
 sample_builder:
-  _target_: rbyte.sample.GreedySampleBuilder
+  _target_: rbyte.FixedWindowSampleBuilder
   index_column: meta/ImageMetadata.(@=cameras[0]@)/frame_idx
-  length: 1
-  stride: 1
-  min_step: 1
+  every: 6i
+  period: 6i
   filter: |
-    array_mean(`meta/VehicleMotion/speed`) > 40
+    array_length(`meta/ImageMetadata.(@=cameras[0]@)/time_stamp`) == 6
+    and array_mean(`meta/VehicleMotion/speed`) > 40

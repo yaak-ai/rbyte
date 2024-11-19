@@ -59,15 +59,15 @@ class Dataset(TorchDataset[TensorDict]):
         super().__init__()
 
         _sample_builder = sample_builder.instantiate()
-        samples: Mapping[str, pl.LazyFrame] = {}
+        samples: Mapping[str, pl.DataFrame] = {}
         for input_id, input_cfg in inputs.items():
             with bound_contextvars(input_id=input_id):
-                table = input_cfg.table_builder.instantiate().build().lazy()
+                table = input_cfg.table_builder.instantiate().build()
                 samples[input_id] = _sample_builder.build(table)
                 logger.debug(
                     "built samples",
-                    rows=table.select(pl.len()).collect().item(),
-                    samples=samples[input_id].select(pl.len()).collect().item(),
+                    rows=table.select(pl.len()).item(),
+                    samples=samples[input_id].select(pl.len()).item(),
                 )
 
         input_id_enum = pl.Enum(sorted(samples))
@@ -85,12 +85,11 @@ class Dataset(TorchDataset[TensorDict]):
             )
             .sort(Column.input_id)
             .with_row_index(Column.sample_idx)
-            .collect()
             .rechunk()
         )
 
         self._sources: pl.DataFrame = (
-            pl.LazyFrame(
+            pl.DataFrame(
                 [
                     {
                         Column.input_id: input_id,
@@ -112,7 +111,6 @@ class Dataset(TorchDataset[TensorDict]):
             .explode(k)
             .unnest(k)
             .select(Column.input_id, pl.exclude(Column.input_id).name.prefix(f"{k}."))
-            .collect()
             .rechunk()
         )
 

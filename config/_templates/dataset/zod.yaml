@@ -9,7 +9,7 @@ inputs:
         index_column: camera_front_blur/timestamp
         source:
           _target_: rbyte.io.PathTensorSource
-          path: "${data_dir}/zod/sequences/000002_short/camera_front_blur/000002_romeo_{:%Y-%m-%dT%H:%M:%S.%f}Z.jpg"
+          path: "${data_dir}/sequences/000002_short/camera_front_blur/000002_romeo_{:%Y-%m-%dT%H:%M:%S.%f}Z.jpg"
           decoder:
             _target_: simplejpeg.decode_jpeg
             _partial_: true
@@ -21,7 +21,7 @@ inputs:
         index_column: lidar_velodyne/timestamp
         source:
           _target_: rbyte.io.NumpyTensorSource
-          path: "${data_dir}/zod/sequences/000002_short/lidar_velodyne/000002_romeo_{:%Y-%m-%dT%H:%M:%S.%f}Z.npy"
+          path: "${data_dir}/sequences/000002_short/lidar_velodyne/000002_romeo_{:%Y-%m-%dT%H:%M:%S.%f}Z.npy"
           select: ["x", "y", "z"]
 
     table_builder:
@@ -29,7 +29,7 @@ inputs:
       _convert_: all
       readers:
         camera_front_blur:
-          path: "${data_dir}/zod/sequences/000002_short/camera_front_blur/000002_romeo_{timestamp:%Y-%m-%dT%H:%M:%S.%f}Z.jpg"
+          path: "${data_dir}/sequences/000002_short/camera_front_blur/000002_romeo_{timestamp:%Y-%m-%dT%H:%M:%S.%f}Z.jpg"
           reader:
             _target_: rbyte.io.PathTableReader
             _recursive_: false
@@ -39,7 +39,7 @@ inputs:
                 time_unit: ns
 
         lidar_velodyne:
-          path: "${data_dir}/zod/sequences/000002_short/lidar_velodyne/000002_romeo_{timestamp:%Y-%m-%dT%H:%M:%S.%f}Z.npy"
+          path: "${data_dir}/sequences/000002_short/lidar_velodyne/000002_romeo_{timestamp:%Y-%m-%dT%H:%M:%S.%f}Z.npy"
           reader:
             _target_: rbyte.io.PathTableReader
             _recursive_: false
@@ -49,7 +49,7 @@ inputs:
                 time_unit: ns
 
         vehicle_data:
-          path: "${data_dir}/zod/sequences/000002_short/vehicle_data.hdf5"
+          path: "${data_dir}/sequences/000002_short/vehicle_data.hdf5"
           reader:
             _target_: rbyte.io.Hdf5TableReader
             _recursive_: false
@@ -82,7 +82,7 @@ inputs:
               timestamp:
                 method: asof
                 strategy: nearest
-                tolerance: 50ms
+                tolerance: 100ms
 
           vehicle_data:
             ego_vehicle_controls:
@@ -91,17 +91,17 @@ inputs:
                 timestamp/nanoseconds/value:
                   method: asof
                   strategy: nearest
-                  tolerance: 50ms
+                  tolerance: 100ms
 
                 acceleration_pedal/ratio/unitless/value:
                   method: asof
                   strategy: nearest
-                  tolerance: 50ms
+                  tolerance: 100ms
 
                 steering_wheel_angle/angle/radians/value:
                   method: asof
                   strategy: nearest
-                  tolerance: 50ms
+                  tolerance: 100ms
 
             satellite:
               key: timestamp/nanoseconds/value
@@ -110,5 +110,6 @@ inputs:
                   method: interp
 
 sample_builder:
-  _target_: rbyte.sample.GreedySampleBuilder
-  length: 1
+  _target_: rbyte.FixedWindowSampleBuilder
+  index_column: camera_front_blur/timestamp
+  every: 300ms
