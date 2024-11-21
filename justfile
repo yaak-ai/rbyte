@@ -47,10 +47,10 @@ generate-config:
         --strict
 
 test *ARGS: generate-config
-    uv run pytest --capture=no {{ ARGS }}
+    uv run --all-extras pytest --capture=no {{ ARGS }}
 
 notebook FILE *ARGS: sync generate-config
-    uv run --with=jupyter,jupyterlab-vim,rerun-notebook jupyter lab {{ FILE }} {{ ARGS }}
+    uv run --all-extras --with=jupyter,jupyterlab-vim,rerun-notebook jupyter lab {{ FILE }} {{ ARGS }}
 
 [group('scripts')]
 visualize *ARGS: generate-config

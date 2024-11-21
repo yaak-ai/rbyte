@@ -49,11 +49,10 @@ inputs:
             fields:
               #@ for topic in camera_topics.values():
               (@=topic@):
+                _idx_:
                 log_time:
                   _target_: polars.Datetime
                   time_unit: ns
-
-                _idx_:
               #@ end
 
               /odom:
@@ -94,9 +93,6 @@ inputs:
   #@ end
 
 sample_builder:
-  _target_: rbyte.sample.GreedySampleBuilder
+  _target_: rbyte.RollingWindowSampleBuilder
   index_column: mcap/(@=camera_topics.values()[0]@)/_idx_
-  length: 1
-  stride: 1
-  min_step: 1
-  filter: !!null
+  period: 1i

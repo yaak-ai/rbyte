@@ -108,9 +108,6 @@ inputs:
   #@ end
 
 sample_builder:
-  _target_: rbyte.sample.GreedySampleBuilder
+  _target_: rbyte.RollingWindowSampleBuilder
   index_column: _idx_
-  length: 1
-  stride: 1
-  min_step: 1
-  filter: !!null
+  period: 1i
