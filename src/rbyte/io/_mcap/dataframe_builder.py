@@ -1,75 +1,65 @@
-import json
 from collections import defaultdict
-from collections.abc import Hashable, Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from enum import StrEnum, unique
-from functools import cached_property
 from mmap import ACCESS_READ, mmap
 from operator import attrgetter
 from os import PathLike
 from pathlib import Path
-from typing import Any, NamedTuple, override
+from typing import NamedTuple, final
 
 import more_itertools as mit
 import polars as pl
 from mcap.decoder import DecoderFactory
 from mcap.reader import SeekingReader
-from optree import PyTree, tree_map
-from polars._typing import PolarsDataType
+from polars._typing import PolarsDataType  # noqa: PLC2701
 from polars.datatypes import (
     DataType,  # pyright: ignore[reportUnusedImport]  # noqa: F401
     DataTypeClass,  # pyright: ignore[reportUnusedImport]  # noqa: F401
 )
-from pydantic import (
-    ImportString,
-    SerializationInfo,
-    SerializerFunctionWrapHandler,
-    field_serializer,
-)
+from pydantic import ConfigDict, ImportString, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from tqdm import tqdm
-from xxhash import xxh3_64_intdigest as digest
 
-from rbyte.config.base import BaseModel, HydraConfig
-from rbyte.io.table.base import TableReader
 from rbyte.utils.dataframe import unnest_all
 
 logger = get_logger(__name__)
 
 
-class Config(BaseModel):
-    decoder_factories: frozenset[ImportString[type[DecoderFactory]]]
-    fields: Mapping[str, Mapping[str, HydraConfig[PolarsDataType] | None]]
-    validate_crcs: bool = False
-
-    @field_serializer("decoder_factories", when_used="json", mode="wrap")
-    @staticmethod
-    def serialize_decoder_factories(
-        value: frozenset[ImportString[type[DecoderFactory]]],
-        nxt: SerializerFunctionWrapHandler,
-        _info: SerializationInfo,
-    ) -> Sequence[str]:
-        return sorted(nxt(value))
+type Fields = Mapping[str, Mapping[str, PolarsDataType | None]]
+type DecoderFactories = Sequence[
+    ImportString[type[DecoderFactory]] | type[DecoderFactory]
+]
 
 
 class RowValues(NamedTuple):
     topic: str
-    values: Iterable[Any]
+    values: Iterable[object]
 
 
 @unique
 class SpecialField(StrEnum):
     log_time = "log_time"
     publish_time = "publish_time"
-    idx = "_idx_"
 
 
-class McapTableReader(TableReader, Hashable):
-    def __init__(self, **kwargs: object) -> None:
-        self._config: Config = Config.model_validate(kwargs)
+@final
+class McapDataFrameBuilder:
+    __name__ = __qualname__
 
-    @override
-    def read(self, path: PathLike[str]) -> PyTree[pl.DataFrame]:
+    @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
+    def __init__(
+        self,
+        *,
+        decoder_factories: DecoderFactories,
+        fields: Fields,
+        validate_crcs: bool = True,
+    ) -> None:
+        self._decoder_factories = decoder_factories
+        self._fields = fields
+        self._validate_crcs = validate_crcs
+
+    def __call__(self, path: PathLike[str]) -> Mapping[str, pl.DataFrame]:
         with (
             bound_contextvars(path=str(path)),
             Path(path).open("rb") as _f,
@@ -77,8 +67,8 @@ class McapTableReader(TableReader, Hashable):
         ):
             reader = SeekingReader(
                 f,  # pyright: ignore[reportArgumentType]
-                validate_crcs=self._config.validate_crcs,
-                decoder_factories=[f() for f in self._config.decoder_factories],
+                validate_crcs=self._validate_crcs,
+                decoder_factories=[f() for f in self._decoder_factories],
             )
             summary = reader.get_summary()
             if summary is None:
@@ -119,10 +109,6 @@ class McapTableReader(TableReader, Hashable):
                     mit.partition(lambda kv: kv[0] in SpecialField, schema.items()),
                 )
 
-                special_fields = {
-                    k: v for k, v in special_fields.items() if k != SpecialField.idx
-                }
-
                 row_df = pl.DataFrame(
                     [getattr(dmt.message, field) for field in special_fields],
                     schema=special_fields,
@@ -137,29 +123,10 @@ class McapTableReader(TableReader, Hashable):
 
                 rows[dmt.channel.topic].append(row_df)
 
-        dfs: Mapping[str, pl.DataFrame] = {}
-        for topic, row_dfs in rows.items():
-            df = pl.concat(row_dfs, how="vertical")
-            if (idx_name := SpecialField.idx) in (schema := self._fields[topic]):
-                df = df.with_row_index(idx_name).cast({
-                    idx_name: schema[idx_name] or pl.UInt32
-                })
-
-            dfs[topic] = df.rechunk()
-
-        return dfs  # pyright: ignore[reportReturnType]
-
-    @override
-    def __hash__(self) -> int:
-        config = self._config.model_dump_json()
-        # roundtripping json to work around https://github.com/pydantic/pydantic/issues/7424
-        config_str = json.dumps(json.loads(config), sort_keys=True)
-
-        return digest(config_str)
-
-    @cached_property
-    def _fields(self) -> Mapping[str, Mapping[str, PolarsDataType | None]]:
-        return tree_map(HydraConfig.instantiate, self._config.fields)  # pyright: ignore[reportArgumentType, reportUnknownArgumentType, reportUnknownMemberType, reportUnknownVariableType, reportReturnType]
+        return {
+            topic: pl.concat(row_dfs, how="vertical", rechunk=True)
+            for topic, row_dfs in rows.items()
+        }
 
     @staticmethod
     def _build_message_df(

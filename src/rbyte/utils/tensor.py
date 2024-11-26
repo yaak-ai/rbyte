@@ -8,7 +8,7 @@ from torch import Tensor
 
 
 def pad_dim(
-    input: Float[Tensor, "..."],  # noqa: A002
+    input: Float[Tensor, "..."],
     *,
     pad: tuple[int, int],
     dim: int,

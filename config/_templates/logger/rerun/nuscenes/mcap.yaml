@@ -15,12 +15,12 @@ schema:
   #@ end
 
   #@ topic = camera_topics.values()[0]
-  mcap/(@=topic@)/_idx_: TimeSequenceColumn
-  mcap/(@=topic@)/log_time: TimeNanosColumn
+  (@=topic@)/_idx_: TimeSequenceColumn
+  (@=topic@)/log_time: TimeNanosColumn
   #@ for topic in camera_topics.values()[1:]:
-  mcap/(@=topic@)/_idx_: TimeSequenceColumn
+  (@=topic@)/_idx_: TimeSequenceColumn
   #@ end
-  mcap//odom/vel.x: Scalar
+  /odom/vel.x: Scalar
 
 spawn: true
 blueprint:
@@ -36,4 +36,3 @@ blueprint:
             #@ end
 
         - _target_: rerun.blueprint.TimeSeriesView
-          origin: mcap/

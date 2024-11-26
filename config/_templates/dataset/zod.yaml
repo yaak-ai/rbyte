@@ -1,7 +1,7 @@
 ---
 _target_: rbyte.Dataset
-_convert_: all
 _recursive_: false
+_convert_: all
 inputs:
   000002_short:
     sources:
@@ -24,92 +24,118 @@ inputs:
           path: "${data_dir}/sequences/000002_short/lidar_velodyne/000002_romeo_{:%Y-%m-%dT%H:%M:%S.%f}Z.npy"
           select: ["x", "y", "z"]
 
-    table_builder:
-      _target_: rbyte.io.TableBuilder
-      _convert_: all
-      readers:
-        camera_front_blur:
-          path: "${data_dir}/sequences/000002_short/camera_front_blur/000002_romeo_{timestamp:%Y-%m-%dT%H:%M:%S.%f}Z.jpg"
-          reader:
-            _target_: rbyte.io.PathTableReader
-            _recursive_: false
-            fields:
-              timestamp:
-                _target_: polars.Datetime
-                time_unit: ns
-
-        lidar_velodyne:
-          path: "${data_dir}/sequences/000002_short/lidar_velodyne/000002_romeo_{timestamp:%Y-%m-%dT%H:%M:%S.%f}Z.npy"
-          reader:
-            _target_: rbyte.io.PathTableReader
-            _recursive_: false
-            fields:
-              timestamp:
-                _target_: polars.Datetime
-                time_unit: ns
-
-        vehicle_data:
-          path: "${data_dir}/sequences/000002_short/vehicle_data.hdf5"
-          reader:
-            _target_: rbyte.io.Hdf5TableReader
-            _recursive_: false
-            fields:
-              ego_vehicle_controls:
-                timestamp/nanoseconds/value:
+    samples:
+      pipeline:
+        _target_: pipefunc.Pipeline
+        validate_type_annotations: false
+        functions:
+          - _target_: pipefunc.PipeFunc
+            bound:
+              path: "${data_dir}/sequences/000002_short/camera_front_blur/000002_romeo_{timestamp:%Y-%m-%dT%H:%M:%S.%f}Z.jpg"
+            output_name: camera_front_blur_data
+            func:
+              _target_: rbyte.io.PathDataFrameBuilder
+              fields:
+                timestamp:
                   _target_: polars.Datetime
                   time_unit: ns
 
-                acceleration_pedal/ratio/unitless/value:
-                steering_wheel_angle/angle/radians/value:
-
-              satellite:
-                timestamp/nanoseconds/value:
+          - _target_: pipefunc.PipeFunc
+            bound:
+              path: "${data_dir}/sequences/000002_short/lidar_velodyne/000002_romeo_{timestamp:%Y-%m-%dT%H:%M:%S.%f}Z.npy"
+            output_name: lidar_velodyne_data
+            func:
+              _target_: rbyte.io.PathDataFrameBuilder
+              fields:
+                timestamp:
                   _target_: polars.Datetime
                   time_unit: ns
 
-                speed/meters_per_second/value:
+          - _target_: pipefunc.PipeFunc
+            bound:
+              path: "${data_dir}/sequences/000002_short/vehicle_data.hdf5"
+            output_name: vehicle_data
+            func:
+              _target_: rbyte.io.Hdf5DataFrameBuilder
+              fields:
+                ego_vehicle_controls:
+                  timestamp/nanoseconds/value:
+                    _target_: polars.Datetime
+                    time_unit: ns
 
-      merger:
-        _target_: rbyte.io.TableAligner
-        separator: "/"
-        merge:
-          camera_front_blur:
-            key: timestamp
+                  acceleration_pedal/ratio/unitless/value:
+                  steering_wheel_angle/angle/radians/value:
 
-          lidar_velodyne:
-            key: timestamp
-            columns:
-              timestamp:
-                method: asof
-                strategy: nearest
-                tolerance: 100ms
+                satellite:
+                  timestamp/nanoseconds/value:
+                    _target_: polars.Datetime
+                    time_unit: ns
 
-          vehicle_data:
-            ego_vehicle_controls:
-              key: timestamp/nanoseconds/value
-              columns:
-                timestamp/nanoseconds/value:
-                  method: asof
-                  strategy: nearest
-                  tolerance: 100ms
+                  speed/meters_per_second/value:
 
-                acceleration_pedal/ratio/unitless/value:
-                  method: asof
-                  strategy: nearest
-                  tolerance: 100ms
+          - _target_: pipefunc.PipeFunc
+            bound:
+              k0: camera_front_blur
+              k1: lidar_velodyne
+              k2: vehicle_data
+            renames:
+              v0: camera_front_blur_data
+              v1: lidar_velodyne_data
+              v2: vehicle_data
+            output_name: data
+            func:
+              _target_: hydra.utils.get_method
+              path: rbyte.utils.make_dict
 
-                steering_wheel_angle/angle/radians/value:
-                  method: asof
-                  strategy: nearest
-                  tolerance: 100ms
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: data
+            output_name: data_aligned
+            func:
+              _target_: rbyte.io.DataFrameAligner
+              separator: /
+              fields:
+                camera_front_blur:
+                  key: timestamp
 
-            satellite:
-              key: timestamp/nanoseconds/value
-              columns:
-                speed/meters_per_second/value:
-                  method: interp
+                lidar_velodyne:
+                  key: timestamp
+                  columns:
+                    timestamp:
+                      method: asof
+                      strategy: nearest
+                      tolerance: 100ms
 
-sample_builder:
-  _target_: rbyte.FixedWindowSampleBuilder
-  index_column: camera_front_blur/timestamp
-  every: 300ms
+                vehicle_data:
+                  ego_vehicle_controls:
+                    key: timestamp/nanoseconds/value
+                    columns:
+                      timestamp/nanoseconds/value:
+                        method: asof
+                        strategy: nearest
+                        tolerance: 100ms
+
+                      acceleration_pedal/ratio/unitless/value:
+                        method: asof
+                        strategy: nearest
+                        tolerance: 100ms
+
+                      steering_wheel_angle/angle/radians/value:
+                        method: asof
+                        strategy: nearest
+                        tolerance: 100ms
+
+                  satellite:
+                    key: timestamp/nanoseconds/value
+                    columns:
+                      speed/meters_per_second/value:
+                        method: interp
+
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: data_aligned
+            output_name: samples
+            func:
+              _target_: rbyte.FixedWindowSampleBuilder
+              index_column: camera_front_blur/timestamp
+              every: 300ms

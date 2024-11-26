@@ -5,6 +5,7 @@ from typing import Annotated
 
 import polars as pl
 import torch
+from pipefunc import Pipeline
 from pydantic import Field, StringConstraints, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
@@ -14,9 +15,7 @@ from torch.utils.data import Dataset as TorchDataset
 from rbyte.batch import Batch, BatchMeta
 from rbyte.config import BaseModel, HydraConfig
 from rbyte.io.base import TensorSource
-from rbyte.io.table.base import TableBuilder
-from rbyte.sample.base import SampleBuilder
-from rbyte.utils.functional import pad_sequence
+from rbyte.utils.tensor import pad_sequence
 
 __all__ = ["Dataset"]
 
@@ -32,9 +31,15 @@ class SourceConfig(BaseModel):
     index_column: str
 
 
+class PipelineConfig(BaseModel):
+    pipeline: HydraConfig[Pipeline]
+    output_name: str | None = None
+    kwargs: dict[str, object] = Field(default_factory=dict)
+
+
 class InputConfig(BaseModel):
     sources: Mapping[Id, SourceConfig] = Field(min_length=1)
-    table_builder: HydraConfig[TableBuilder]
+    samples: PipelineConfig
 
 
 @unique
@@ -50,24 +55,27 @@ class Column(StrEnum):
 class Dataset(TorchDataset[TensorDict]):
     @validate_call(config=BaseModel.model_config)
     def __init__(
-        self,
-        inputs: Annotated[Mapping[Id, InputConfig], Field(min_length=1)],
-        sample_builder: HydraConfig[SampleBuilder],
+        self, inputs: Annotated[Mapping[Id, InputConfig], Field(min_length=1)]
     ) -> None:
         logger.debug("initializing dataset")
 
         super().__init__()
 
-        _sample_builder = sample_builder.instantiate()
         samples: Mapping[str, pl.DataFrame] = {}
         for input_id, input_cfg in inputs.items():
             with bound_contextvars(input_id=input_id):
-                table = input_cfg.table_builder.instantiate().build()
-                samples[input_id] = _sample_builder.build(table)
+                samples_cfg = input_cfg.samples
+                pipeline = samples_cfg.pipeline.instantiate()
+                output_name = (
+                    samples_cfg.output_name or pipeline.unique_leaf_node.output_name  # pyright: ignore[reportUnknownMemberType]
+                )
+                samples[input_id] = pipeline.run(
+                    output_name=output_name, kwargs=samples_cfg.kwargs
+                )
                 logger.debug(
                     "built samples",
-                    rows=table.select(pl.len()).item(),
-                    samples=samples[input_id].select(pl.len()).item(),
+                    columns=samples[input_id].columns,
+                    len=len(samples[input_id]),
                 )
 
         input_id_enum = pl.Enum(sorted(samples))
@@ -145,7 +153,7 @@ class Dataset(TorchDataset[TensorDict]):
             .agg(Column.source_config, Column.source_idxs)
         )
 
-        tensors: Mapping[str, torch.Tensor] = {
+        tensor_data: Mapping[str, torch.Tensor] = {
             row[Column.source_id]: pad_sequence(
                 [
                     self._get_source(source)[idxs]
@@ -159,11 +167,11 @@ class Dataset(TorchDataset[TensorDict]):
             for row in sources.collect().iter_rows(named=True)
         }
 
-        table: Mapping[str, Sequence[object]] = samples.select(
+        sample_data: Mapping[str, Sequence[object]] = samples.select(
             pl.exclude(Column.sample_idx, Column.input_id).to_physical()
         ).to_dict(as_series=False)
 
-        data = TensorDict(tensors | table, batch_size=batch_size)  # pyright: ignore[reportArgumentType]
+        data = TensorDict(tensor_data | sample_data, batch_size=batch_size)  # pyright: ignore[reportArgumentType]
 
         meta = BatchMeta(
             sample_idx=samples[Column.sample_idx].to_torch(),  # pyright: ignore[reportCallIssue]

@@ -1,29 +1,22 @@
-import json
 from collections.abc import Mapping
-from functools import cached_property
 from mmap import ACCESS_READ, mmap
 from operator import itemgetter
 from os import PathLike
 from pathlib import Path
-from typing import cast, override
+from typing import cast, final
 
 import more_itertools as mit
 import polars as pl
 from google.protobuf.message import Message
-from optree import PyTree, tree_map
-from polars._typing import PolarsDataType
+from polars._typing import PolarsDataType  # noqa: PLC2701
 from polars.datatypes import (
     DataType,  # pyright: ignore[reportUnusedImport]  # noqa: F401
     DataTypeClass,  # pyright: ignore[reportUnusedImport]  # noqa: F401
 )
 from ptars import HandlerPool
-from pydantic import ImportString
+from pydantic import ConfigDict, ImportString, validate_call
 from structlog import get_logger
 from tqdm import tqdm
-from xxhash import xxh3_64_intdigest as digest
-
-from rbyte.config.base import BaseModel, HydraConfig
-from rbyte.io.table.base import TableReader
 
 from .message_iterator import YaakMetadataMessageIterator
 from .proto import sensor_pb2
@@ -31,20 +24,22 @@ from .proto import sensor_pb2
 logger = get_logger(__name__)
 
 
-class Config(BaseModel):
-    fields: Mapping[
-        ImportString[type[Message]], Mapping[str, HydraConfig[PolarsDataType] | None]
-    ]
+type Fields = Mapping[
+    type[Message] | ImportString[type[Message]], Mapping[str, PolarsDataType | None]
+]
 
 
-class YaakMetadataTableReader(TableReader):
-    def __init__(self, **kwargs: object) -> None:
+@final
+class YaakMetadataDataFrameBuilder:
+    __name__ = __qualname__
+
+    @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
+    def __init__(self, *, fields: Fields) -> None:
         super().__init__()
 
-        self._config: Config = Config.model_validate(kwargs)
+        self._fields = fields
 
-    @override
-    def read(self, path: PathLike[str]) -> PyTree[pl.DataFrame]:
+    def __call__(self, path: PathLike[str]) -> Mapping[str, pl.DataFrame]:
         with Path(path).open("rb") as _f, mmap(_f.fileno(), 0, access=ACCESS_READ) as f:
             handler_pool = HandlerPool()
 
@@ -81,16 +76,4 @@ class YaakMetadataTableReader(TableReader):
                 ).items()
             }
 
-        return dfs  # pyright: ignore[reportReturnType]
-
-    @override
-    def __hash__(self) -> int:
-        config = self._config.model_dump_json()
-        # roundtripping json to work around https://github.com/pydantic/pydantic/issues/7424
-        config_str = json.dumps(json.loads(config), sort_keys=True)
-
-        return digest(config_str)
-
-    @cached_property
-    def _fields(self) -> Mapping[type[Message], Mapping[str, PolarsDataType | None]]:
-        return tree_map(HydraConfig.instantiate, self._config.fields)  # pyright: ignore[reportArgumentType, reportUnknownVariableType, reportReturnType, reportUnknownMemberType, reportUnknownArgumentType]
+        return dfs

@@ -16,12 +16,12 @@ schema:
   #@ end
 
   #@ entity = camera_entities.values()[0]
-  rrd/(@=entity@)/_idx_: TimeSequenceColumn
-  rrd/(@=entity@)/timestamp: TimeNanosColumn
+  (@=entity@)/_idx_: TimeSequenceColumn
+  (@=entity@)/timestamp: TimeNanosColumn
   #@ for entity in camera_entities.values()[1:]:
-  rrd/(@=entity@)/_idx_: TimeSequenceColumn
+  (@=entity@)/_idx_: TimeSequenceColumn
   #@ end
-  #! rrd//world/ego_vehicle/LIDAR_TOP/Position3D: Points3D
+  /world/ego_vehicle/LIDAR_TOP/Position3D: Points3D
 
 blueprint:
   _target_: rerun.blueprint.Blueprint
@@ -29,7 +29,7 @@ blueprint:
     - _target_: rerun.blueprint.Vertical
       contents:
         - _target_: rerun.blueprint.Spatial3DView
-          origin: rrd/
+          origin: 
 
         - _target_: rerun.blueprint.Horizontal
           contents:

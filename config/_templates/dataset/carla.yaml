@@ -75,39 +75,65 @@ inputs:
 
       #@ end
 
-    table_builder:
-      _target_: rbyte.io.table.TableBuilder
-      _convert_: all
-      readers:
-        ego_logs:
-          path: ${data_dir}/(@=input_id@)/ego_logs.json
-          reader:
-            _target_: rbyte.io.JsonTableReader
-            _recursive_: false
-            fields:
-              records:
-                _idx_:
-                control.brake:
-                control.throttle:
-                control.steer:
-                state.velocity.value:
-                state.acceleration.value:
+    samples:
+      pipeline:
+        _target_: pipefunc.Pipeline
+        validate_type_annotations: false
+        functions:
+          - _target_: pipefunc.PipeFunc
+            bound:
+              path: ${data_dir}/(@=input_id@)/ego_logs.json
+            output_name: ego_logs
+            func:
+              _target_: rbyte.io.JsonDataFrameBuilder
+              fields:
+                records:
+                  control.brake:
+                  control.throttle:
+                  control.steer:
+                  state.velocity.value:
+                  state.acceleration.value:
 
-            transforms:
-              - _target_: rbyte.io.FpsResampler
-                source_fps: 20
-                target_fps: 30
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: ego_logs
+            output_name: data
+            func:
+              _target_: rbyte.io.DataFrameConcater
+              method: vertical
 
-      merger:
-        _target_: rbyte.io.TableConcater
-        method: vertical
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: data
+            output_name: data_resampled
+            func:
+              _target_: rbyte.io.DataFrameFpsResampler
+              fps_in: 20
+              fps_out: 30
 
-      filter: |
-        `control.throttle` > 0.5
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: data_resampled
+            output_name: data_indexed
+            func:
+              _target_: rbyte.io.DataFrameIndexer
+              name: _idx_
 
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: data_indexed
+            output_name: data_filtered
+            func:
+              _target_: rbyte.io.DataFrameFilter
+              predicate: |
+                `control.throttle` > 0.5
+
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: data_filtered
+            output_name: samples
+            func:
+              _target_: rbyte.RollingWindowSampleBuilder
+              index_column: _idx_
+              period: 1i
   #@ end
-
-sample_builder:
-  _target_: rbyte.RollingWindowSampleBuilder
-  index_column: _idx_
-  period: 1i

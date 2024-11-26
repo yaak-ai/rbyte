@@ -22,118 +22,152 @@ inputs:
         index_column: "meta/ImageMetadata.(@=source_id@)/frame_idx"
         source:
           _target_: rbyte.io.FfmpegFrameSource
-          _recursive_: true
           path: "${data_dir}/(@=input_id@)/(@=source_id@).pii.mp4"
           resize_shorter_side: 324
       #@ end
 
-    table_builder:
-      _target_: rbyte.io.TableBuilder
-      _convert_: all
-      readers:
-        meta:
-          path: ${data_dir}/(@=input_id@)/metadata.log
-          reader:
-            _target_: rbyte.io.YaakMetadataTableReader
-            _recursive_: false
-            fields:
-              rbyte.io.yaak.proto.sensor_pb2.ImageMetadata:
-                time_stamp:
-                  _target_: polars.Datetime
-                  time_unit: ns
+    samples:
+      pipeline:
+        _target_: pipefunc.Pipeline
+        validate_type_annotations: false
+        functions:
+          - _target_: pipefunc.PipeFunc
+            bound:
+              path: ${data_dir}/(@=input_id@)/metadata.log
+            output_name: meta_data
+            func:
+              _target_: rbyte.io.YaakMetadataDataFrameBuilder
+              fields:
+                rbyte.io.yaak.proto.sensor_pb2.ImageMetadata:
+                  time_stamp:
+                    _target_: polars.Datetime
+                    time_unit: ns
 
-                frame_idx: polars.Int32
-                camera_name:
-                  _target_: polars.Enum
-                  categories:
-                    - cam_front_center
-                    - cam_front_left
-                    - cam_front_right
-                    - cam_left_forward
-                    - cam_right_forward
-                    - cam_left_backward
-                    - cam_right_backward
-                    - cam_rear
+                  frame_idx:
+                    _target_: polars.Int32
 
-              rbyte.io.yaak.proto.can_pb2.VehicleMotion:
-                time_stamp:
-                  _target_: polars.Datetime
-                  time_unit: ns
+                  camera_name:
+                    _target_: polars.Enum
+                    categories:
+                      - cam_front_center
+                      - cam_front_left
+                      - cam_front_right
+                      - cam_left_forward
+                      - cam_right_forward
+                      - cam_left_backward
+                      - cam_right_backward
+                      - cam_rear
 
-                speed: polars.Float32
-                gear:
-                  _target_: polars.Enum
-                  categories: ["0", "1", "2", "3"]
+                rbyte.io.yaak.proto.can_pb2.VehicleMotion:
+                  time_stamp:
+                    _target_: polars.Datetime
+                    time_unit: ns
 
-        mcap:
-          path: ${data_dir}/(@=input_id@)/ai.mcap
-          reader:
-            _target_: rbyte.io.McapTableReader
-            _recursive_: false
-            decoder_factories: [rbyte.utils.mcap.ProtobufDecoderFactory]
-            fields:
-              /ai/safety_score:
-                clip.end_timestamp:
-                  _target_: polars.Datetime
-                  time_unit: ns
+                  speed:
+                    _target_: polars.Float32
 
-                score: polars.Float32
+                  gear:
+                    _target_: polars.Enum
+                    categories: ["0", "1", "2", "3"]
 
-      merger:
-        _target_: rbyte.io.TableAligner
-        separator: "/"
-        merge:
-          meta:
-            ImageMetadata.(@=cameras[0]@):
-              key: time_stamp
+          - _target_: pipefunc.PipeFunc
+            bound:
+              path: ${data_dir}/(@=input_id@)/ai.mcap
+            output_name: mcap_data
+            func:
+              _target_: rbyte.io.McapDataFrameBuilder
+              decoder_factories: [rbyte.utils._mcap.ProtobufDecoderFactory]
+              fields:
+                /ai/safety_score:
+                  clip.end_timestamp:
+                    _target_: polars.Datetime
+                    time_unit: ns
 
-            #@ for camera in cameras[1:]:
-            ImageMetadata.(@=camera@):
-              key: time_stamp
-              columns:
-                frame_idx:
-                  method: asof
-                  tolerance: 20ms
-                  strategy: nearest
-            #@ end
+                  score:
+                    _target_: polars.Float32
 
-            VehicleMotion:
-              key: time_stamp
-              columns:
-                speed:
-                  method: interp
-                gear:
-                  method: asof
-                  tolerance: 100ms
-                  strategy: nearest
+          - _target_: pipefunc.PipeFunc
+            func:
+              _target_: hydra.utils.get_method
+              path: rbyte.utils.make_dict
+            bound:
+              k0: meta
+              k1: mcap
+            renames:
+              v0: meta_data
+              v1: mcap_data
+            output_name: data
 
-          mcap:
-            /ai/safety_score:
-              key: clip.end_timestamp
-              columns:
-                clip.end_timestamp:
-                  method: asof
-                  tolerance: 500ms
-                  strategy: nearest
-                score:
-                  method: asof
-                  tolerance: 500ms
-                  strategy: nearest
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: data
+            output_name: data_aligned
+            func:
+              _target_: rbyte.io.DataFrameAligner
+              separator: /
+              fields:
+                meta:
+                  ImageMetadata.(@=cameras[0]@):
+                    key: time_stamp
 
-      filter: |
-        `meta/VehicleMotion/gear` == '3'
+                  #@ for camera in cameras[1:]:
+                  ImageMetadata.(@=camera@):
+                    key: time_stamp
+                    columns:
+                      frame_idx:
+                        method: asof
+                        tolerance: 20ms
+                        strategy: nearest
+                  #@ end
 
-      cache:
-        _target_: rbyte.utils.dataframe.DataframeDiskCache
-        directory: /tmp/rbyte-cache
-        size_limit: 1GiB
+                  VehicleMotion:
+                    key: time_stamp
+                    columns:
+                      speed:
+                        method: interp
+                      gear:
+                        method: asof
+                        tolerance: 100ms
+                        strategy: nearest
+
+                mcap:
+                  /ai/safety_score:
+                    key: clip.end_timestamp
+                    columns:
+                      clip.end_timestamp:
+                        method: asof
+                        tolerance: 500ms
+                        strategy: nearest
+                      score:
+                        method: asof
+                        tolerance: 500ms
+                        strategy: nearest
+
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: data_aligned
+            output_name: data_filtered
+            func:
+              _target_: rbyte.io.DataFrameFilter
+              predicate: |
+                `meta/VehicleMotion/gear` == '3'
+
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: data_filtered
+            output_name: samples
+            func:
+              _target_: rbyte.FixedWindowSampleBuilder
+              index_column: meta/ImageMetadata.(@=cameras[0]@)/frame_idx
+              every: 6i
+              period: 6i
+
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: samples
+            output_name: samples_filtered
+            func:
+              _target_: rbyte.io.DataFrameFilter
+              predicate: |
+                array_length(`meta/ImageMetadata.(@=cameras[0]@)/time_stamp`) == 6
   #@ end
-
-sample_builder:
-  _target_: rbyte.FixedWindowSampleBuilder
-  index_column: meta/ImageMetadata.(@=cameras[0]@)/frame_idx
-  every: 6i
-  period: 6i
-  filter: |
-    array_length(`meta/ImageMetadata.(@=cameras[0]@)/time_stamp`) == 6
-    and array_mean(`meta/VehicleMotion/speed`) > 40

@@ -1,3 +1,3 @@
-from .table_reader import JsonTableReader
+from .dataframe_builder import JsonDataFrameBuilder
 
-__all__ = ["JsonTableReader"]
+__all__ = ["JsonDataFrameBuilder"]

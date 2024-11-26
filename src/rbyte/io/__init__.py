@@ -1,39 +1,46 @@
-from ._json import JsonTableReader
+from ._json import JsonDataFrameBuilder
 from ._numpy import NumpyTensorSource
-from .path import PathTableReader, PathTensorSource
-from .table import FpsResampler, TableAligner, TableBuilder, TableConcater
+from .dataframe import (
+    DataFrameAligner,
+    DataFrameConcater,
+    DataFrameFilter,
+    DataFrameFpsResampler,
+    DataFrameIndexer,
+)
+from .path import PathDataFrameBuilder, PathTensorSource
 
 __all__: list[str] = [
-    "FpsResampler",
-    "JsonTableReader",
+    "DataFrameAligner",
+    "DataFrameConcater",
+    "DataFrameFilter",
+    "DataFrameFpsResampler",
+    "DataFrameIndexer",
+    "JsonDataFrameBuilder",
     "NumpyTensorSource",
-    "PathTableReader",
+    "PathDataFrameBuilder",
     "PathTensorSource",
-    "TableAligner",
-    "TableBuilder",
-    "TableConcater",
 ]
 
 try:
-    from .hdf5 import Hdf5TableReader, Hdf5TensorSource
+    from .hdf5 import Hdf5DataFrameBuilder, Hdf5TensorSource
 except ImportError:
     pass
 else:
-    __all__ += ["Hdf5TableReader", "Hdf5TensorSource"]
+    __all__ += ["Hdf5DataFrameBuilder", "Hdf5TensorSource"]
 
 try:
-    from ._mcap import McapTableReader, McapTensorSource
+    from ._mcap import McapDataFrameBuilder, McapTensorSource
 except ImportError:
     pass
 else:
-    __all__ += ["McapTableReader", "McapTensorSource"]
+    __all__ += ["McapDataFrameBuilder", "McapTensorSource"]
 
 try:
-    from .rrd import RrdFrameSource, RrdTableReader
+    from .rrd import RrdDataFrameBuilder, RrdFrameSource
 except ImportError:
     pass
 else:
-    __all__ += ["RrdFrameSource", "RrdTableReader"]
+    __all__ += ["RrdDataFrameBuilder", "RrdFrameSource"]
 
 try:
     from .video.ffmpeg_source import FfmpegFrameSource
@@ -43,8 +50,8 @@ else:
     __all__ += ["FfmpegFrameSource"]
 
 try:
-    from .yaak import YaakMetadataTableReader
+    from .yaak import YaakMetadataDataFrameBuilder
 except ImportError:
     pass
 else:
-    __all__ += ["YaakMetadataTableReader"]
+    __all__ += ["YaakMetadataDataFrameBuilder"]
