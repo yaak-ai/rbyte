@@ -1,4 +1,4 @@
-from .table_reader import McapTableReader
+from .dataframe_builder import McapDataFrameBuilder
 from .tensor_source import McapTensorSource
 
-__all__ = ["McapTableReader", "McapTensorSource"]
+__all__ = ["McapDataFrameBuilder", "McapTensorSource"]

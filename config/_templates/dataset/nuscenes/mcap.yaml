@@ -11,15 +11,15 @@
 #@ }
 ---
 _target_: rbyte.Dataset
-_convert_: all
 _recursive_: false
+_convert_: all
 inputs:
   #@ for input_id in inputs:
   (@=input_id@):
     sources:
       #@ for camera, topic in camera_topics.items():
       (@=camera@):
-        index_column: mcap/(@=topic@)/_idx_
+        index_column: (@=topic@)/_idx_
         source:
           _target_: rbyte.io.McapTensorSource
           path: "${data_dir}/(@=input_id@).mcap"
@@ -33,66 +33,85 @@ inputs:
             fastupsample: true
       #@ end
 
-    table_builder:
-      _target_: rbyte.io.TableBuilder
-      _convert_: all
-      readers:
-        mcap:
-          path: "${data_dir}/(@=input_id@).mcap"
-          reader:
-            _target_: rbyte.io.McapTableReader
-            _recursive_: false
-            decoder_factories:
-              - rbyte.utils.mcap.ProtobufDecoderFactory
-              - rbyte.utils.mcap.JsonDecoderFactory
+    samples:
+      pipeline:
+        _target_: pipefunc.Pipeline
+        validate_type_annotations: false
+        functions:
+          - _target_: pipefunc.PipeFunc
+            bound:
+              path: ${data_dir}/(@=input_id@).mcap
+            output_name: data
+            func:
+              _target_: rbyte.io.McapDataFrameBuilder
+              decoder_factories:
+                - rbyte.utils._mcap.ProtobufDecoderFactory
+                - rbyte.utils._mcap.JsonDecoderFactory
+              fields:
+                #@ for topic in camera_topics.values():
+                (@=topic@):
+                  log_time:
+                    _target_: polars.Datetime
+                    time_unit: ns
+                #@ end
 
-            fields:
-              #@ for topic in camera_topics.values():
-              (@=topic@):
-                _idx_:
-                log_time:
-                  _target_: polars.Datetime
-                  time_unit: ns
-              #@ end
+                /odom:
+                  log_time:
+                    _target_: polars.Datetime
+                    time_unit: ns
+                  vel.x:
 
-              /odom:
-                log_time:
-                  _target_: polars.Datetime
-                  time_unit: ns
-                vel.x:
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: data
+            output_name: data_indexed
+            func:
+              _target_: rbyte.io.DataFrameIndexer
+              name: _idx_
 
-      merger:
-        _target_: rbyte.io.TableAligner
-        separator: "/"
-        merge:
-          mcap:
-            #@ topic = camera_topics.values()[0]
-            (@=topic@):
-              key: log_time
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: data_indexed
+            output_name: data_aligned
+            func:
+              _target_: rbyte.io.DataFrameAligner
+              separator: /
+              fields:
+                #@ topic = camera_topics.values()[0]
+                (@=topic@):
+                  key: log_time
 
-            #@ for topic in camera_topics.values()[1:]:
-            (@=topic@):
-              key: log_time
-              columns:
-                _idx_:
-                  method: asof
-                  tolerance: 40ms
-                  strategy: nearest
-            #@ end
+                #@ for topic in camera_topics.values()[1:]:
+                (@=topic@):
+                  key: log_time
+                  columns:
+                    _idx_:
+                      method: asof
+                      tolerance: 40ms
+                      strategy: nearest
+                #@ end
 
-            /odom:
-              key: log_time
-              columns:
-                vel.x:
-                  method: interp
+                /odom:
+                  key: log_time
+                  columns:
+                    vel.x:
+                      method: interp
 
-      filter: |
-        `mcap//odom/vel.x` >= 8
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: data_aligned
+            output_name: data_filtered
+            func:
+              _target_: rbyte.io.DataFrameFilter
+              predicate: |
+                `/odom/vel.x` >= 8
 
-      cache:
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: data_filtered
+            output_name: samples
+            func:
+              _target_: rbyte.RollingWindowSampleBuilder
+              index_column: (@=camera_topics.values()[0]@)/_idx_
+              period: 1i
   #@ end
-
-sample_builder:
-  _target_: rbyte.RollingWindowSampleBuilder
-  index_column: mcap/(@=camera_topics.values()[0]@)/_idx_
-  period: 1i

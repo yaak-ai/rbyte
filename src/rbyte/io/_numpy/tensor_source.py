@@ -2,7 +2,7 @@ from collections.abc import Iterable, Sequence
 from functools import cached_property
 from os import PathLike
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, override
+from typing import TYPE_CHECKING, override
 
 import numpy as np
 import torch
@@ -14,7 +14,7 @@ from torch import Tensor
 
 from rbyte.config.base import BaseModel
 from rbyte.io.base import TensorSource
-from rbyte.utils.functional import pad_sequence
+from rbyte.utils.tensor import pad_sequence
 
 if TYPE_CHECKING:
     from types import EllipsisType
@@ -35,7 +35,7 @@ class NumpyTensorSource(TensorSource):
         return self._path.resolve().as_posix()
 
     @override
-    def __getitem__(self, indexes: Iterable[Any]) -> Tensor:
+    def __getitem__(self, indexes: Iterable[object]) -> Tensor:
         tensors: list[Tensor] = []
         for index in indexes:
             path = self._path_posix.format(index)

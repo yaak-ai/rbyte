@@ -2,7 +2,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from mmap import ACCESS_READ, mmap
-from typing import IO, Any, override
+from typing import IO, override
 
 import more_itertools as mit
 import numpy.typing as npt
@@ -73,7 +73,7 @@ class McapTensorSource(TensorSource):
                 logger.error(msg := "missing message decoder")
                 raise RuntimeError(msg)
 
-            self._message_decoder: Callable[[bytes], Any] = message_decoder
+            self._message_decoder: Callable[[bytes], object] = message_decoder
             self._chunk_indexes: tuple[ChunkIndex, ...] = tuple(
                 chunk_index
                 for chunk_index in summary.chunk_indexes
@@ -122,7 +122,7 @@ class McapTensorSource(TensorSource):
                 stream.read(message_index.message_start_offset - stream.count)  # pyright: ignore[reportUnusedCallResult]
                 message = Message.read(stream, message_index.message_length)
                 decoded_message = self._message_decoder(message.data)
-                frames[frame_index] = self._decoder(decoded_message.data)
+                frames[frame_index] = self._decoder(decoded_message.data)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportAttributeAccessIssue]
 
         return torch.stack([torch.from_numpy(frames[idx]) for idx in indexes])  # pyright: ignore[reportUnknownMemberType]
 

@@ -1,9 +1,7 @@
-import json
 from collections import OrderedDict
-from collections.abc import Hashable
 from datetime import timedelta
 from functools import cached_property
-from typing import Annotated, Literal, override
+from typing import Literal, final
 from uuid import uuid4
 
 import polars as pl
@@ -15,14 +13,11 @@ from optree import (
     tree_map_with_path,
 )
 from polars._typing import AsofJoinStrategy
-from pydantic import Field, StringConstraints
+from pydantic import Field, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
-from xxhash import xxh3_64_intdigest as digest
 
 from rbyte.config.base import BaseModel
-
-from .base import TableMerger
 
 logger = get_logger(__name__)
 
@@ -37,58 +32,56 @@ class AsofColumnMergeConfig(BaseModel):
     tolerance: str | int | float | timedelta | None = None
 
 
-ColumnMergeConfig = InterpColumnMergeConfig | AsofColumnMergeConfig
+type ColumnMergeConfig = InterpColumnMergeConfig | AsofColumnMergeConfig
 
 
-class TableMergeConfig(BaseModel):
+class MergeConfig(BaseModel):
     key: str
     columns: OrderedDict[str, ColumnMergeConfig] = Field(default_factory=OrderedDict)
 
 
-type MergeConfig = TableMergeConfig | OrderedDict[str, "MergeConfig"]
+type Fields = MergeConfig | OrderedDict[str, "Fields"]
 
 
-class Config(BaseModel):
-    merge: MergeConfig
-    separator: Annotated[str, StringConstraints(strip_whitespace=True)] = "/"
+@final
+class DataFrameAligner:
+    __name__ = __qualname__
+
+    @validate_call
+    def __init__(self, *, fields: Fields, separator: str = "/") -> None:
+        self._fields = fields
+        self._separator = separator
 
     @cached_property
-    def merge_fqn(self) -> PyTree[TableMergeConfig]:
-        # fully qualified key/column names
-        def fqn(path: tuple[str, ...], cfg: TableMergeConfig) -> TableMergeConfig:
-            key = self.separator.join((*path, cfg.key))
+    def _fully_qualified_fields(self) -> PyTree[MergeConfig]:
+        def fqn(path: tuple[str, ...], cfg: MergeConfig) -> MergeConfig:
+            key = self._separator.join((*path, cfg.key))
             columns = OrderedDict({
-                self.separator.join((*path, k)): v for k, v in cfg.columns.items()
+                self._separator.join((*path, k)): v for k, v in cfg.columns.items()
             })
 
-            return TableMergeConfig(key=key, columns=columns)
+            return MergeConfig(key=key, columns=columns)
 
-        return tree_map_with_path(fqn, self.merge)  # pyright: ignore[reportArgumentType]
+        return tree_map_with_path(fqn, self._fields)  # pyright: ignore[reportArgumentType]
 
+    def __call__(self, input: PyTree[pl.DataFrame]) -> pl.DataFrame:
+        fields = self._fully_qualified_fields
 
-class TableAligner(TableMerger, Hashable):
-    def __init__(self, **kwargs: object) -> None:
-        self._config: Config = Config.model_validate(kwargs)
-
-    @override
-    def merge(self, src: PyTree[pl.DataFrame]) -> pl.DataFrame:
-        merge_configs = self._config.merge_fqn
-
-        def get_df(accessor: PyTreeAccessor, cfg: TableMergeConfig) -> pl.DataFrame:
+        def get_df(accessor: PyTreeAccessor, cfg: MergeConfig) -> pl.DataFrame:
             return (
-                accessor(src)
-                .rename(lambda col: self._config.separator.join((*accessor.path, col)))  # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+                accessor(input)
+                .rename(lambda col: self._separator.join((*accessor.path, col)))  # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
                 .sort(cfg.key)
             )
 
-        dfs = tree_map_with_accessor(get_df, merge_configs)
-        accessor, *accessors_rest = tree_accessors(merge_configs)
+        dfs = tree_map_with_accessor(get_df, fields)
+        accessor, *accessors_rest = tree_accessors(fields)
         df: pl.DataFrame = accessor(dfs)
-        left_on = accessor(merge_configs).key
+        left_on = accessor(fields).key
 
         for accessor in accessors_rest:
             other: pl.DataFrame = accessor(dfs)
-            merge_config: TableMergeConfig = accessor(merge_configs)
+            merge_config: MergeConfig = accessor(fields)
             key = merge_config.key
 
             for column, config in merge_config.columns.items():
@@ -144,11 +137,3 @@ class TableAligner(TableMerger, Hashable):
                 )
 
         return df
-
-    @override
-    def __hash__(self) -> int:
-        config = self._config.model_dump_json()
-        # roundtripping json to work around https://github.com/pydantic/pydantic/issues/7424
-        config_str = json.dumps(json.loads(config), sort_keys=True)
-
-        return digest(config_str)

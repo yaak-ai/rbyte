@@ -61,6 +61,26 @@ visualize *ARGS: generate-config
         hydra/job_logging=disabled \
         {{ ARGS }}
 
+[group('visualize')]
+visualize-mimicgen:
+    just visualize dataset=mimicgen logger=rerun/mimicgen ++data_dir={{ justfile_directory() }}/tests/data/mimicgen
+
+[group('visualize')]
+visualize-yaak:
+    just visualize dataset=yaak logger=rerun/yaak ++data_dir={{ justfile_directory() }}/tests/data/yaak
+
+[group('visualize')]
+visualize-zod:
+    just visualize dataset=zod logger=rerun/zod ++data_dir={{ justfile_directory() }}/tests/data/zod
+
+[group('visualize')]
+visualize-nuscenes-mcap:
+    just visualize dataset=nuscenes/mcap logger=rerun/nuscenes/mcap ++data_dir={{ justfile_directory() }}/tests/data/nuscenes/mcap
+
+[group('visualize')]
+visualize-nuscenes-rrd:
+    just visualize dataset=nuscenes/rrd logger=rerun/nuscenes/rrd ++data_dir={{ justfile_directory() }}/tests/data/nuscenes/rrd
+
 # rerun server and viewer
 rerun bind="0.0.0.0" port="9876" ws-server-port="9877" web-viewer-port="9090":
     RUST_LOG=debug uv run rerun \

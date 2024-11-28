@@ -80,17 +80,11 @@ def test_nuscenes_mcap() -> None:
                 "CAM_FRONT": Tensor(shape=[c.B, _, *_]),
                 "CAM_FRONT_LEFT": Tensor(shape=[c.B, _, *_]),
                 "CAM_FRONT_RIGHT": Tensor(shape=[c.B, _, *_]),
-                "mcap//CAM_FRONT/image_rect_compressed/_idx_": Tensor(shape=[c.B, _]),
-                "mcap//CAM_FRONT/image_rect_compressed/log_time": Tensor(
-                    shape=[c.B, _]
-                ),
-                "mcap//CAM_FRONT_LEFT/image_rect_compressed/_idx_": Tensor(
-                    shape=[c.B, _]
-                ),
-                "mcap//CAM_FRONT_RIGHT/image_rect_compressed/_idx_": Tensor(
-                    shape=[c.B, _]
-                ),
-                "mcap//odom/vel.x": Tensor(shape=[c.B, _]),
+                "/CAM_FRONT/image_rect_compressed/_idx_": Tensor(shape=[c.B, _]),
+                "/CAM_FRONT/image_rect_compressed/log_time": Tensor(shape=[c.B, _]),
+                "/CAM_FRONT_LEFT/image_rect_compressed/_idx_": Tensor(shape=[c.B, _]),
+                "/CAM_FRONT_RIGHT/image_rect_compressed/_idx_": Tensor(shape=[c.B, _]),
+                "/odom/vel.x": Tensor(shape=[c.B, _]),
                 **data_rest,
             },
             "meta": {
@@ -137,19 +131,11 @@ def test_nuscenes_rrd() -> None:
                 "CAM_FRONT": Tensor(shape=[c.B, _, *_]),
                 "CAM_FRONT_LEFT": Tensor(shape=[c.B, _, *_]),
                 "CAM_FRONT_RIGHT": Tensor(shape=[c.B, _, *_]),
-                "rrd//world/ego_vehicle/CAM_FRONT/timestamp": Tensor(
-                    shape=[c.B, _, *_]
-                ),
-                "rrd//world/ego_vehicle/CAM_FRONT/_idx_": Tensor(shape=[c.B, _, *_]),
-                "rrd//world/ego_vehicle/CAM_FRONT_LEFT/_idx_": Tensor(
-                    shape=[c.B, _, *_]
-                ),
-                "rrd//world/ego_vehicle/CAM_FRONT_RIGHT/_idx_": Tensor(
-                    shape=[c.B, _, *_]
-                ),
-                "rrd//world/ego_vehicle/LIDAR_TOP/Position3D": Tensor(
-                    shape=[c.B, _, *_]
-                ),
+                "/world/ego_vehicle/CAM_FRONT/timestamp": Tensor(shape=[c.B, _, *_]),
+                "/world/ego_vehicle/CAM_FRONT/_idx_": Tensor(shape=[c.B, _, *_]),
+                "/world/ego_vehicle/CAM_FRONT_LEFT/_idx_": Tensor(shape=[c.B, _, *_]),
+                "/world/ego_vehicle/CAM_FRONT_RIGHT/_idx_": Tensor(shape=[c.B, _, *_]),
+                "/world/ego_vehicle/LIDAR_TOP/Position3D": Tensor(shape=[c.B, _, *_]),
                 **data_rest,
             },
             "meta": {

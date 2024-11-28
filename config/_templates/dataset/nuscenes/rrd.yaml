@@ -11,15 +11,15 @@
 #@ }
 ---
 _target_: rbyte.Dataset
-_convert_: all
 _recursive_: false
+_convert_: all
 inputs:
   #@ for input_id in inputs:
   (@=input_id@):
     sources:
       #@ for camera, entity in camera_entities.items():
       (@=camera@):
-        index_column: rrd/(@=entity@)/_idx_
+        index_column: (@=entity@)/_idx_
         source:
           _target_: rbyte.io.RrdFrameSource
           path: "${data_dir}/(@=input_id@).rrd"
@@ -33,57 +33,79 @@ inputs:
             fastupsample: true
       #@ end
 
-    table_builder:
-      _target_: rbyte.io.TableBuilder
-      _convert_: all
-      readers:
-        rrd:
-          path: "${data_dir}/(@=input_id@).rrd"
-          reader:
-            _target_: rbyte.io.RrdTableReader
-            _recursive_: false
-            index: timestamp
-            contents:
-              #@ for entity in camera_entities.values():
-              (@=entity@):
-                - _idx_
-              #@ end
+    samples:
+      pipeline:
+        _target_: pipefunc.Pipeline
+        validate_type_annotations: false
+        functions:
+          - _target_: pipefunc.PipeFunc
+            bound:
+              path: "${data_dir}/(@=input_id@).rrd"
+            output_name: data
+            func:
+              _target_: rbyte.io.RrdDataFrameBuilder
+              index: timestamp
+              contents:
+                #@ for entity in camera_entities.values():
+                (@=entity@):
+                #@ end
 
-              /world/ego_vehicle/LIDAR_TOP:
-                - Position3D
+                /world/ego_vehicle/LIDAR_TOP:
+                  - Position3D
 
-      merger:
-        _target_: rbyte.io.TableAligner
-        separator: /
-        merge:
-          rrd:
-            #@ entity = camera_entities.values()[0]
-            (@=entity@):
-              key: timestamp
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: data
+            output_name: data_indexed
+            func:
+              _target_: rbyte.io.DataFrameIndexer
+              name: _idx_
 
-            #@ for entity in camera_entities.values()[1:]:
-            (@=entity@):
-              key: timestamp
-              columns:
-                _idx_:
-                  method: asof
-                  strategy: nearest
-                  tolerance: 40ms
-            #@ end
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: data_indexed
+            output_name: data_aligned
+            func:
+              _target_: rbyte.io.DataFrameAligner
+              separator: /
+              fields:
+                #@ entity = camera_entities.values()[0]
+                (@=entity@):
+                  key: timestamp
 
-            /world/ego_vehicle/LIDAR_TOP:
-              key: timestamp
-              columns:
-                Position3D:
-                  method: asof
-                  strategy: nearest
-                  tolerance: 40ms
-                  
-      filter: |
-        `rrd//world/ego_vehicle/CAM_FRONT/timestamp` between '2018-07-24 03:28:48' and '2018-07-24 03:28:50'
+                #@ for entity in camera_entities.values()[1:]:
+                (@=entity@):
+                  key: timestamp
+                  columns:
+                    _idx_:
+                      method: asof
+                      strategy: nearest
+                      tolerance: 60ms
+                #@ end
+
+                /world/ego_vehicle/LIDAR_TOP:
+                  key: timestamp
+                  columns:
+                    Position3D:
+                      method: asof
+                      strategy: nearest
+                      tolerance: 60ms
+
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: data_aligned
+            output_name: data_filtered
+            func:
+              _target_: rbyte.io.DataFrameFilter
+              predicate: |
+                `/world/ego_vehicle/CAM_FRONT/timestamp` between '2018-07-24 03:28:48' and '2018-07-24 03:28:50'
+
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: data_filtered
+            output_name: samples
+            func:
+              _target_: rbyte.RollingWindowSampleBuilder
+              index_column: (@=camera_entities.values()[0]@)/_idx_
+              period: 1i
   #@ end
-
-sample_builder:
-  _target_: rbyte.RollingWindowSampleBuilder
-  index_column: rrd/(@=camera_entities.values()[0]@)/_idx_
-  period: 1i

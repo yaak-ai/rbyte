@@ -33,7 +33,7 @@ jobs:
           fetch-depth: 0
 
       - name: build and inspect
-        uses: hynek/build-and-inspect-python-package@v2.9.0
+        uses: hynek/build-and-inspect-python-package@v2
         with:
           attest-build-provenance-github: "true"
 

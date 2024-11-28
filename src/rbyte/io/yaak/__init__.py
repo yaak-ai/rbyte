@@ -1,3 +1,3 @@
-from .table_reader import YaakMetadataTableReader
+from .dataframe_builder import YaakMetadataDataFrameBuilder
 
-__all__ = ["YaakMetadataTableReader"]
+__all__ = ["YaakMetadataDataFrameBuilder"]

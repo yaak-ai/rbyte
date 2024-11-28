@@ -5,8 +5,6 @@
 #@ ]
 ---
 _target_: rbyte.viz.loggers.RerunLogger
-_recursive_: true
-_convert_: all
 schema:
   #@ for camera in cameras:
   (@=camera@):

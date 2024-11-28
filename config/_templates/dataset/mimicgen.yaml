@@ -12,8 +12,8 @@
 #@ ]
 ---
 _target_: rbyte.Dataset
-_convert_: all
 _recursive_: false
+_convert_: all
 inputs:
   #@ for input_id, input_keys in inputs.items():
   #@ for input_key in input_keys:
@@ -28,27 +28,45 @@ inputs:
           key: (@=input_key@)/(@=frame_key@)
       #@ end
 
-    table_builder:
-      _target_: rbyte.io.TableBuilder
-      _convert_: all
-      readers:
-        hdf5:
-          path: "${data_dir}/(@=input_id@).hdf5"
-          reader:
-            _target_: rbyte.io.Hdf5TableReader
-            _recursive_: false
-            fields:
-              (@=input_key@):
-                _idx_:
-                obs/robot0_eef_pos:
+    samples:
+      pipeline:
+        _target_: pipefunc.Pipeline
+        validate_type_annotations: false
+        functions:
+          - _target_: pipefunc.PipeFunc
+            bound:
+              path: "${data_dir}/(@=input_id@).hdf5"
+            output_name: data
+            func:
+              _target_: rbyte.io.Hdf5DataFrameBuilder
+              fields:
+                (@=input_key@):
+                  obs/robot0_eef_pos:
 
-      merger:
-        _target_: rbyte.io.TableConcater
-        method: vertical
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: data
+            output_name: data_indexed
+            func:
+              _target_: rbyte.io.DataFrameIndexer
+              name: _idx_
+
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: data_indexed
+            output_name: data_concated
+            func:
+              _target_: rbyte.io.DataFrameConcater
+              method: vertical
+
+          - _target_: pipefunc.PipeFunc
+            renames:
+              input: data_concated
+            output_name: samples
+            func:
+              _target_: rbyte.RollingWindowSampleBuilder
+              index_column: _idx_
+              period: 1i
+
   #@ end
   #@ end
-
-sample_builder:
-  _target_: rbyte.RollingWindowSampleBuilder
-  index_column: _idx_
-  period: 1i
