@@ -77,3 +77,10 @@ class YaakMetadataDataFrameBuilder:
             }
 
         return dfs
+
+
+# exposing all kwargs so its cacheable by pipefunc
+def build_yaak_metadata_dataframe(
+    *, path: PathLike[str], fields: Fields
+) -> Mapping[str, pl.DataFrame]:
+    return YaakMetadataDataFrameBuilder(fields=fields)(path)

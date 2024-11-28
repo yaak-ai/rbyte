@@ -5,6 +5,7 @@ from typing import Annotated
 
 import polars as pl
 import torch
+from hydra.utils import instantiate
 from pipefunc import Pipeline
 from pydantic import Field, StringConstraints, validate_call
 from structlog import get_logger
@@ -69,9 +70,10 @@ class Dataset(TorchDataset[TensorDict]):
                 output_name = (
                     samples_cfg.output_name or pipeline.unique_leaf_node.output_name  # pyright: ignore[reportUnknownMemberType]
                 )
-                samples[input_id] = pipeline.run(
-                    output_name=output_name, kwargs=samples_cfg.kwargs
+                kwargs = instantiate(
+                    samples_cfg.kwargs, _recursive_=True, _convert_="all"
                 )
+                samples[input_id] = pipeline.run(output_name=output_name, kwargs=kwargs)
                 logger.debug(
                     "built samples",
                     columns=samples[input_id].columns,
