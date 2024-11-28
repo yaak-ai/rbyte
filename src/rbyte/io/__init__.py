@@ -50,8 +50,8 @@ else:
     __all__ += ["FfmpegFrameSource"]
 
 try:
-    from .yaak import YaakMetadataDataFrameBuilder
+    from .yaak import YaakMetadataDataFrameBuilder, build_yaak_metadata_dataframe
 except ImportError:
     pass
 else:
-    __all__ += ["YaakMetadataDataFrameBuilder"]
+    __all__ += ["YaakMetadataDataFrameBuilder", "build_yaak_metadata_dataframe"]

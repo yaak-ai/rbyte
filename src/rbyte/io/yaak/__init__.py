@@ -1,3 +1,6 @@
-from .dataframe_builder import YaakMetadataDataFrameBuilder
+from .dataframe_builder import (
+    YaakMetadataDataFrameBuilder,
+    build_yaak_metadata_dataframe,
+)
 
-__all__ = ["YaakMetadataDataFrameBuilder"]
+__all__ = ["YaakMetadataDataFrameBuilder", "build_yaak_metadata_dataframe"]
