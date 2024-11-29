@@ -99,13 +99,4 @@ inputs:
               _target_: rbyte.io.DataFrameFilter
               predicate: |
                 `/world/ego_vehicle/CAM_FRONT/timestamp` between '2018-07-24 03:28:48' and '2018-07-24 03:28:50'
-
-          - _target_: pipefunc.PipeFunc
-            renames:
-              input: data_filtered
-            output_name: samples
-            func:
-              _target_: rbyte.RollingWindowSampleBuilder
-              index_column: (@=camera_entities.values()[0]@)/_idx_
-              period: 1i
   #@ end

@@ -1,5 +1,6 @@
 from collections.abc import Iterable, Mapping, Sequence
 from functools import cache, cached_property
+from math import prod
 from typing import Annotated, Any, Protocol, Self, cast, override, runtime_checkable
 
 import more_itertools as mit
@@ -126,13 +127,13 @@ class RerunLogger(Logger[Batch]):
 
             case rr.Points3D:
                 match shape := array.shape:
-                    case (n, 3):
+                    case (3,):
                         batch = rr.components.Position3DBatch(array)
 
-                    case (s, n, 3):
+                    case (*batch_dims, n, 3):
                         batch = rr.components.Position3DBatch(
                             array.reshape(-1, 3)
-                        ).partition([n] * s)
+                        ).partition([n] * prod(batch_dims))
 
                     case _:
                         logger.debug("not implemented", shape=shape)
@@ -151,11 +152,11 @@ class RerunLogger(Logger[Batch]):
                         image_format.color_model,
                         array.shape,
                     ):
-                        case None, rr.ColorModel(), (_batch, height, width, _):
+                        case None, rr.ColorModel(), (*batch_dims, height, width, _):
                             pass
 
-                        case rr.PixelFormat.NV12, None, (_batch, dim, width):
-                            height = int(dim / 1.5)
+                        case rr.PixelFormat.NV12, None, (*batch_dims, batch_dim, width):
+                            height = int(batch_dim / 1.5)
 
                         case _:
                             logger.error("not implemented")
@@ -169,11 +170,14 @@ class RerunLogger(Logger[Batch]):
                     color_model=image_format.color_model,
                     channel_datatype=rr.ChannelDatatype.from_np_dtype(array.dtype),
                 )
+
+                batch_dim = prod(batch_dims)
+
                 return [
                     mit.one(schema).indicator(),
-                    rr.components.ImageFormatBatch([image_format] * _batch),
+                    rr.components.ImageFormatBatch([image_format] * batch_dim),
                     rr.components.ImageBufferBatch(
-                        array.reshape(_batch, -1).view(np.uint8)
+                        array.reshape(batch_dim, -1).view(np.uint8)
                     ),
                 ]
 
@@ -187,7 +191,10 @@ class RerunLogger(Logger[Batch]):
         for i, sample in enumerate(batch.data):  # pyright: ignore[reportUnknownVariableType]
             with self._get_recording(batch.meta.input_id[i]):  # pyright: ignore[reportUnknownArgumentType, reportIndexIssue]
                 times: Sequence[TimeColumn] = [
-                    column(timeline=timeline, times=sample.get(timeline).numpy())  # pyright: ignore[reportUnknownMemberType, reportCallIssue]
+                    column(
+                        timeline=timeline,
+                        times=np.atleast_1d(sample.get(timeline).numpy()),  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType, reportCallIssue]
+                    )
                     for timeline, column in self._schema.times.items()
                 ]
 

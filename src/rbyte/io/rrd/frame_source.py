@@ -1,11 +1,10 @@
 from collections.abc import Callable, Iterable
-from typing import cast, override
+from typing import cast, final, override
 
 import numpy.typing as npt
 import polars as pl
 import rerun as rr
 import torch
-from jaxtyping import UInt8
 from pydantic import FilePath, validate_call
 from rerun.components import Blob
 from torch import Tensor
@@ -14,6 +13,7 @@ from rbyte.config.base import BaseModel
 from rbyte.io.base import TensorSource
 
 
+@final
 class RrdFrameSource(TensorSource):
     @validate_call(config=BaseModel.model_config)
     def __init__(
@@ -29,7 +29,7 @@ class RrdFrameSource(TensorSource):
         reader = view.select(columns=[index, f"{entity_path}:{Blob.__name__}"])
 
         # WARN: RecordBatchReader does not support random seeking => storing in memory
-        self._series: pl.Series = (
+        self._series = (
             cast(
                 pl.DataFrame,
                 pl.from_arrow(reader.read_all(), rechunk=True),  # pyright: ignore[reportUnknownMemberType]
@@ -40,15 +40,23 @@ class RrdFrameSource(TensorSource):
             .to_series(0)
         )
 
-        self._decoder: Callable[[bytes], npt.ArrayLike] = decoder
+        self._decoder = decoder
+
+    def _getitem(self, index: int) -> Tensor:
+        array = self._series[index].to_numpy(allow_copy=False)
+        array = self._decoder(array)
+        return torch.from_numpy(array)  # pyright: ignore[reportUnknownMemberType]
 
     @override
-    def __getitem__(self, indexes: Iterable[int]) -> UInt8[Tensor, "b h w c"]:
-        arrays = (self._series[i].to_numpy(allow_copy=False) for i in indexes)
-        frames_np = map(self._decoder, arrays)
-        frames_tch = map(torch.from_numpy, frames_np)  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
+    def __getitem__(self, indexes: int | Iterable[int]) -> Tensor:
+        match indexes:
+            case Iterable():
+                tensors = map(self._getitem, indexes)
 
-        return torch.stack(list(frames_tch))
+                return torch.stack(list(tensors))
+
+            case _:
+                return self._getitem(indexes)
 
     @override
     def __len__(self) -> int:

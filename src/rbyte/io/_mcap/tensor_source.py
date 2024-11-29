@@ -2,12 +2,12 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from mmap import ACCESS_READ, mmap
-from typing import IO, override
+from operator import itemgetter
+from typing import IO, final, override
 
 import more_itertools as mit
 import numpy.typing as npt
 import torch
-from jaxtyping import Shaped
 from mcap.data_stream import ReadDataStream
 from mcap.decoder import DecoderFactory
 from mcap.opcode import Opcode
@@ -32,6 +32,7 @@ class MessageIndex:
     message_length: int
 
 
+@final
 class McapTensorSource(TensorSource):
     @validate_call(config=BaseModel.model_config)
     def __init__(
@@ -47,8 +48,8 @@ class McapTensorSource(TensorSource):
         with bound_contextvars(
             path=path.as_posix(), topic=topic, message_decoder_factory=decoder_factory
         ):
-            self._path: FilePath = path
-            self._validate_crcs: bool = validate_crcs
+            self._path = path
+            self._validate_crcs = validate_crcs
 
             summary = SeekingReader(
                 stream=self._file, validate_crcs=self._validate_crcs
@@ -73,13 +74,14 @@ class McapTensorSource(TensorSource):
                 logger.error(msg := "missing message decoder")
                 raise RuntimeError(msg)
 
-            self._message_decoder: Callable[[bytes], object] = message_decoder
-            self._chunk_indexes: tuple[ChunkIndex, ...] = tuple(
+            self._message_decoder = message_decoder
+            self._chunk_indexes = tuple(
                 chunk_index
                 for chunk_index in summary.chunk_indexes
                 if self._channel.id in chunk_index.message_index_offsets
             )
-            self._decoder: Callable[[bytes], npt.ArrayLike] = decoder
+            self._decoder = decoder
+            self._mmap = None
 
     @property
     def _file(self) -> IO[bytes]:
@@ -89,9 +91,7 @@ class McapTensorSource(TensorSource):
 
             case None | mmap(closed=True):
                 with self._path.open("rb") as f:
-                    self._mmap: mmap = mmap(
-                        fileno=f.fileno(), length=0, access=ACCESS_READ
-                    )
+                    self._mmap = mmap(fileno=f.fileno(), length=0, access=ACCESS_READ)
 
             case _:
                 raise RuntimeError
@@ -99,32 +99,47 @@ class McapTensorSource(TensorSource):
         return self._mmap  # pyright: ignore[reportReturnType]
 
     @override
-    def __getitem__(self, indexes: Iterable[int]) -> Shaped[Tensor, "b h w c"]:
-        frames: Mapping[int, npt.ArrayLike] = {}
+    def __getitem__(self, indexes: int | Iterable[int]) -> Tensor:
+        match indexes:
+            case Iterable():
+                arrays: Mapping[int, npt.ArrayLike] = {}
+                message_indexes = (self._message_indexes[idx] for idx in indexes)
+                indexes_by_chunk_start_offset = mit.map_reduce(
+                    zip(indexes, message_indexes, strict=True),
+                    keyfunc=lambda x: x[1].chunk_start_offset,
+                )
 
-        message_indexes_by_chunk_start_offset: Mapping[
-            int, Iterable[tuple[int, MessageIndex]]
-        ] = mit.map_reduce(
-            zip(indexes, (self._message_indexes[idx] for idx in indexes), strict=True),
-            keyfunc=lambda x: x[1].chunk_start_offset,
-        )
+                for chunk_start_offset, chunk_indexes in sorted(
+                    indexes_by_chunk_start_offset.items(), key=itemgetter(0)
+                ):
+                    _ = self._file.seek(chunk_start_offset + 1 + 8)
+                    chunk = Chunk.read(ReadDataStream(self._file))
+                    stream, _ = get_chunk_data_stream(
+                        chunk, validate_crc=self._validate_crcs
+                    )
+                    for index, message_index in sorted(
+                        chunk_indexes, key=lambda x: x[1].message_start_offset
+                    ):
+                        stream.read(message_index.message_start_offset - stream.count)  # pyright: ignore[reportUnusedCallResult]
+                        message = Message.read(stream, message_index.message_length)
+                        decoded_message = self._message_decoder(message.data)
+                        arrays[index] = self._decoder(decoded_message.data)
 
-        for (
-            chunk_start_offset,
-            chunk_message_indexes,
-        ) in message_indexes_by_chunk_start_offset.items():
-            self._file.seek(chunk_start_offset + 1 + 8)  # pyright: ignore[reportUnusedCallResult]
-            chunk = Chunk.read(ReadDataStream(self._file))
-            stream, _ = get_chunk_data_stream(chunk, validate_crc=self._validate_crcs)
-            for frame_index, message_index in sorted(
-                chunk_message_indexes, key=lambda x: x[1].message_start_offset
-            ):
-                stream.read(message_index.message_start_offset - stream.count)  # pyright: ignore[reportUnusedCallResult]
-                message = Message.read(stream, message_index.message_length)
+                tensors = [torch.from_numpy(arrays[idx]) for idx in indexes]  # pyright: ignore[reportUnknownMemberType]
+
+                return torch.stack(tensors)
+
+            case _:
+                message_index = self._message_indexes[indexes]
+                _ = self._file.seek(message_index.chunk_start_offset + 1 + 8)
+                chunk = Chunk.read(ReadDataStream(self._file))
+                stream, _ = get_chunk_data_stream(chunk, self._validate_crcs)
+                _ = stream.read(message_index.message_start_offset - stream.count)
+                message = Message.read(stream, length=message_index.message_length)
                 decoded_message = self._message_decoder(message.data)
-                frames[frame_index] = self._decoder(decoded_message.data)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportAttributeAccessIssue]
+                array = self._decoder(decoded_message.data)
 
-        return torch.stack([torch.from_numpy(frames[idx]) for idx in indexes])  # pyright: ignore[reportUnknownMemberType]
+                return torch.from_numpy(array)  # pyright: ignore[reportUnknownMemberType]
 
     @override
     def __len__(self) -> int:
