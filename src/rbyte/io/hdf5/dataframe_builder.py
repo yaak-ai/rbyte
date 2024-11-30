@@ -13,7 +13,7 @@ from polars.datatypes import (
 )
 from pydantic import ConfigDict, validate_call
 
-type Fields = Mapping[str, PolarsDataType | None] | Mapping[str, "Fields"]
+type Fields = Mapping[str, PolarsDataType | None] | Mapping[str, Fields]
 
 
 @final

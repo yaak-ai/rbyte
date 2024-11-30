@@ -105,13 +105,4 @@ inputs:
               _target_: rbyte.io.DataFrameFilter
               predicate: |
                 `/odom/vel.x` >= 8
-
-          - _target_: pipefunc.PipeFunc
-            renames:
-              input: data_filtered
-            output_name: samples
-            func:
-              _target_: rbyte.RollingWindowSampleBuilder
-              index_column: (@=camera_topics.values()[0]@)/_idx_
-              period: 1i
   #@ end

@@ -58,15 +58,5 @@ inputs:
             func:
               _target_: rbyte.io.DataFrameConcater
               method: vertical
-
-          - _target_: pipefunc.PipeFunc
-            renames:
-              input: data_concated
-            output_name: samples
-            func:
-              _target_: rbyte.RollingWindowSampleBuilder
-              index_column: _idx_
-              period: 1i
-
   #@ end
   #@ end

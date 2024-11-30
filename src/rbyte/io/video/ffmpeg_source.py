@@ -1,10 +1,8 @@
 from collections.abc import Iterable
 from pathlib import Path
-from typing import cast, override
+from typing import final, override
 
-import numpy.typing as npt
 import torch
-from jaxtyping import UInt8
 from pydantic import FilePath, NonNegativeInt, validate_call
 from torch import Tensor
 from video_reader import (
@@ -14,6 +12,7 @@ from video_reader import (
 from rbyte.io.base import TensorSource
 
 
+@final
 class FfmpegFrameSource(TensorSource):
     @validate_call
     def __init__(
@@ -31,10 +30,15 @@ class FfmpegFrameSource(TensorSource):
         )
 
     @override
-    def __getitem__(self, indexes: Iterable[int]) -> UInt8[Tensor, "b h w c"]:
-        batch = cast(npt.ArrayLike, self._reader.get_batch(indexes))  # pyright: ignore[reportUnknownMemberType]
+    def __getitem__(self, indexes: int | Iterable[int]) -> Tensor:
+        match indexes:
+            case Iterable():
+                array = self._reader.get_batch(indexes)  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
 
-        return torch.from_numpy(batch)  # pyright: ignore[reportUnknownMemberType]
+            case _:
+                array = self._reader.get_batch([indexes])[0]  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+
+        return torch.from_numpy(array)  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
 
     @override
     def __len__(self) -> int:

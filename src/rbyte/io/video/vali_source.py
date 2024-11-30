@@ -1,12 +1,11 @@
 from collections.abc import Iterable, Mapping
 from functools import cached_property
 from itertools import pairwise
-from typing import Annotated, override
+from typing import Annotated, final, override
 
 import more_itertools as mit
 import python_vali as vali
 import torch
-from jaxtyping import Shaped
 from pydantic import BeforeValidator, FilePath, NonNegativeInt, validate_call
 from structlog import get_logger
 from torch import Tensor
@@ -24,6 +23,7 @@ PixelFormat = Annotated[
 ]
 
 
+@final
 class ValiGpuFrameSource(TensorSource):
     @validate_call(config=BaseModel.model_config)
     def __init__(
@@ -37,13 +37,13 @@ class ValiGpuFrameSource(TensorSource):
     ) -> None:
         super().__init__()
 
-        self._gpu_id: int = gpu_id
+        self._gpu_id = gpu_id
 
-        self._decoder: vali.PyDecoder = vali.PyDecoder(
+        self._decoder = vali.PyDecoder(
             input=path.resolve().as_posix(), opts={}, gpu_id=self._gpu_id
         )
 
-        self._pixel_format_chain: tuple[PixelFormat, ...] = (
+        self._pixel_format_chain = (
             (self._decoder.Format, *pixel_format_chain)
             if mit.first(pixel_format_chain, default=None) != self._decoder.Format
             else pixel_format_chain
@@ -72,9 +72,7 @@ class ValiGpuFrameSource(TensorSource):
             for pixel_format in self._pixel_format_chain
         }
 
-    def _read_frame(
-        self, index: int
-    ) -> Shaped[Tensor, "c h w"] | Shaped[Tensor, "h w c"]:
+    def _read_frame(self, index: int) -> Tensor:
         seek_ctx = vali.SeekContext(seek_frame=index)
         success, details = self._decoder.DecodeSingleSurface(  # pyright: ignore[reportUnknownMemberType]
             self._surfaces[self._decoder.Format], seek_ctx
@@ -103,10 +101,15 @@ class ValiGpuFrameSource(TensorSource):
         return torch.from_dlpack(surface).clone().detach()  # pyright: ignore[reportPrivateImportUsage]
 
     @override
-    def __getitem__(
-        self, indexes: Iterable[int]
-    ) -> Shaped[Tensor, "b h w c"] | Shaped[Tensor, "b c h w"]:
-        return torch.stack([self._read_frame(index) for index in indexes])
+    def __getitem__(self, indexes: int | Iterable[int]) -> Tensor:
+        match indexes:
+            case Iterable():
+                frames = map(self._read_frame, indexes)
+
+                return torch.stack(list(frames))
+
+            case int():
+                return self._read_frame(indexes)
 
     @override
     def __len__(self) -> int:

@@ -40,7 +40,7 @@ class MergeConfig(BaseModel):
     columns: OrderedDict[str, ColumnMergeConfig] = Field(default_factory=OrderedDict)
 
 
-type Fields = MergeConfig | OrderedDict[str, "Fields"]
+type Fields = MergeConfig | OrderedDict[str, Fields]
 
 
 @final
