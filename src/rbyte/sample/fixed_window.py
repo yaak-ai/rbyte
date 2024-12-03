@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import polars as pl
 from polars._typing import ClosedInterval
-from pydantic import validate_call
+from pydantic import PositiveInt, validate_call
 
 
 @final
@@ -19,18 +19,26 @@ class FixedWindowSampleBuilder:
     __name__ = __qualname__
 
     @validate_call
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         *,
         index_column: str,
         every: str | timedelta,
         period: str | timedelta | None = None,
         closed: ClosedInterval = "left",
+        gather_every: PositiveInt = 1,
+        length: PositiveInt | None = None,
     ) -> None:
         self._index_column = pl.col(index_column)
         self._every = every
         self._period = period
         self._closed: ClosedInterval = closed
+        self._gather_every = gather_every
+        self._length_filter = (
+            (self._index_column.list.len() > 0)
+            if length is None
+            else (self._index_column.list.len() == length)
+        )
 
     def __call__(self, input: pl.DataFrame) -> pl.DataFrame:
         return (
@@ -44,8 +52,7 @@ class FixedWindowSampleBuilder:
                 label="datapoint",
                 start_by="datapoint",
             )
-            .agg(pl.all())
-            .filter(self._index_column.list.len() > 0)
-            .sort(_index_column)
+            .agg(pl.all().gather_every(self._gather_every))
+            .filter(self._length_filter)
             .drop(_index_column)
         )

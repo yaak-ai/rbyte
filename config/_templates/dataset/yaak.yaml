@@ -134,15 +134,7 @@ inputs:
               index_column: meta/ImageMetadata.(@=cameras[0]@)/frame_idx
               every: 6i
               period: 6i
-
-          - _target_: pipefunc.PipeFunc
-            renames:
-              input: samples
-            output_name: samples_filtered
-            func:
-              _target_: rbyte.io.DataFrameFilter
-              predicate: |
-                array_length(`meta/ImageMetadata.(@=cameras[0]@)/time_stamp`) == 6
+              length: 6
 
       kwargs:
         meta:
