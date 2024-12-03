@@ -1,8 +1,6 @@
-from multiprocessing.context import ForkServerContext
 from typing import Any, cast
 
 import hydra
-import torch.multiprocessing as mp
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 from structlog import get_logger
@@ -18,9 +16,6 @@ logger = get_logger(__name__)
 def main(config: DictConfig) -> None:
     logger = cast(Logger[Any], instantiate(config.logger))
     dataloader = cast(DataLoader[Any], instantiate(config.dataloader))
-
-    if isinstance(dataloader.multiprocessing_context, ForkServerContext):  # pyright: ignore[reportUnknownMemberType]
-        mp.set_forkserver_preload(["rbyte"])
 
     for batch_idx, batch in enumerate(tqdm(dataloader)):
         logger.log(batch_idx, batch)

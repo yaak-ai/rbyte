@@ -10,4 +10,4 @@ collate_fn:
 num_workers: 1
 pin_memory: false
 persistent_workers: true
-multiprocessing_context: forkserver
+multiprocessing_context: spawn
