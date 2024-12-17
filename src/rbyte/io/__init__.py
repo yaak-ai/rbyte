@@ -5,6 +5,7 @@ from .dataframe import (
     DataFrameConcater,
     DataFrameFilter,
     DataFrameFpsResampler,
+    DataFrameGnssWaypointsSampler,
     DataFrameIndexer,
 )
 from .path import PathDataFrameBuilder, PathTensorSource
@@ -14,6 +15,7 @@ __all__: list[str] = [
     "DataFrameConcater",
     "DataFrameFilter",
     "DataFrameFpsResampler",
+    "DataFrameGnssWaypointsSampler",
     "DataFrameIndexer",
     "JsonDataFrameBuilder",
     "NumpyTensorSource",
