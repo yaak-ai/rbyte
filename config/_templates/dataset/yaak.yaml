@@ -35,18 +35,17 @@ inputs:
           cache_dir: /tmp/rbyte-cache
         functions:
           - _target_: pipefunc.PipeFunc
-            scope: meta
-            output_name: data
+            scope: yaak_metadata
+            output_name: output
             cache: true
             func:
               _target_: hydra.utils.get_method
               path: rbyte.io.build_yaak_metadata_dataframe
 
           - _target_: pipefunc.PipeFunc
-            scope: mcap
             bound:
               path: ${data_dir}/(@=input_id@)/ai.mcap
-            output_name: data
+            output_name: mcap
             func:
               _target_: rbyte.io.McapDataFrameBuilder
               decoder_factories: [rbyte.utils._mcap.ProtobufDecoderFactory]
@@ -61,14 +60,10 @@ inputs:
 
           - _target_: pipefunc.PipeFunc
             func:
-              _target_: hydra.utils.get_method
-              path: rbyte.utils.make_dict
-            bound:
-              k0: meta
-              k1: mcap
+              _target_: pipefunc.helpers.collect_kwargs
+              parameters: [meta, mcap]
             renames:
-              v0: meta.data
-              v1: mcap.data
+              meta: yaak_metadata.output
             output_name: data
 
           - _target_: pipefunc.PipeFunc
@@ -137,7 +132,7 @@ inputs:
               length: 6
 
       kwargs:
-        meta:
+        yaak_metadata:
           path: ${data_dir}/(@=input_id@)/metadata.log
           fields:
             rbyte.io.yaak.proto.sensor_pb2.ImageMetadata:

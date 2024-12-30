@@ -32,7 +32,7 @@ inputs:
           - _target_: pipefunc.PipeFunc
             bound:
               path: "${data_dir}/sequences/000002_short/camera_front_blur/000002_romeo_{timestamp:%Y-%m-%dT%H:%M:%S.%f}Z.jpg"
-            output_name: camera_front_blur_data
+            output_name: camera_front_blur
             func:
               _target_: rbyte.io.PathDataFrameBuilder
               fields:
@@ -43,7 +43,7 @@ inputs:
           - _target_: pipefunc.PipeFunc
             bound:
               path: "${data_dir}/sequences/000002_short/lidar_velodyne/000002_romeo_{timestamp:%Y-%m-%dT%H:%M:%S.%f}Z.npy"
-            output_name: lidar_velodyne_data
+            output_name: lidar_velodyne
             func:
               _target_: rbyte.io.PathDataFrameBuilder
               fields:
@@ -74,18 +74,10 @@ inputs:
                   speed/meters_per_second/value:
 
           - _target_: pipefunc.PipeFunc
-            bound:
-              k0: camera_front_blur
-              k1: lidar_velodyne
-              k2: vehicle_data
-            renames:
-              v0: camera_front_blur_data
-              v1: lidar_velodyne_data
-              v2: vehicle_data
-            output_name: data
             func:
-              _target_: hydra.utils.get_method
-              path: rbyte.utils.make_dict
+              _target_: pipefunc.helpers.collect_kwargs
+              parameters: [camera_front_blur, lidar_velodyne, vehicle_data]
+            output_name: data
 
           - _target_: pipefunc.PipeFunc
             renames:
