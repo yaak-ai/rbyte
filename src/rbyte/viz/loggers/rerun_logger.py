@@ -209,6 +209,6 @@ class RerunLogger(Logger[Batch]):
                         rr.send_columns(
                             entity_path=entity_path,
                             times=times,
-                            components=components,  # pyright: ignore[reportArgumentType]
+                            components=components,
                             strict=True,
                         )
