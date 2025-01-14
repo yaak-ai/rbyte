@@ -188,8 +188,8 @@ class RerunLogger(Logger[Batch]):
 
     @override
     def log(self, batch_idx: int, batch: Batch) -> None:
-        for i, sample in enumerate(batch.data):  # pyright: ignore[reportUnknownVariableType]
-            with self._get_recording(batch.meta.input_id[i]):  # pyright: ignore[reportUnknownArgumentType, reportIndexIssue]
+        for i, sample in enumerate(batch.data):  # pyright: ignore[reportArgumentType, reportUnknownVariableType]
+            with self._get_recording(batch.meta.input_id[i]):  # pyright: ignore[reportUnknownArgumentType, reportOptionalSubscript, reportUnknownMemberType, reportOptionalMemberAccess]
                 times: Sequence[TimeColumn] = [
                     column(
                         timeline=timeline,
