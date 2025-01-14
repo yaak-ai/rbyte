@@ -1,4 +1,5 @@
 from collections.abc import Mapping, Sequence
+from collections.abc import Set as AbstractSet
 from enum import StrEnum, unique
 from functools import cache
 from typing import Annotated
@@ -136,7 +137,9 @@ class Dataset(TorchDataset[TensorDict]):
     def _get_source(self, config: str) -> TensorSource:  # noqa: PLR6301
         return HydraConfig[TensorSource].model_validate_json(config).instantiate()
 
-    def __getitems__(self, indexes: Sequence[int]) -> Batch:  # noqa: PLW3201
+    def get_batch(
+        self, indexes: Sequence[int], *, keys: AbstractSet[str] | None = None
+    ) -> Batch:
         samples = self.samples[indexes]
         batch_size = [samples.height]
 
@@ -153,6 +156,7 @@ class Dataset(TorchDataset[TensorDict]):
             )
             .group_by(Column.source_id)
             .agg(Column.source_config, Column.source_idxs)
+            .filter(True if keys is None else pl.col(Column.source_id).is_in(keys))
         )
 
         tensor_data: Mapping[str, torch.Tensor] = {
@@ -170,7 +174,9 @@ class Dataset(TorchDataset[TensorDict]):
         }
 
         sample_data: Mapping[str, Sequence[object]] = samples.select(
-            pl.exclude(Column.sample_idx, Column.input_id).to_physical()
+            (pl.all() if keys is None else pl.col(keys))
+            .exclude(Column.sample_idx, Column.input_id)
+            .to_physical()
         ).to_dict(as_series=False)
 
         data = TensorDict(tensor_data | sample_data, batch_size=batch_size)  # pyright: ignore[reportArgumentType]
@@ -182,6 +188,9 @@ class Dataset(TorchDataset[TensorDict]):
         )
 
         return Batch(data=data, meta=meta, batch_size=batch_size)  # pyright: ignore[reportCallIssue]
+
+    def __getitems__(self, indexes: Sequence[int]) -> Batch:  # noqa: PLW3201
+        return self.get_batch(indexes)
 
     def __len__(self) -> int:
         return len(self.samples)
