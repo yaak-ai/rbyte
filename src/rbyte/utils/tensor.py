@@ -14,11 +14,11 @@ def pad_dim(
     mode: str = "constant",
     value: float | None = None,
 ) -> Tensor:
-    _pad = [(0, 0) for _ in input.shape]
-    _pad[dim] = pad
-    _pad = list(mit.flatten(reversed(_pad)))
+    pad_ = [(0, 0) for _ in input.shape]
+    pad_[dim] = pad
+    pad_ = list(mit.flatten(reversed(pad_)))
 
-    return F.pad(input, _pad, mode=mode, value=value)
+    return F.pad(input, pad_, mode=mode, value=value)
 
 
 def pad_sequence(sequences: Sequence[Tensor], dim: int, value: float = 0.0) -> Tensor:

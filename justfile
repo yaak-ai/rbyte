@@ -62,24 +62,24 @@ visualize *ARGS: generate-config
         {{ ARGS }}
 
 [group('visualize')]
-visualize-mimicgen:
-    just visualize dataset=mimicgen logger=rerun/mimicgen ++data_dir={{ justfile_directory() }}/tests/data/mimicgen
+visualize-mimicgen *ARGS:
+    just visualize dataset=mimicgen logger=rerun/mimicgen ++data_dir={{ justfile_directory() }}/tests/data/mimicgen {{ ARGS }}
 
 [group('visualize')]
-visualize-yaak:
-    just visualize dataset=yaak logger=rerun/yaak ++data_dir={{ justfile_directory() }}/tests/data/yaak
+visualize-yaak *ARGS:
+    just visualize dataset=yaak logger=rerun/yaak ++data_dir={{ justfile_directory() }}/tests/data/yaak {{ ARGS }}
 
 [group('visualize')]
-visualize-zod:
-    just visualize dataset=zod logger=rerun/zod ++data_dir={{ justfile_directory() }}/tests/data/zod
+visualize-zod *ARGS:
+    just visualize dataset=zod logger=rerun/zod ++data_dir={{ justfile_directory() }}/tests/data/zod {{ ARGS }}
 
 [group('visualize')]
-visualize-nuscenes-mcap:
-    just visualize dataset=nuscenes/mcap logger=rerun/nuscenes/mcap ++data_dir={{ justfile_directory() }}/tests/data/nuscenes/mcap
+visualize-nuscenes-mcap *ARGS:
+    just visualize dataset=nuscenes/mcap logger=rerun/nuscenes/mcap ++data_dir={{ justfile_directory() }}/tests/data/nuscenes/mcap {{ ARGS }}
 
 [group('visualize')]
-visualize-nuscenes-rrd:
-    just visualize dataset=nuscenes/rrd logger=rerun/nuscenes/rrd ++data_dir={{ justfile_directory() }}/tests/data/nuscenes/rrd
+visualize-nuscenes-rrd *ARGS:
+    just visualize dataset=nuscenes/rrd logger=rerun/nuscenes/rrd ++data_dir={{ justfile_directory() }}/tests/data/nuscenes/rrd {{ ARGS }}
 
 # rerun server and viewer
 rerun bind="0.0.0.0" port="9876" ws-server-port="9877" web-viewer-port="9090":

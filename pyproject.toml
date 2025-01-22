@@ -1,6 +1,6 @@
 [project]
 name = "rbyte"
-version = "0.10.2"
+version = "0.11.0"
 description = "Multimodal PyTorch dataset library"
 authors = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 maintainers = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
@@ -18,7 +18,7 @@ dependencies = [
   "parse>=1.20.2",
   "structlog>=24.4.0",
   "tqdm>=4.66.5",
-  "pipefunc>=0.46.0",
+  "pipefunc>=0.50.0",
 ]
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
@@ -49,7 +49,7 @@ yaak = ["protobuf", "ptars>=0.0.3"]
 jpeg = ["simplejpeg>=1.7.6"]
 video = [
   "python-vali>=4.2.0.post0; sys_platform == 'linux'",
-  "video-reader-rs>=0.2.1",
+  "video-reader-rs>=0.2.2",
 ]
 hdf5 = ["h5py>=3.12.1"]
 rrd = ["rerun-sdk>=0.21.0", "pyarrow-stubs"]

@@ -42,10 +42,11 @@ class PathDataFrameBuilder:
                 )
                 raise RuntimeError(msg)
 
-        parent = Path(os.path.commonpath([path, parser._expression]))  # pyright: ignore[reportPrivateUsage]  # noqa: SLF001
-        results = (parser.parse(p.as_posix()) for p in parent.rglob("*") if p.is_file())  # pyright: ignore[reportUnknownMemberType]
-
-        return pl.DataFrame(
-            data=(r.named for r in results if isinstance(r, parse.Result)),  # pyright: ignore[reportUnknownMemberType]
-            schema=self._fields,
+        parent = Path(
+            os.path.commonpath([path, parser._expression.replace("\\.", ".")])  # pyright: ignore[reportPrivateUsage]  # noqa: SLF001
         )
+        paths = map(Path.as_posix, parent.rglob("*"))
+        parsed = map(parser.parse, paths)  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
+        data = (x.named for x in parsed if isinstance(x, parse.Result))  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+
+        return pl.DataFrame(data=data, schema=self._fields)
