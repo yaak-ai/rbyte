@@ -35,17 +35,14 @@ inputs:
           cache_dir: /tmp/rbyte-cache
         functions:
           - _target_: pipefunc.PipeFunc
-            scope: yaak_metadata
-            output_name: output
-            cache: true
             func:
               _target_: hydra.utils.get_method
               path: rbyte.io.build_yaak_metadata_dataframe
+            output_name: output
+            scope: metadata
+            cache: true
 
           - _target_: pipefunc.PipeFunc
-            bound:
-              path: ${data_dir}/(@=input_id@)/ai.mcap
-            output_name: mcap
             func:
               _target_: rbyte.io.McapDataFrameBuilder
               decoder_factories: [rbyte.utils._mcap.ProtobufDecoderFactory]
@@ -58,18 +55,21 @@ inputs:
                   score:
                     _target_: polars.Float32
 
+            output_name: output
+            bound:
+              path: ${data_dir}/(@=input_id@)/ai.mcap
+            scope: mcap
+
           - _target_: pipefunc.PipeFunc
             func:
               _target_: pipefunc.helpers.collect_kwargs
               parameters: [meta, mcap]
-            renames:
-              meta: yaak_metadata.output
             output_name: data
+            renames:
+              meta: metadata.output
+              mcap: mcap.output
 
           - _target_: pipefunc.PipeFunc
-            renames:
-              input: data
-            output_name: data_aligned
             func:
               _target_: rbyte.io.DataFrameAligner
               separator: /
@@ -111,18 +111,56 @@ inputs:
                         tolerance: 500ms
                         strategy: nearest
 
-          - _target_: pipefunc.PipeFunc
+            output_name: data_aligned
             renames:
-              input: data_aligned
-            output_name: data_filtered
+              input: data
+
+          - _target_: pipefunc.PipeFunc
             func:
               _target_: rbyte.io.DataFrameFilter
               predicate: |
                 `meta/VehicleMotion/speed` > 44
+            output_name: data_filtered
+            renames:
+              input: data_aligned
+
+          #@ for i, camera in enumerate(cameras):
+          - _target_: pipefunc.PipeFunc
+            func:
+              _target_: rbyte.io.VideoDataFrameBuilder
+              fields:
+                frame_idx:
+                  _target_: polars.Int32
+
+            output_name: data_(@=camera@)
+            bound:
+              path: "${data_dir}/(@=input_id@)/(@=camera@).pii.mp4"
+
+          - _target_: pipefunc.PipeFunc
+            func:
+              _target_: hydra.utils.get_method
+              path: polars.DataFrame.join
+            #@ if i == len(cameras) - 1:
+            output_name: data_joined
+            #@ else:
+            output_name: data_joined_(@=camera@)
+            #@ end
+            renames:
+              #@ if i == 0:
+              self: data_filtered
+              #@ else:
+              self: data_joined_(@=cameras[i-1]@)
+              #@ end
+              other: data_(@=camera@)
+            bound:
+              how: semi
+              left_on: meta/ImageMetadata.(@=camera@)/frame_idx
+              right_on: frame_idx
+          #@ end
 
           - _target_: pipefunc.PipeFunc
             renames:
-              input: data_filtered
+              input: data_joined
             output_name: samples
             func:
               _target_: rbyte.FixedWindowSampleBuilder
@@ -132,7 +170,7 @@ inputs:
               length: 6
 
       kwargs:
-        yaak_metadata:
+        metadata:
           path: ${data_dir}/(@=input_id@)/metadata.log
           fields:
             rbyte.io.yaak.proto.sensor_pb2.ImageMetadata:

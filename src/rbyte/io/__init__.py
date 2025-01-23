@@ -50,6 +50,13 @@ else:
     __all__ += ["FfmpegFrameSource"]
 
 try:
+    from .video.dataframe_builder import VideoDataFrameBuilder
+except ImportError:
+    pass
+else:
+    __all__ += ["VideoDataFrameBuilder"]
+
+try:
     from .yaak import YaakMetadataDataFrameBuilder, build_yaak_metadata_dataframe
 except ImportError:
     pass
