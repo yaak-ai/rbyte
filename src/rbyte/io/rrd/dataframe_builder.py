@@ -17,8 +17,6 @@ class Column(StrEnum):
 
 @final
 class RrdDataFrameBuilder:
-    __name__ = __qualname__
-
     @validate_call
     def __init__(
         self, index: str, contents: Mapping[str, Sequence[str] | None]

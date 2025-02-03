@@ -19,8 +19,6 @@ type Fields = Mapping[str, Mapping[str, PolarsDataType | None]]
 
 @final
 class JsonDataFrameBuilder:
-    __name__ = __qualname__
-
     @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
     def __init__(self, fields: Fields) -> None:
         self._fields = fields

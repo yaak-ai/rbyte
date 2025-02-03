@@ -45,8 +45,6 @@ type Fields = MergeConfig | OrderedDict[str, Fields]
 
 @final
 class DataFrameAligner:
-    __name__ = __qualname__
-
     @validate_call
     def __init__(self, *, fields: Fields, separator: str = "/") -> None:
         self._fields = fields

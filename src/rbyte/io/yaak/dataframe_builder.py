@@ -17,6 +17,7 @@ from ptars import HandlerPool
 from pydantic import ConfigDict, ImportString, validate_call
 from structlog import get_logger
 from tqdm import tqdm
+from xxhash import xxh3_64_hexdigest as digest
 
 from .message_iterator import YaakMetadataMessageIterator
 from .proto import sensor_pb2
@@ -31,13 +32,14 @@ type Fields = Mapping[
 
 @final
 class YaakMetadataDataFrameBuilder:
-    __name__ = __qualname__
-
     @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
     def __init__(self, *, fields: Fields) -> None:
         super().__init__()
 
         self._fields = fields
+
+    def __pipefunc_hash__(self) -> str:  # noqa: PLW3201
+        return digest(str(self._fields))
 
     def __call__(self, path: PathLike[str]) -> Mapping[str, pl.DataFrame]:
         with Path(path).open("rb") as _f, mmap(_f.fileno(), 0, access=ACCESS_READ) as f:
@@ -77,10 +79,3 @@ class YaakMetadataDataFrameBuilder:
             }
 
         return dfs
-
-
-# exposing all kwargs so its cacheable by pipefunc
-def build_yaak_metadata_dataframe(
-    *, path: PathLike[str], fields: Fields
-) -> Mapping[str, pl.DataFrame]:
-    return YaakMetadataDataFrameBuilder(fields=fields)(path)
