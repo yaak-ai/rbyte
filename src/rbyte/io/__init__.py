@@ -57,8 +57,8 @@ else:
     __all__ += ["VideoDataFrameBuilder"]
 
 try:
-    from .yaak import YaakMetadataDataFrameBuilder, build_yaak_metadata_dataframe
+    from .yaak import YaakMetadataDataFrameBuilder
 except ImportError:
     pass
 else:
-    __all__ += ["YaakMetadataDataFrameBuilder", "build_yaak_metadata_dataframe"]
+    __all__ += ["YaakMetadataDataFrameBuilder"]

@@ -16,8 +16,6 @@ class FixedWindowSampleBuilder:
     https://docs.pola.rs/api/python/stable/reference/dataframe/api/polars.DataFrame.group_by_dynamic
     """
 
-    __name__ = __qualname__
-
     @validate_call
     def __init__(  # noqa: PLR0913
         self,

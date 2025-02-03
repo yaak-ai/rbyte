@@ -8,8 +8,6 @@ from pydantic import validate_call
 
 @final
 class DataFrameIndexer:
-    __name__ = __qualname__
-
     @validate_call
     def __init__(self, name: str) -> None:
         self._fn = partial(pl.DataFrame.with_row_index, name=name)

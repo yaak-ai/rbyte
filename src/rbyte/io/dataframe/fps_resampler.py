@@ -8,8 +8,6 @@ from pydantic import PositiveInt, validate_call
 
 @final
 class DataFrameFpsResampler:
-    __name__ = __qualname__
-
     IDX_COL = uuid4().hex
 
     @validate_call

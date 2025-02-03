@@ -18,8 +18,6 @@ type Fields = Mapping[str, PolarsDataType | None] | Mapping[str, Fields]
 
 @final
 class Hdf5DataFrameBuilder:
-    __name__ = __qualname__
-
     @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
     def __init__(self, fields: Fields) -> None:
         self._fields = fields

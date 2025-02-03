@@ -36,8 +36,40 @@ inputs:
         functions:
           - _target_: pipefunc.PipeFunc
             func:
-              _target_: hydra.utils.get_method
-              path: rbyte.io.build_yaak_metadata_dataframe
+              _target_: rbyte.io.YaakMetadataDataFrameBuilder
+              fields:
+                rbyte.io.yaak.proto.sensor_pb2.ImageMetadata:
+                  time_stamp:
+                    _target_: polars.Datetime
+                    time_unit: ns
+
+                  frame_idx:
+                    _target_: polars.Int32
+
+                  camera_name:
+                    _target_: polars.Enum
+                    categories:
+                      - cam_front_center
+                      - cam_front_left
+                      - cam_front_right
+                      - cam_left_forward
+                      - cam_right_forward
+                      - cam_left_backward
+                      - cam_right_backward
+                      - cam_rear
+
+                rbyte.io.yaak.proto.can_pb2.VehicleMotion:
+                  time_stamp:
+                    _target_: polars.Datetime
+                    time_unit: ns
+
+                  speed:
+                    _target_: polars.Float32
+
+                  gear:
+                    _target_: polars.Enum
+                    categories: ["0", "1", "2", "3"]
+
             output_name: output
             scope: metadata
             cache: true
@@ -172,36 +204,4 @@ inputs:
       kwargs:
         metadata:
           path: ${data_dir}/(@=input_id@)/metadata.log
-          fields:
-            rbyte.io.yaak.proto.sensor_pb2.ImageMetadata:
-              time_stamp:
-                _target_: polars.Datetime
-                time_unit: ns
-
-              frame_idx:
-                _target_: polars.Int32
-
-              camera_name:
-                _target_: polars.Enum
-                categories:
-                  - cam_front_center
-                  - cam_front_left
-                  - cam_front_right
-                  - cam_left_forward
-                  - cam_right_forward
-                  - cam_left_backward
-                  - cam_right_backward
-                  - cam_rear
-
-            rbyte.io.yaak.proto.can_pb2.VehicleMotion:
-              time_stamp:
-                _target_: polars.Datetime
-                time_unit: ns
-
-              speed:
-                _target_: polars.Float32
-
-              gear:
-                _target_: polars.Enum
-                categories: ["0", "1", "2", "3"]
   #@ end
