@@ -1,11 +1,11 @@
 [project]
 name = "rbyte"
-version = "0.11.1"
+version = "0.12.0"
 description = "Multimodal PyTorch dataset library"
 authors = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 maintainers = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 dependencies = [
-  "tensordict>=0.6.2",
+  "tensordict>=0.7.0",
   "torch",
   "numpy",
   "polars>=1.21.0",
@@ -39,7 +39,7 @@ repo = "https://github.com/yaak-ai/rbyte"
 
 [project.optional-dependencies]
 build = ["hatchling>=1.25.0", "grpcio-tools>=1.62.0", "protoletariat==3.2.19"]
-visualize = ["rerun-sdk[notebook]>=0.21.0"]
+visualize = ["rerun-sdk[notebook]==0.21.0"]
 mcap = [
   "mcap>=1.2.1",
   "mcap-ros2-support>=0.5.5",
@@ -53,7 +53,7 @@ video = [
   "video-reader-rs>=0.2.2",
 ]
 hdf5 = ["h5py>=3.12.1"]
-rrd = ["rerun-sdk>=0.21.0", "pyarrow-stubs"]
+rrd = ["rerun-sdk==0.21.0", "pyarrow-stubs"]
 
 [project.scripts]
 rbyte-visualize = 'rbyte.scripts.visualize:main'
@@ -66,19 +66,17 @@ requires = [
 ]
 build-backend = "hatchling.build"
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
   "wat-inspector>=0.4.3",
   "lovely-tensors>=0.1.18",
   "pudb>=2024.1.2",
-  "ipython>=8.30.0",
+  "ipython>=8.32.0",
   "ipython-autoimport>=0.5",
-  "pytest>=8.3.3",
+  "pytest>=8.3.4",
   "testbook>=0.4.2",
   "ipykernel>=6.29.5",
 ]
-
-[tool.uv.sources]
 
 [tool.hatch.metadata]
 allow-direct-references = true
