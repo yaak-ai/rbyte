@@ -20,6 +20,8 @@ class FfmpegFrameSource(TensorSource):
         path: FilePath,
         threads: NonNegativeInt | None = None,
         resize_shorter_side: NonNegativeInt | None = None,
+        device: str | None = None,
+        filter: str | None = None,
     ) -> None:
         super().__init__()
 
@@ -27,6 +29,8 @@ class FfmpegFrameSource(TensorSource):
             filename=Path(path).resolve().as_posix(),
             threads=threads,
             resize_shorter_side=resize_shorter_side,
+            device=device,
+            filter=filter,
         )
 
     @override

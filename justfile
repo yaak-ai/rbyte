@@ -46,7 +46,7 @@ generate-config:
         --output yaml \
         --strict
 
-test *ARGS: generate-config
+test *ARGS: build-protos generate-config
     uv run --all-extras pytest --capture=no {{ ARGS }}
 
 notebook FILE *ARGS: sync generate-config
