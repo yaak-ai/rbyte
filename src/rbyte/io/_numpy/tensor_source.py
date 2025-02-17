@@ -6,9 +6,7 @@ from typing import final, override
 
 import numpy as np
 import torch
-from numpy.lib.recfunctions import (
-    structured_to_unstructured,  # pyright: ignore[reportUnknownVariableType]
-)
+from numpy.lib.recfunctions import structured_to_unstructured
 from pydantic import validate_call
 from torch import Tensor
 
@@ -34,8 +32,8 @@ class NumpyTensorSource(TensorSource):
 
     def _getitem(self, index: object) -> Tensor:
         path = self._path_posix.format(index)
-        array = structured_to_unstructured(np.load(path)[self._select])  # pyright: ignore[reportUnknownVariableType]
-        return torch.from_numpy(np.ascontiguousarray(array))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+        array = structured_to_unstructured(np.load(path)[self._select])
+        return torch.from_numpy(np.ascontiguousarray(array))  # pyright: ignore[reportUnknownMemberType]
 
     @override
     def __getitem__(self, indexes: object | Iterable[object]) -> Tensor:
