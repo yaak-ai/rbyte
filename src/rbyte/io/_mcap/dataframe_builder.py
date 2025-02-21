@@ -45,6 +45,8 @@ class SpecialField(StrEnum):
 
 @final
 class McapDataFrameBuilder:
+    __name__ = __qualname__
+
     @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
     def __init__(
         self,
@@ -58,6 +60,15 @@ class McapDataFrameBuilder:
         self._validate_crcs = validate_crcs
 
     def __call__(self, path: PathLike[str]) -> Mapping[str, pl.DataFrame]:
+        with bound_contextvars(path=path):
+            result = self._build(path)
+            logger.debug(
+                "built dataframes", length={k: len(v) for k, v in result.items()}
+            )
+
+            return result
+
+    def _build(self, path: PathLike[str]) -> Mapping[str, pl.DataFrame]:
         with (
             bound_contextvars(path=str(path)),
             Path(path).open("rb") as _f,

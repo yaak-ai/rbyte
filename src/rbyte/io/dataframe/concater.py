@@ -8,6 +8,8 @@ from pydantic import validate_call
 
 @final
 class DataFrameConcater:
+    __name__ = __qualname__
+
     @validate_call
     def __init__(
         self, method: ConcatMethod = "horizontal", separator: str | None = None

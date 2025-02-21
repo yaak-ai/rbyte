@@ -1,9 +1,11 @@
 import struct
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterator, Mapping
+from collections.abc import Set as AbstractSet
 from mmap import mmap
 from typing import BinaryIO, Self, override
 
 from google.protobuf.message import Message
+from pydantic import ConfigDict, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 
@@ -30,10 +32,12 @@ class YaakMetadataMessageIterator(Iterator[tuple[type[Message], bytes]]):
     FILE_HEADER_LEN: int = 12
     MESSAGE_HEADER_LEN: int = 8
 
+    @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
     def __init__(
         self,
         file: BinaryIO | mmap,
-        message_types: Iterable[type[Message]] | None = None,
+        *,
+        message_types: AbstractSet[type[Message]] | None = None,
     ) -> None:
         super().__init__()
 
@@ -51,8 +55,8 @@ class YaakMetadataMessageIterator(Iterator[tuple[type[Message], bytes]]):
         if message_types is None:
             self._message_types: Mapping[int, type[Message]] = self.MESSAGE_TYPES
         else:
-            if unknown_message_types := set(message_types) - set(
-                self.MESSAGE_TYPES.values()
+            if unknown_message_types := (
+                message_types - set(self.MESSAGE_TYPES.values())
             ):
                 with bound_contextvars(unknown_message_types=unknown_message_types):
                     logger.error(msg := "unknown message types")

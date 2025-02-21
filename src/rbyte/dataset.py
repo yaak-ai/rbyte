@@ -1,15 +1,18 @@
 from collections.abc import Mapping, Sequence
+from concurrent.futures import Executor
 from enum import StrEnum, unique
 from functools import cache
-from typing import Annotated, Literal, override
+from pathlib import Path
+from typing import Annotated, Any, Literal, override
 
 import polars as pl
 import torch
-from hydra.utils import instantiate
+from optree import tree_map, tree_structure, tree_transpose
 from pipefunc import Pipeline
-from pydantic import ConfigDict, Field, StringConstraints, validate_call
+from pipefunc._pipeline._types import OUTPUT_TYPE, StorageType
+from pipefunc.map import run_map
+from pydantic import ConfigDict, StringConstraints, validate_call
 from structlog import get_logger
-from structlog.contextvars import bound_contextvars
 from tensordict import TensorDict
 from torch.utils.data import Dataset as TorchDataset
 
@@ -32,15 +35,24 @@ class SourceConfig(BaseModel):
     index_column: str
 
 
+type SourcesConfig = Mapping[Id, Mapping[Id, SourceConfig]]
+
+
 class PipelineConfig(BaseModel):
     pipeline: HydraConfig[Pipeline]
-    output_name: str | None = None
-    kwargs: dict[str, object] = Field(default_factory=dict)
-
-
-class InputConfig(BaseModel):
-    sources: Mapping[Id, SourceConfig] = Field(min_length=1)
-    samples: PipelineConfig
+    inputs: Mapping[str, Any]
+    run_folder: str | Path | None = None
+    parallel: bool = True
+    executor: (
+        HydraConfig[Executor] | dict[OUTPUT_TYPE, HydraConfig[Executor]] | None
+    ) = None
+    chunksizes: int | dict[OUTPUT_TYPE, int] | None = None
+    storage: StorageType = "dict"
+    persist_memory: bool = True
+    cleanup: bool = True
+    fixed_indices: dict[str, int | slice] | None = None
+    auto_subpipeline: bool = False
+    show_progress: bool = False
 
 
 @unique
@@ -61,75 +73,20 @@ _ALL = _ALL_TYPE()
 
 
 class Dataset(TorchDataset[Batch]):
-    @validate_call(config=BaseModel.model_config)
-    def __init__(
-        self, inputs: Annotated[Mapping[Id, InputConfig], Field(min_length=1)]
-    ) -> None:
-        logger.debug("initializing dataset")
+    _samples: pl.DataFrame
+    _sources: pl.DataFrame
 
+    @validate_call(config=BaseModel.model_config)
+    def __init__(self, sources: SourcesConfig, samples: PipelineConfig) -> None:
         super().__init__()
 
-        samples: Mapping[str, pl.DataFrame] = {}
-        for input_id, input_cfg in inputs.items():
-            with bound_contextvars(input_id=input_id):
-                samples_cfg = input_cfg.samples
-                pipeline = samples_cfg.pipeline.instantiate()
-                output_name = (
-                    samples_cfg.output_name or pipeline.unique_leaf_node.output_name  # pyright: ignore[reportUnknownMemberType]
-                )
-                kwargs = instantiate(
-                    samples_cfg.kwargs, _recursive_=True, _convert_="all"
-                )
-                samples[input_id] = pipeline.run(output_name=output_name, kwargs=kwargs)
-                logger.debug(
-                    "built samples",
-                    columns=samples[input_id].columns,
-                    len=len(samples[input_id]),
-                )
+        logger.debug("initializing dataset")
 
-        input_id_enum = pl.Enum(sorted(samples))
+        self._samples = self._build_samples(samples)
+        logger.debug("built samples", length=len(self._samples))
 
-        self._samples: pl.DataFrame = (
-            pl.concat(
-                [
-                    df.select(
-                        pl.lit(input_id).cast(input_id_enum).alias(Column.input_id),
-                        pl.col(sorted(df.collect_schema().names())),
-                    )
-                    for input_id, df in samples.items()
-                ],
-                how="vertical",
-            )
-            .sort(Column.input_id)
-            .with_row_index(Column.sample_idx)
-            .rechunk()
-        )
-
-        self._sources: pl.DataFrame = (
-            pl.DataFrame(
-                [
-                    {
-                        Column.input_id: input_id,
-                        (k := "__source"): [
-                            source_cfg.model_dump(exclude={"source"})
-                            | {
-                                "id": source_id,
-                                "config": source_cfg.source.model_dump_json(
-                                    by_alias=True
-                                ),
-                            }
-                            for source_id, source_cfg in input_cfg.sources.items()
-                        ],
-                    }
-                    for input_id, input_cfg in inputs.items()
-                ],
-                schema_overrides={Column.input_id: input_id_enum},
-            )
-            .explode(k)
-            .unnest(k)
-            .select(Column.input_id, pl.exclude(Column.input_id).name.prefix(f"{k}."))
-            .rechunk()
-        )
+        self._sources = self._build_sources(sources)
+        logger.debug("built sources")
 
     @property
     def samples(self) -> pl.DataFrame:
@@ -138,10 +95,6 @@ class Dataset(TorchDataset[Batch]):
     @property
     def sources(self) -> pl.DataFrame:
         return self._sources
-
-    @cache  # noqa: B019
-    def _get_source(self, config: str) -> TensorSource:  # noqa: PLR6301
-        return HydraConfig[TensorSource].model_validate_json(config).instantiate()
 
     @validate_call(
         config=ConfigDict(arbitrary_types_allowed=True, validate_default=False)
@@ -252,3 +205,84 @@ class Dataset(TorchDataset[Batch]):
 
     def __len__(self) -> int:
         return len(self.samples)
+
+    @cache  # noqa: B019
+    def _get_source(self, config: str) -> TensorSource:  # noqa: PLR6301
+        return HydraConfig[TensorSource].model_validate_json(config).instantiate()
+
+    @classmethod
+    def _build_samples(cls, samples: PipelineConfig) -> pl.DataFrame:
+        logger.debug("building samples")
+        pipeline = samples.pipeline.instantiate()
+        pipeline.print_documentation()
+
+        input_ids, input_values = zip(*samples.inputs.items(), strict=False)
+        outer = tree_structure(list(range(len(input_values))))  # pyright: ignore[reportArgumentType]
+        inner = tree_structure(input_values[0])
+        inputs: dict[str, Any] = tree_transpose(outer, inner, input_values)  # pyright: ignore[reportArgumentType, reportAssignmentType]
+
+        executor: Executor | dict[OUTPUT_TYPE, Executor] = tree_map(  # pyright: ignore[reportAssignmentType]
+            HydraConfig[Executor].instantiate,
+            samples.executor,  # pyright: ignore[reportArgumentType]
+        )
+
+        results = run_map(
+            pipeline=pipeline,
+            inputs=inputs,
+            executor=executor,
+            **samples.model_dump(exclude={"pipeline", "inputs", "executor"}),
+        )
+        output_name = pipeline.unique_leaf_node.output_name  # pyright: ignore[reportUnknownMemberType]
+        output: Sequence[pl.DataFrame] = results[output_name].output  # pyright: ignore[reportArgumentType]
+
+        input_id_enum = pl.Enum(input_ids)
+
+        return (
+            pl.concat(
+                [
+                    df.select(
+                        pl.lit(input_id).cast(input_id_enum).alias(Column.input_id),
+                        pl.col(sorted(df.collect_schema().names())),
+                    )
+                    for input_id, df in zip(input_ids, output, strict=True)
+                ],
+                how="vertical",
+            )
+            .sort(Column.input_id)
+            .with_row_index(Column.sample_idx)
+            .rechunk()
+        )
+
+    @classmethod
+    def _build_sources(
+        cls, sources: Mapping[Id, Mapping[Id, SourceConfig]]
+    ) -> pl.DataFrame:
+        logger.debug("building sources")
+
+        input_id_enum = pl.Enum(categories=sources.keys())
+
+        return (
+            pl.DataFrame(
+                [
+                    {
+                        Column.input_id: input_id,
+                        (k := "__source"): [
+                            source_cfg.model_dump(exclude={"source"})
+                            | {
+                                "id": source_id,
+                                "config": source_cfg.source.model_dump_json(
+                                    by_alias=True
+                                ),
+                            }
+                            for source_id, source_cfg in input_cfg.items()
+                        ],
+                    }
+                    for input_id, input_cfg in sources.items()
+                ],
+                schema_overrides={Column.input_id: input_id_enum},
+            )
+            .explode(k)
+            .unnest(k)
+            .select(Column.input_id, pl.exclude(Column.input_id).name.prefix(f"{k}."))
+            .rechunk()
+        )
