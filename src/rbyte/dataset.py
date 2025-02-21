@@ -1,15 +1,16 @@
 from collections.abc import Mapping, Sequence
+from concurrent.futures import Executor
 from enum import StrEnum, unique
 from functools import cache
-from typing import Annotated, Literal, override
+from typing import Annotated, Any, Literal, override
 
 import polars as pl
 import torch
-from hydra.utils import instantiate
+from optree import tree_structure, tree_transpose
 from pipefunc import Pipeline
-from pydantic import ConfigDict, Field, StringConstraints, validate_call
+from pipefunc._pipeline._types import OUTPUT_TYPE
+from pydantic import ConfigDict, StringConstraints, validate_call
 from structlog import get_logger
-from structlog.contextvars import bound_contextvars
 from tensordict import TensorDict
 from torch.utils.data import Dataset as TorchDataset
 
@@ -32,15 +33,13 @@ class SourceConfig(BaseModel):
     index_column: str
 
 
-class PipelineConfig(BaseModel):
-    pipeline: HydraConfig[Pipeline]
-    output_name: str | None = None
-    kwargs: dict[str, object] = Field(default_factory=dict)
+type SourcesConfig = Mapping[Id, Mapping[Id, SourceConfig]]
 
 
-class InputConfig(BaseModel):
-    sources: Mapping[Id, SourceConfig] = Field(min_length=1)
-    samples: PipelineConfig
+class PipelineMapConfig(BaseModel):
+    pipeline: Pipeline
+    inputs: Mapping[str, Any]
+    executor: Executor | dict[OUTPUT_TYPE, Executor] | None = None
 
 
 @unique
@@ -61,42 +60,44 @@ _ALL = _ALL_TYPE()
 
 
 class Dataset(TorchDataset[Batch]):
-    @validate_call(config=BaseModel.model_config)
-    def __init__(
-        self, inputs: Annotated[Mapping[Id, InputConfig], Field(min_length=1)]
-    ) -> None:
-        logger.debug("initializing dataset")
+    _samples: pl.DataFrame
+    _sources: pl.DataFrame
 
+    @validate_call(config=BaseModel.model_config)
+    def __init__(self, sources: SourcesConfig, samples: PipelineMapConfig) -> None:
         super().__init__()
 
-        samples: Mapping[str, pl.DataFrame] = {}
-        for input_id, input_cfg in inputs.items():
-            with bound_contextvars(input_id=input_id):
-                samples_cfg = input_cfg.samples
-                pipeline = samples_cfg.pipeline.instantiate()
-                output_name = (
-                    samples_cfg.output_name or pipeline.unique_leaf_node.output_name  # pyright: ignore[reportUnknownMemberType]
-                )
-                kwargs = instantiate(
-                    samples_cfg.kwargs, _recursive_=True, _convert_="all"
-                )
-                samples[input_id] = pipeline.run(output_name=output_name, kwargs=kwargs)
-                logger.debug(
-                    "built samples",
-                    columns=samples[input_id].columns,
-                    len=len(samples[input_id]),
-                )
+        logger.debug("initializing dataset")
 
-        input_id_enum = pl.Enum(sorted(samples))
+        self._samples = self._build_sample_df(samples)
+        self._sources = self._build_source_df(sources)
 
-        self._samples: pl.DataFrame = (
+    @classmethod
+    def _build_sample_df(cls, samples: PipelineMapConfig) -> pl.DataFrame:
+        input_ids, inputs = zip(*samples.inputs.items(), strict=False)
+        outer = tree_structure(list(range(len(inputs))))  # pyright: ignore[reportArgumentType]
+        inner = tree_structure(inputs[0])
+        inputs = tree_transpose(outer, inner, inputs)  # pyright: ignore[reportArgumentType, reportUnknownVariableType]
+
+        results = samples.pipeline.map(
+            inputs=inputs,  # pyright: ignore[reportArgumentType]
+            parallel=samples.executor is not None,
+            executor=samples.executor,
+            storage="dict",
+        )
+        output_name = samples.pipeline.unique_leaf_node.output_name  # pyright: ignore[reportUnknownMemberType]
+        output = results[output_name].output  # pyright: ignore[reportArgumentType]
+
+        input_id_enum = pl.Enum(input_ids)
+
+        return (
             pl.concat(
                 [
                     df.select(
                         pl.lit(input_id).cast(input_id_enum).alias(Column.input_id),
                         pl.col(sorted(df.collect_schema().names())),
                     )
-                    for input_id, df in samples.items()
+                    for input_id, df in zip(input_ids, output, strict=True)
                 ],
                 how="vertical",
             )
@@ -105,7 +106,13 @@ class Dataset(TorchDataset[Batch]):
             .rechunk()
         )
 
-        self._sources: pl.DataFrame = (
+    @classmethod
+    def _build_source_df(
+        cls, sources: Mapping[Id, Mapping[Id, SourceConfig]]
+    ) -> pl.DataFrame:
+        input_id_enum = pl.Enum(categories=sources.keys())
+
+        return (
             pl.DataFrame(
                 [
                     {
@@ -118,10 +125,10 @@ class Dataset(TorchDataset[Batch]):
                                     by_alias=True
                                 ),
                             }
-                            for source_id, source_cfg in input_cfg.sources.items()
+                            for source_id, source_cfg in input_cfg.items()
                         ],
                     }
-                    for input_id, input_cfg in inputs.items()
+                    for input_id, input_cfg in sources.items()
                 ],
                 schema_overrides={Column.input_id: input_id_enum},
             )

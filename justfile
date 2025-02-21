@@ -18,9 +18,6 @@ setup: sync install-tools
     git lfs pull
     uvx pre-commit install --install-hooks
 
-clean:
-    uvx --from hatch hatch clean
-
 build:
     uv build
 
@@ -33,10 +30,7 @@ lint *ARGS:
 typecheck *ARGS:
     uvx basedpyright {{ ARGS }}
 
-build-protos:
-    uvx --from hatch hatch build --clean --hooks-only --target sdist
-
-pre-commit *ARGS: build-protos
+pre-commit *ARGS: build
     uvx pre-commit run --all-files --color=always {{ ARGS }}
 
 generate-config:
@@ -46,7 +40,7 @@ generate-config:
         --output yaml \
         --strict
 
-test *ARGS: build-protos generate-config
+test *ARGS: build generate-config
     uv run --all-extras pytest --capture=no {{ ARGS }}
 
 notebook FILE *ARGS: sync generate-config

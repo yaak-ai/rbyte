@@ -1,8 +1,7 @@
 from collections.abc import Mapping, Sequence
 from os import PathLike
-from typing import cast, final
+from typing import final
 
-import numpy.typing as npt
 import polars as pl
 from h5py import Dataset, File
 from optree import PyTree, tree_map, tree_map_with_path
@@ -31,8 +30,7 @@ class Hdf5DataFrameBuilder:
                 key = "/".join(path)
                 match obj := f.get(key):  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
                     case Dataset():
-                        values = cast(npt.ArrayLike, obj[:])
-                        return pl.Series(values=values, dtype=dtype)
+                        return pl.Series(values=obj[:], dtype=dtype)  # pyright: ignore[reportUnknownArgumentType]
 
                     case None:
                         return None

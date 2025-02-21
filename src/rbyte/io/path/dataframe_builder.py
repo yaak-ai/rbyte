@@ -45,6 +45,6 @@ class PathDataFrameBuilder:
         )
         paths = map(Path.as_posix, parent.rglob("*"))
         parsed = map(parser.parse, paths)  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
-        data = (x.named for x in parsed if isinstance(x, parse.Result))  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+        data = [x.named for x in parsed if isinstance(x, parse.Result)]  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
 
-        return pl.DataFrame(data=data, schema=self._fields)
+        return pl.DataFrame(data=data, schema=self._fields)  # pyright: ignore[reportUnknownArgumentType]
