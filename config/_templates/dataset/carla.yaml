@@ -56,75 +56,85 @@
 _target_: rbyte.Dataset
 _recursive_: false
 _convert_: all
-inputs:
+sources:
   #@ for input_id in drives:
   (@=input_id@):
-    sources:
-      #@ for source_id in cameras:
-      (@=source_id@):
-        index_column: _idx_
-        source:
-          _target_: rbyte.io.PathTensorSource
-          path: "${data_dir}/(@=input_id@)/frames/(@=source_id@).defish.mp4/576x324/{:09d}.jpg"
-          decoder:
-            _target_: simplejpeg.decode_jpeg
-            _partial_: true
-            colorspace: rgb
-            fastdct: true
-            fastupsample: true
+    #@ for source_id in cameras:
+    (@=source_id@):
+      index_column: _idx_
+      source:
+        _target_: rbyte.io.PathTensorSource
+        path: "${data_dir}/(@=input_id@)/frames/(@=source_id@).defish.mp4/576x324/{:09d}.jpg"
+        decoder:
+          _target_: simplejpeg.decode_jpeg
+          _partial_: true
+          colorspace: rgb
+          fastdct: true
+          fastupsample: true
 
-      #@ end
-
-    samples:
-      pipeline:
-        _target_: pipefunc.Pipeline
-        validate_type_annotations: false
-        functions:
-          - _target_: pipefunc.PipeFunc
-            bound:
-              path: ${data_dir}/(@=input_id@)/ego_logs.json
-            output_name: ego_logs
-            func:
-              _target_: rbyte.io.JsonDataFrameBuilder
-              fields:
-                records:
-                  control.brake:
-                  control.throttle:
-                  control.steer:
-                  state.velocity.value:
-                  state.acceleration.value:
-
-          - _target_: pipefunc.PipeFunc
-            renames:
-              input: ego_logs
-            output_name: data
-            func:
-              _target_: rbyte.io.DataFrameConcater
-              method: vertical
-
-          - _target_: pipefunc.PipeFunc
-            renames:
-              input: data
-            output_name: data_resampled
-            func:
-              _target_: rbyte.io.DataFrameFpsResampler
-              fps_in: 20
-              fps_out: 30
-
-          - _target_: pipefunc.PipeFunc
-            renames:
-              input: data_resampled
-            output_name: data_indexed
-            func:
-              _target_: rbyte.io.DataFrameIndexer
-              name: _idx_
-
-          - _target_: pipefunc.PipeFunc
-            renames:
-              input: data_indexed
-            output_name: data_filtered
-            func:
-              _target_: rbyte.io.DataFrameFilter
-              predicate: |
-                `control.throttle` > 0.5
+    #@ end
   #@ end
+
+samples:
+  inputs:
+    #@ for input_id in drives:
+    (@=input_id@):
+      ego_logs_path: ${data_dir}/(@=input_id@)/ego_logs.json
+    #@ end
+
+  pipeline:
+    _target_: pipefunc.Pipeline
+    validate_type_annotations: false
+    functions:
+      - _target_: pipefunc.PipeFunc
+        renames:
+          path: ego_logs_path
+        output_name: ego_logs
+        mapspec: "ego_logs_path[i] -> ego_logs[i]"
+        func:
+          _target_: rbyte.io.JsonDataFrameBuilder
+          fields:
+            records:
+              control.brake:
+              control.throttle:
+              control.steer:
+              state.velocity.value:
+              state.acceleration.value:
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input: ego_logs
+        output_name: data
+        mapspec: "ego_logs[i] -> data[i]"
+        func:
+          _target_: rbyte.io.DataFrameConcater
+          method: vertical
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input: data
+        output_name: resampled
+        mapspec: "data[i] -> resampled[i]"
+        func:
+          _target_: rbyte.io.DataFrameFpsResampler
+          fps_in: 20
+          fps_out: 30
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input: resampled
+        output_name: indexed
+        mapspec: "resampled[i] -> indexed[i]"
+        func:
+          _target_: rbyte.io.DataFrameIndexer
+          name: _idx_
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input: indexed
+        output_name: samples
+        mapspec: "indexed[i] -> samples[i]"
+        func:
+          _target_: rbyte.io.DataFrameFilter
+          predicate: |
+            `control.throttle` > 0.5

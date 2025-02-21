@@ -12,6 +12,9 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    env:
+      RBYTE_SAMPLES_PARALLEL: 0
+
     steps:
       - name: setup ssh
         uses: webfactory/ssh-agent@v0.9.0
@@ -48,20 +51,9 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "**/pyproject.toml"
 
-      - name: sync
-        run: just sync
-
-      - name: build protos
-        run: just build-protos
-
-      - name: format
-        run: just format --check
-
-      - name: lint
-        run: just lint
-
-      - name: typecheck
-        run: just typecheck
-
-      - name: test
-        run: just test
+      - run: just sync
+      - run: just build
+      - run: just format --check
+      - run: just lint
+      - run: just typecheck
+      - run: just test
