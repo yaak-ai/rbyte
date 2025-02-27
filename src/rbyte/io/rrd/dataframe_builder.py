@@ -7,6 +7,10 @@ import more_itertools as mit
 import polars as pl
 import rerun.dataframe as rrd
 from pydantic import validate_call
+from structlog import get_logger
+from structlog.contextvars import bound_contextvars
+
+logger = get_logger(__name__)
 
 
 @unique
@@ -17,6 +21,8 @@ class Column(StrEnum):
 
 @final
 class RrdDataFrameBuilder:
+    __name__ = __qualname__
+
     @validate_call
     def __init__(
         self, index: str, contents: Mapping[str, Sequence[str] | None]
@@ -25,6 +31,15 @@ class RrdDataFrameBuilder:
         self._contents = contents
 
     def __call__(self, path: PathLike[str]) -> Mapping[str, pl.DataFrame]:
+        with bound_contextvars(path=path):
+            result = self._build(path)
+            logger.debug(
+                "built dataframes", length={k: len(v) for k, v in result.items()}
+            )
+
+            return result
+
+    def _build(self, path: PathLike[str]) -> Mapping[str, pl.DataFrame]:
         recording = rrd.load_recording(path)  # pyright: ignore[reportUnknownMemberType]
         schema = recording.schema()
 

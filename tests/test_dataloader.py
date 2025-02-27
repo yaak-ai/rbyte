@@ -42,7 +42,7 @@ def test_mimicgen() -> None:
                 **meta_rest,
             },
             **batch_rest,
-        } if set(input_id).issubset(cfg.dataloader.dataset.inputs) and not any((
+        } if set(input_id).issubset(cfg.dataloader.dataset.sources) and not any((
             batch_rest,
             data_rest,
             meta_rest,
@@ -93,7 +93,7 @@ def test_nuscenes_mcap() -> None:
                 **meta_rest,
             },
             **batch_rest,
-        } if set(input_id).issubset(cfg.dataloader.dataset.inputs) and not any((
+        } if set(input_id).issubset(cfg.dataloader.dataset.sources) and not any((
             batch_rest,
             data_rest,
             meta_rest,
@@ -144,7 +144,7 @@ def test_nuscenes_rrd() -> None:
                 **meta_rest,
             },
             **batch_rest,
-        } if set(input_id).issubset(cfg.dataloader.dataset.inputs) and not any((
+        } if set(input_id).issubset(cfg.dataloader.dataset.sources) and not any((
             batch_rest,
             data_rest,
             meta_rest,
@@ -202,7 +202,7 @@ def test_yaak() -> None:
                 **meta_rest,
             },
             **batch_rest,
-        } if set(input_id).issubset(cfg.dataloader.dataset.inputs) and not any((
+        } if set(input_id).issubset(cfg.dataloader.dataset.sources) and not any((
             batch_rest,
             data_rest,
             meta_rest,
@@ -234,9 +234,9 @@ def test_zod() -> None:
         case {
             "data": {
                 "camera_front_blur": Tensor(shape=[c.B, *_]),
-                "camera_front_blur/timestamp": Tensor(shape=[c.B, *_]),
+                "camera_front_blur_meta/timestamp": Tensor(shape=[c.B, *_]),
                 "lidar_velodyne": Tensor(shape=[c.B, *_]),
-                "lidar_velodyne/timestamp": Tensor(shape=[c.B, *_]),
+                "lidar_velodyne_meta/timestamp": Tensor(shape=[c.B, *_]),
                 "vehicle_data/ego_vehicle_controls/acceleration_pedal/ratio/unitless/value": Tensor(  # noqa: E501
                     shape=[c.B, *_]
                 ),
@@ -257,7 +257,7 @@ def test_zod() -> None:
                 **meta_rest,
             },
             **batch_rest,
-        } if set(input_id).issubset(cfg.dataloader.dataset.inputs) and not any((
+        } if set(input_id).issubset(cfg.dataloader.dataset.sources) and not any((
             batch_rest,
             data_rest,
             meta_rest,

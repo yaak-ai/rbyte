@@ -3,6 +3,7 @@ from .concater import DataFrameConcater
 from .filter import DataFrameFilter
 from .fps_resampler import DataFrameFpsResampler
 from .indexer import DataFrameIndexer
+from .joiner import DataFrameJoiner
 
 __all__ = [
     "DataFrameAligner",
@@ -10,4 +11,5 @@ __all__ = [
     "DataFrameFilter",
     "DataFrameFpsResampler",
     "DataFrameIndexer",
+    "DataFrameJoiner",
 ]
