@@ -1,6 +1,7 @@
 export PYTHONOPTIMIZE := "1"
 export HATCH_BUILD_CLEAN := "1"
 export HYDRA_FULL_ERROR := "1"
+export TQDM_DISABLE := "1"
 
 _default:
     @just --list --unsorted
@@ -18,9 +19,6 @@ setup: sync install-tools
     git lfs pull
     uvx pre-commit install --install-hooks
 
-clean:
-    uvx --from hatch hatch clean
-
 build:
     uv build
 
@@ -33,10 +31,7 @@ lint *ARGS:
 typecheck *ARGS:
     uvx basedpyright {{ ARGS }}
 
-build-protos:
-    uvx --from hatch hatch build --clean --hooks-only --target sdist
-
-pre-commit *ARGS: build-protos
+pre-commit *ARGS: build
     uvx pre-commit run --all-files --color=always {{ ARGS }}
 
 generate-config:
@@ -46,7 +41,7 @@ generate-config:
         --output yaml \
         --strict
 
-test *ARGS: build-protos generate-config
+test *ARGS: build generate-config
     uv run --all-extras pytest --capture=no {{ ARGS }}
 
 notebook FILE *ARGS: sync generate-config
@@ -62,10 +57,6 @@ visualize *ARGS: generate-config
         {{ ARGS }}
 
 [group('visualize')]
-visualize-mimicgen *ARGS:
-    just visualize dataset=mimicgen logger=rerun/mimicgen ++data_dir={{ justfile_directory() }}/tests/data/mimicgen {{ ARGS }}
-
-[group('visualize')]
 visualize-yaak *ARGS:
     just visualize dataset=yaak logger=rerun/yaak ++data_dir={{ justfile_directory() }}/tests/data/yaak {{ ARGS }}
 
@@ -74,12 +65,19 @@ visualize-zod *ARGS:
     just visualize dataset=zod logger=rerun/zod ++data_dir={{ justfile_directory() }}/tests/data/zod {{ ARGS }}
 
 [group('visualize')]
+visualize-mimicgen *ARGS:
+    just visualize dataset=mimicgen logger=rerun/mimicgen ++data_dir={{ justfile_directory() }}/tests/data/mimicgen {{ ARGS }}
+
+[group('visualize')]
 visualize-nuscenes-mcap *ARGS:
     just visualize dataset=nuscenes/mcap logger=rerun/nuscenes/mcap ++data_dir={{ justfile_directory() }}/tests/data/nuscenes/mcap {{ ARGS }}
 
 [group('visualize')]
 visualize-nuscenes-rrd *ARGS:
     just visualize dataset=nuscenes/rrd logger=rerun/nuscenes/rrd ++data_dir={{ justfile_directory() }}/tests/data/nuscenes/rrd {{ ARGS }}
+
+[group('visualize')]
+visualize-all: visualize-yaak visualize-zod visualize-mimicgen visualize-nuscenes-mcap visualize-nuscenes-rrd
 
 # rerun server and viewer
 rerun bind="0.0.0.0" port="9876" ws-server-port="9877" web-viewer-port="9090":

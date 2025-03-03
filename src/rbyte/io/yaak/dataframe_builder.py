@@ -14,10 +14,13 @@ from polars.datatypes import (
     DataTypeClass,  # pyright: ignore[reportUnusedImport]  # noqa: F401
 )
 from ptars import HandlerPool
-from pydantic import ConfigDict, ImportString, validate_call
+from pydantic import ConfigDict, validate_call
 from structlog import get_logger
+from structlog.contextvars import bound_contextvars
 from tqdm import tqdm
 from xxhash import xxh3_64_hexdigest as digest
+
+from rbyte.config.base import PickleableImportString
 
 from .message_iterator import YaakMetadataMessageIterator
 from .proto import sensor_pb2
@@ -26,12 +29,14 @@ logger = get_logger(__name__)
 
 
 type Fields = Mapping[
-    type[Message] | ImportString[type[Message]], Mapping[str, PolarsDataType | None]
+    PickleableImportString[type[Message]], Mapping[str, PolarsDataType | None]
 ]
 
 
 @final
 class YaakMetadataDataFrameBuilder:
+    __name__ = __qualname__
+
     @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
     def __init__(self, *, fields: Fields) -> None:
         super().__init__()
@@ -42,24 +47,34 @@ class YaakMetadataDataFrameBuilder:
         return digest(str(self._fields))
 
     def __call__(self, path: PathLike[str]) -> Mapping[str, pl.DataFrame]:
+        with bound_contextvars(path=path):
+            result = self._build(path)
+            logger.debug(
+                "built dataframes", length={k: len(v) for k, v in result.items()}
+            )
+
+            return result
+
+    def _build(self, path: PathLike[str]) -> Mapping[str, pl.DataFrame]:
         with Path(path).open("rb") as _f, mmap(_f.fileno(), 0, access=ACCESS_READ) as f:
             handler_pool = HandlerPool()
 
+            message_types = {k.obj for k in self._fields}
             messages = mit.bucket(
-                YaakMetadataMessageIterator(f, message_types=self._fields),
+                YaakMetadataMessageIterator(f, message_types=message_types),
                 key=itemgetter(0),
-                validator=self._fields.__contains__,
+                validator=message_types.__contains__,
             )
 
             dfs = {
-                msg_type.__name__: cast(
+                msg.obj.__name__: cast(
                     pl.DataFrame,
                     pl.from_arrow(  # pyright: ignore[reportUnknownMemberType]
-                        data=handler_pool.get_for_message(msg_type.DESCRIPTOR)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+                        data=handler_pool.get_for_message(msg.obj.DESCRIPTOR)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
                         .list_to_record_batch([
                             msg_data
                             for (_, msg_data) in tqdm(
-                                messages[msg_type], postfix={"msg_type": msg_type}
+                                messages[msg.obj], postfix={"msg": msg.obj}
                             )
                         ])
                         .select(schema),
@@ -67,7 +82,7 @@ class YaakMetadataDataFrameBuilder:
                         rechunk=True,
                     ),
                 )
-                for msg_type, schema in self._fields.items()
+                for msg, schema in self._fields.items()
             }
 
         if (df := dfs.pop((k := sensor_pb2.ImageMetadata.__name__), None)) is not None:

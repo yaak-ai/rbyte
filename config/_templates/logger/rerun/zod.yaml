@@ -2,12 +2,12 @@
 _target_: rbyte.viz.loggers.RerunLogger
 spawn: true
 schema:
-  camera_front_blur/timestamp: TimeNanosColumn
+  camera_front_blur_meta/timestamp: TimeNanosColumn
   camera_front_blur:
     Image:
       color_model: RGB
 
-  lidar_velodyne/timestamp: TimeNanosColumn
+  lidar_velodyne_meta/timestamp: TimeNanosColumn
   lidar_velodyne: Points3D
 
   vehicle_data/ego_vehicle_controls/timestamp/nanoseconds/value: TimeNanosColumn

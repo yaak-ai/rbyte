@@ -6,6 +6,8 @@ from .dataframe import (
     DataFrameFilter,
     DataFrameFpsResampler,
     DataFrameIndexer,
+    DataFrameJoiner,
+    FixedWindowSampleBuilder,
 )
 from .path import PathDataFrameBuilder, PathTensorSource
 
@@ -15,6 +17,8 @@ __all__: list[str] = [
     "DataFrameFilter",
     "DataFrameFpsResampler",
     "DataFrameIndexer",
+    "DataFrameJoiner",
+    "FixedWindowSampleBuilder",
     "JsonDataFrameBuilder",
     "NumpyTensorSource",
     "PathDataFrameBuilder",

@@ -1,9 +1,10 @@
+from copy import deepcopy
 from functools import cached_property
-from typing import ClassVar, Literal
+from typing import Any, ClassVar, Literal, override
 
 from hydra.utils import instantiate
 from pydantic import BaseModel as _BaseModel
-from pydantic import ConfigDict, Field, ImportString, model_validator
+from pydantic import ConfigDict, Field, ImportString, TypeAdapter, model_validator
 from pydantic import RootModel as _RootModel
 
 
@@ -39,12 +40,30 @@ class HydraConfig[T](BaseModel):
     def instantiate(self, **kwargs: object) -> T:
         return instantiate(self.model_dump(by_alias=True), **kwargs)
 
+
+class PickleableImportString[T](BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(
+        extra="allow", frozen=True, validate_assignment=True
+    )
+
+    obj: ImportString[T]
+    _path: str
+
     @model_validator(mode="before")
     @classmethod
-    def validate_model(cls, data: object) -> object:
-        match data:
-            case str():
-                return {"_target_": data}
+    def _validate_model(cls, path: str) -> dict[str, str]:
+        return {"obj": path, "_path": path}
 
-            case _:
-                return data
+    @override
+    def __getstate__(self) -> dict[Any, Any]:
+        state = deepcopy(super().__getstate__())
+        state["__dict__"].pop("obj")
+
+        return state
+
+    @override
+    def __setstate__(self, state: dict[Any, Any]) -> None:
+        state["__dict__"]["obj"] = TypeAdapter(ImportString[T]).validate_python(
+            state["__pydantic_extra__"]["_path"]
+        )
+        super().__setstate__(state)
