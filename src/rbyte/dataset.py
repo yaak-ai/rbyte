@@ -2,15 +2,13 @@ from collections.abc import Mapping, Sequence
 from concurrent.futures import Executor
 from enum import StrEnum, unique
 from functools import cache
-from pathlib import Path
-from typing import Annotated, Any, Literal, override
+from typing import Annotated, Any, ClassVar, Literal, override
 
 import polars as pl
 import torch
 from optree import tree_map, tree_structure, tree_transpose
 from pipefunc import Pipeline
-from pipefunc._pipeline._types import OUTPUT_TYPE, StorageType
-from pipefunc.map import run_map
+from pipefunc._pipeline._types import OUTPUT_TYPE
 from pydantic import ConfigDict, StringConstraints, validate_call
 from structlog import get_logger
 from tensordict import TensorDict
@@ -39,20 +37,14 @@ type SourcesConfig = Mapping[Id, Mapping[Id, SourceConfig]]
 
 
 class PipelineConfig(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow")
+
     pipeline: HydraConfig[Pipeline]
     inputs: Mapping[str, Any]
-    run_folder: str | Path | None = None
-    parallel: bool = True
     executor: (
         HydraConfig[Executor] | dict[OUTPUT_TYPE, HydraConfig[Executor]] | None
     ) = None
-    chunksizes: int | dict[OUTPUT_TYPE, int] | None = None
-    storage: StorageType = "dict"
-    persist_memory: bool = True
-    cleanup: bool = True
-    fixed_indices: dict[str, int | slice] | None = None
-    auto_subpipeline: bool = False
-    show_progress: bool = False
+    return_results: Literal[True] = True
 
 
 @unique
@@ -226,8 +218,7 @@ class Dataset(TorchDataset[Batch]):
             samples.executor,  # pyright: ignore[reportArgumentType]
         )
 
-        results = run_map(
-            pipeline=pipeline,
+        results = pipeline.map(
             inputs=inputs,
             executor=executor,
             **samples.model_dump(exclude={"pipeline", "inputs", "executor"}),
