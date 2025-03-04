@@ -26,9 +26,9 @@ sources:
 samples:
   inputs:
     000002_short:
-      camera_front_blur_path: "${data_dir}/sequences/000002_short/camera_front_blur/000002_romeo_{timestamp:%Y-%m-%dT%H:%M:%S.%f}Z.jpg"
-      lidar_velodyne_path: "${data_dir}/sequences/000002_short/lidar_velodyne/000002_romeo_{timestamp:%Y-%m-%dT%H:%M:%S.%f}Z.npy"
-      vehicle_data_path: "${data_dir}/sequences/000002_short/vehicle_data.hdf5"
+      camera_front_blur_path: ${data_dir}/sequences/000002_short/camera_front_blur
+      lidar_velodyne_path: ${data_dir}/sequences/000002_short/lidar_velodyne
+      vehicle_data_path: ${data_dir}/sequences/000002_short/vehicle_data.hdf5
 
   executor:
     _target_: concurrent.futures.ThreadPoolExecutor
@@ -44,6 +44,7 @@ samples:
         mapspec: "camera_front_blur_path[i] -> camera_front_blur_meta[i]"
         func:
           _target_: rbyte.io.PathDataFrameBuilder
+          pattern: 000002_romeo_(?<timestamp>.+)Z
           fields:
             timestamp:
               _target_: polars.Datetime
@@ -56,6 +57,7 @@ samples:
         mapspec: "lidar_velodyne_path[i] -> lidar_velodyne_meta[i]"
         func:
           _target_: rbyte.io.PathDataFrameBuilder
+          pattern: '000002_romeo_(?<timestamp>.+)Z'
           fields:
             timestamp:
               _target_: polars.Datetime
