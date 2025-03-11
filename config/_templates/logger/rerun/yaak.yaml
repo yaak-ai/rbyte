@@ -7,20 +7,42 @@
 #@ ]
 ---
 _target_: rbyte.viz.loggers.RerunLogger
+_convert_: all
+_recursive_: false
+application_id: [meta, input_id]
 schema:
+  (@=cameras[0]@)/time_stamp:
+    _target_: rerun.TimeNanosColumn
+    times: [data, "meta/ImageMetadata.(@=cameras[0]@)/time_stamp"]
+
+  safety_score/time_stamp:
+    _target_: rerun.TimeNanosColumn
+    times: [data, mcap//ai/safety_score/clip.end_timestamp]
+
   #@ for camera in cameras:
+  (@=camera@)/frame_idx:
+    _target_: rerun.TimeSequenceColumn
+    times: [data, "meta/ImageMetadata.(@=camera@)/frame_idx"]
+
   (@=camera@):
-    Image:
-      color_model: RGB
+    - _target_: rerun.Image.columns
+      buffer: [data, (@=camera@)]
+
+    - static: true
+      entity:
+        _target_: rerun.Image.from_fields
+        format:
+          _target_: rerun.components.ImageFormat
+          height: 324
+          width: 576
+          color_model: RGB
+          channel_datatype: u8
   #@ end
 
-  #@ camera = cameras[0]
-  meta/ImageMetadata.(@=camera@)/frame_idx: TimeSequenceColumn
-  meta/ImageMetadata.(@=camera@)/time_stamp: TimeNanosColumn
-  #@ for camera in cameras[1:]:
-  meta/ImageMetadata.(@=camera@)/frame_idx: TimeSequenceColumn
-  #@ end
-  meta/VehicleMotion/speed: Scalar
+  speed:
+    _target_: rerun.Scalar.columns
+    scalar: [data, meta/VehicleMotion/speed]
 
-  mcap//ai/safety_score/clip.end_timestamp: TimeNanosColumn
-  mcap//ai/safety_score/score: Scalar
+  safety_score/score:
+    _target_: rerun.Scalar.columns
+    scalar: [data, mcap//ai/safety_score/score]

@@ -1,10 +1,15 @@
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 from hydra import compose, initialize
 from hydra.utils import instantiate
 from structlog import get_logger
 from torch import Tensor
+
+if TYPE_CHECKING:
+    from rbyte.batch import Batch
+    from rbyte.viz.loggers.base import Logger
 
 logger = get_logger(__name__)
 
@@ -54,8 +59,8 @@ def test_mimicgen() -> None:
 
             raise AssertionError(msg)
 
-    batch_logger = instantiate(cfg.logger, spawn=False)
-    batch_logger.log(0, batch)
+    batch_logger: Logger[Batch] = instantiate(cfg.logger, spawn=False)
+    batch_logger.log(batch)
 
 
 def test_nuscenes_mcap() -> None:
@@ -105,8 +110,8 @@ def test_nuscenes_mcap() -> None:
 
             raise AssertionError(msg)
 
-    batch_logger = instantiate(cfg.logger, spawn=False)
-    batch_logger.log(0, batch)
+    batch_logger: Logger[Batch] = instantiate(cfg.logger, spawn=False)
+    batch_logger.log(batch)
 
 
 def test_nuscenes_rrd() -> None:
@@ -156,8 +161,8 @@ def test_nuscenes_rrd() -> None:
 
             raise AssertionError(msg)
 
-    batch_logger = instantiate(cfg.logger, spawn=False)
-    batch_logger.log(0, batch)
+    batch_logger: Logger[Batch] = instantiate(cfg.logger, spawn=False)
+    batch_logger.log(batch)
 
 
 def test_yaak() -> None:
@@ -214,8 +219,8 @@ def test_yaak() -> None:
 
             raise AssertionError(msg)
 
-    batch_logger = instantiate(cfg.logger, spawn=False)
-    batch_logger.log(0, batch)
+    batch_logger: Logger[Batch] = instantiate(cfg.logger, spawn=False)
+    batch_logger.log(batch)
 
 
 def test_zod() -> None:
@@ -269,5 +274,5 @@ def test_zod() -> None:
 
             raise AssertionError(msg)
 
-    batch_logger = instantiate(cfg.logger, spawn=False)
-    batch_logger.log(0, batch)
+    batch_logger: Logger[Batch] = instantiate(cfg.logger, spawn=False)
+    batch_logger.log(batch)

@@ -9,5 +9,5 @@ logger = get_logger(__name__)
 
 class ConsoleLogger[T](Logger[T]):
     @override
-    def log(self, batch_idx: int, batch: T) -> None:
-        logger.info(None, batch_idx=batch_idx, batch=batch)
+    def log(self, data: T) -> None:
+        logger.info(None, data=data)

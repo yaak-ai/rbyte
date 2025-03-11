@@ -23,3 +23,5 @@ uv.lock
 .basedpyright
 
 .ipynb_checkpoints
+
+.dprint.json

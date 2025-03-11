@@ -5,16 +5,35 @@
 #@ ]
 ---
 _target_: rbyte.viz.loggers.RerunLogger
+_convert_: all
+_recursive_: false
+application_id: [meta, input_id]
 schema:
-  #@ for camera in cameras:
+  #@ for/end camera in cameras:
   (@=camera@):
-    Image:
-      color_model: RGB
-  #@ end
+    - _target_: rerun.Image.columns
+      buffer: [data, (@=camera@)]
+    - static: true
+      entity:
+        _target_: rerun.Image.from_fields
+        format:
+          _target_: rerun.components.ImageFormat
+          height: 324
+          width: 576
+          color_model: RGB
+          channel_datatype: u8
 
-  _idx_: TimeSequenceColumn
-  control.brake: Scalar
-  control.steer: Scalar
-  control.throttle: Scalar
-  state.acceleration.value: Scalar
-  state.velocity.value: Scalar
+  _idx_:
+    _target_: rerun.TimeSequenceColumn
+    times: [data, _idx_]
+
+  #@ for entity, key in {
+  #@     "brake": "control.brake",
+  #@     "steer": "control.steer",
+  #@     "acceleration": "state.acceleration.value",
+  #@     "velocity": "state.velocity.value",
+  #@ }.items():
+  (@=entity@):
+    _target_: rerun.Scalar.columns
+    scalar: [data, "(@=key@)"]
+  #@ end

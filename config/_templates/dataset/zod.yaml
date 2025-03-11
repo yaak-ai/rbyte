@@ -58,7 +58,7 @@ samples:
         mapspec: "lidar_velodyne_path[i] -> lidar_velodyne_meta[i]"
         func:
           _target_: rbyte.io.PathDataFrameBuilder
-          pattern: '000002_romeo_(?<timestamp>.+)Z'
+          pattern: "000002_romeo_(?<timestamp>.+)Z"
           fields:
             timestamp:
               _target_: polars.Datetime

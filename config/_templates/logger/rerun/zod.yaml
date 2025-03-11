@@ -1,16 +1,47 @@
 ---
 _target_: rbyte.viz.loggers.RerunLogger
-spawn: true
+_convert_: all
+_recursive_: false
+application_id: [meta, input_id]
 schema:
-  camera_front_blur_meta/timestamp: TimeNanosColumn
+  camera_front_blur_meta/timestamp:
+    _target_: rerun.TimeNanosColumn
+    times: [data, camera_front_blur_meta/timestamp]
+
+  lidar_velodyne_meta/timestamp:
+    _target_: rerun.TimeNanosColumn
+    times: [data, lidar_velodyne_meta/timestamp]
+
+  vehicle_data/ego_vehicle_controls/timestamp:
+    _target_: rerun.TimeNanosColumn
+    times: [data, vehicle_data/ego_vehicle_controls/timestamp/nanoseconds/value]
+
   camera_front_blur:
-    Image:
-      color_model: RGB
+    - _target_: rerun.Image.columns
+      buffer: [data, camera_front_blur]
 
-  lidar_velodyne_meta/timestamp: TimeNanosColumn
-  lidar_velodyne: Points3D
+    - static: true
+      entity:
+        _target_: rerun.Image.from_fields
+        format:
+          _target_: rerun.components.ImageFormat
+          height: 2168
+          width: 3848
+          color_model: RGB
+          channel_datatype: u8
 
-  vehicle_data/ego_vehicle_controls/timestamp/nanoseconds/value: TimeNanosColumn
-  vehicle_data/ego_vehicle_controls/acceleration_pedal/ratio/unitless/value: Scalar
-  vehicle_data/ego_vehicle_controls/steering_wheel_angle/angle/radians/value: Scalar
-  vehicle_data/satellite/speed/meters_per_second/value: Scalar
+  lidar_velodyne:
+    _target_: rerun.Points3D.columns
+    positions: [data, lidar_velodyne]
+
+  acceleration_pedal:
+    _target_: rerun.Scalar.columns
+    scalar: [data, vehicle_data/ego_vehicle_controls/acceleration_pedal/ratio/unitless/value]
+
+  steering_wheel_angle:
+    _target_: rerun.Scalar.columns
+    scalar: [data, vehicle_data/ego_vehicle_controls/steering_wheel_angle/angle/radians/value]
+
+  speed:
+    _target_: rerun.Scalar.columns
+    scalar: [data, vehicle_data/satellite/speed/meters_per_second/value]

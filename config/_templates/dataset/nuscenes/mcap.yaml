@@ -42,7 +42,7 @@ samples:
 
   executor:
     _target_: concurrent.futures.ThreadPoolExecutor
-  
+
   storage: dict
   pipeline:
     _target_: pipefunc.Pipeline
