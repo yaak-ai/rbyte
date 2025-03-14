@@ -7,32 +7,35 @@
 #@ }
 ---
 _target_: rbyte.viz.loggers.RerunLogger
-schema:
-  #@ for camera in camera_topics.keys():
-  (@=camera@):
-    Image:
-      color_model: RGB
-  #@ end
-
-  #@ topic = camera_topics.values()[0]
-  (@=topic@)/_idx_: TimeSequenceColumn
-  (@=topic@)/log_time: TimeNanosColumn
-  #@ for topic in camera_topics.values()[1:]:
-  (@=topic@)/_idx_: TimeSequenceColumn
-  #@ end
-  /odom/vel.x: Scalar
-
+_convert_: all
+_recursive_: false
+application_id: [meta, input_id]
 spawn: true
-blueprint:
-  _target_: rerun.blueprint.Blueprint
-  _args_:
-    - _target_: rerun.blueprint.Vertical
-      contents:
-        - _target_: rerun.blueprint.Horizontal
-          contents:
-            #@ for camera in camera_topics.keys():
-            - _target_: rerun.blueprint.Spatial2DView
-              origin: #@ camera
-            #@ end
+schema:
+  #@ topic = camera_topics.values()[0]
+  (@=topic@)/log_time:
+    _target_: rerun.TimeNanosColumn
+    times: [data, "(@=topic@)/log_time"]
 
-        - _target_: rerun.blueprint.TimeSeriesView
+  #@ for/end topic in camera_topics.values():
+  (@=topic@)/_idx_:
+    _target_: rerun.TimeSequenceColumn
+    times: [data, "(@=topic@)/_idx_"]
+
+  #@ for/end camera in camera_topics.keys():
+  (@=camera@):
+    - _target_: rerun.Image.columns
+      buffer: [data, (@=camera@)]
+    - static: true
+      entity:
+        _target_: rerun.Image.from_fields
+        format:
+          _target_: rerun.components.ImageFormat
+          height: 900
+          width: 1600
+          color_model: RGB
+          channel_datatype: u8
+
+  /odom/vel.x:
+    _target_: rerun.Scalar.columns
+    scalar: [data, /odom/vel.x]

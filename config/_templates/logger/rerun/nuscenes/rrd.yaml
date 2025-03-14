@@ -7,33 +7,35 @@
 #@ }
 ---
 _target_: rbyte.viz.loggers.RerunLogger
+_convert_: all
+_recursive_: false
+application_id: [meta, input_id]
 spawn: true
 schema:
-  #@ for camera in camera_entities.keys():
-  (@=camera@):
-    Image:
-      color_model: RGB
-  #@ end
-
   #@ entity = camera_entities.values()[0]
-  (@=entity@)/_idx_: TimeSequenceColumn
-  (@=entity@)/timestamp: TimeNanosColumn
-  #@ for entity in camera_entities.values()[1:]:
-  (@=entity@)/_idx_: TimeSequenceColumn
-  #@ end
-  /world/ego_vehicle/LIDAR_TOP/Position3D: Points3D
+  (@=entity@)/timestamp:
+    _target_: rerun.TimeNanosColumn
+    times: [data, "(@=entity@)/timestamp"]
 
-blueprint:
-  _target_: rerun.blueprint.Blueprint
-  _args_:
-    - _target_: rerun.blueprint.Vertical
-      contents:
-        - _target_: rerun.blueprint.Spatial3DView
-          origin: 
+  #@ for/end entity in camera_entities.values():
+  (@=entity@)/_idx_:
+    _target_: rerun.TimeSequenceColumn
+    times: [data, "(@=entity@)/_idx_"]
 
-        - _target_: rerun.blueprint.Horizontal
-          contents:
-            #@ for camera in camera_entities.keys():
-            - _target_: rerun.blueprint.Spatial2DView
-              origin : #@ camera
-            #@ end
+  #@ for/end camera in camera_entities.keys():
+  (@=camera@):
+    - _target_: rerun.Image.columns
+      buffer: [data, (@=camera@)]
+    - static: true
+      entity:
+        _target_: rerun.Image.from_fields
+        format:
+          _target_: rerun.components.ImageFormat
+          height: 900
+          width: 1600
+          color_model: RGB
+          channel_datatype: u8
+
+  /world/ego_vehicle/LIDAR_TOP/Position3D:
+    _target_: rerun.Points3D.columns
+    positions: [data, /world/ego_vehicle/LIDAR_TOP/Position3D]
