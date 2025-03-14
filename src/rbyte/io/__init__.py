@@ -8,6 +8,7 @@ from .dataframe import (
     DataFrameIndexer,
     DataFrameJoiner,
     FixedWindowSampleBuilder,
+    DataFrameWaypointsMerger,
 )
 from .path import PathDataFrameBuilder, PathTensorSource
 
@@ -18,6 +19,7 @@ __all__: list[str] = [
     "DataFrameFpsResampler",
     "DataFrameIndexer",
     "DataFrameJoiner",
+    "DataFrameWaypointsMerger",
     "FixedWindowSampleBuilder",
     "JsonDataFrameBuilder",
     "NumpyTensorSource",

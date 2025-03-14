@@ -5,6 +5,7 @@ from .fps_resampler import DataFrameFpsResampler
 from .indexer import DataFrameIndexer
 from .joiner import DataFrameJoiner
 from .sample_builder import FixedWindowSampleBuilder
+from .waypoints_merger import DataFrameWaypointsMerger
 
 __all__ = [
     "DataFrameAligner",
@@ -13,5 +14,6 @@ __all__ = [
     "DataFrameFpsResampler",
     "DataFrameIndexer",
     "DataFrameJoiner",
+    "DataFrameWaypointsMerger",
     "FixedWindowSampleBuilder",
 ]
