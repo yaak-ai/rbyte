@@ -40,7 +40,11 @@ build = ["hatchling>=1.27.0"]
 protos = ["grpcio-tools>=1.70.0", "protoletariat>=3.3.9"]
 visualize = ["rerun-sdk[notebook]>=0.22.1"]
 mcap = ["mcap>=1.2.2", "mcap-protobuf-support>=0.5.3", "protobuf"]
-yaak = ["ptars>=0.0.3", "protobuf"]
+yaak = [
+    "ptars>=0.0.3",
+    "protobuf",
+    "pyproj>=3.7.1",
+]
 jpeg = ["simplejpeg>=1.8.2"]
 video = [
   "python-vali>=4.2.10post1; sys_platform == 'linux'",

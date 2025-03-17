@@ -2,22 +2,28 @@ from ._json import JsonDataFrameBuilder
 from ._numpy import NumpyTensorSource
 from .dataframe import (
     DataFrameAligner,
+    DataFrameColumnsConcater,
     DataFrameConcater,
+    DataFrameCoordinatesTransform,
     DataFrameFilter,
     DataFrameFpsResampler,
     DataFrameIndexer,
     DataFrameJoiner,
+    DataFrameJoinerAsof,
     FixedWindowSampleBuilder,
 )
 from .path import PathDataFrameBuilder, PathTensorSource
 
 __all__: list[str] = [
     "DataFrameAligner",
+    "DataFrameColumnsConcater",
     "DataFrameConcater",
+    "DataFrameCoordinatesTransform",
     "DataFrameFilter",
     "DataFrameFpsResampler",
     "DataFrameIndexer",
     "DataFrameJoiner",
+    "DataFrameJoinerAsof",
     "FixedWindowSampleBuilder",
     "JsonDataFrameBuilder",
     "NumpyTensorSource",
@@ -66,3 +72,10 @@ except ImportError:
     pass
 else:
     __all__ += ["YaakMetadataDataFrameBuilder"]
+
+try:
+    from .waypoints import WaypointsNormalizer, YaakWaypointsPreprocessor
+except ImportError:
+    pass
+else:
+    __all__ += ["WaypointsNormalizer", "YaakWaypointsPreprocessor"]

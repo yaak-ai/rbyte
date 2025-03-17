@@ -61,6 +61,10 @@ visualize-yaak *ARGS:
     just visualize dataset=yaak logger=rerun/yaak ++data_dir={{ justfile_directory() }}/tests/data/yaak {{ ARGS }}
 
 [group('visualize')]
+visualize-yaak-frames-wpts *ARGS:
+    just visualize dataset=yaak_frames_wpts logger=console ++data_dir=/nas/drives/yaak/data {{ ARGS }}
+
+[group('visualize')]
 visualize-zod *ARGS:
     just visualize dataset=zod logger=rerun/zod ++data_dir={{ justfile_directory() }}/tests/data/zod {{ ARGS }}
 
