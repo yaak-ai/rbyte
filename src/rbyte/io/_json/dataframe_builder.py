@@ -1,25 +1,28 @@
+import json
 from collections.abc import Mapping
 from os import PathLike
 from pathlib import Path
-from typing import final
+from typing import ClassVar, final
 
 import polars as pl
-from optree import PyTree, tree_map
+from optree import PyTree, PyTreeAccessor, tree_map, tree_map_with_accessor
 from polars._typing import PolarsDataType  # noqa: PLC2701
 from polars.datatypes import (
     DataType,  # pyright: ignore[reportUnusedImport]  # noqa: F401
     DataTypeClass,  # pyright: ignore[reportUnusedImport]  # noqa: F401
 )
-from pydantic import ConfigDict, validate_call
+from pydantic import ConfigDict, RootModel, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
-
-from rbyte.utils.dataframe import unnest_all
 
 logger = get_logger(__name__)
 
 
-type Fields = Mapping[str, Mapping[str, PolarsDataType | None]]
+class Schema(RootModel[Mapping[str, PolarsDataType | None]]):
+    model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
+
+
+type Fields = Schema | Mapping[str, Fields]
 
 
 @final
@@ -38,22 +41,14 @@ class JsonDataFrameBuilder:
             return result
 
     def _build(self, path: PathLike[str]) -> PyTree[pl.DataFrame]:
-        dfs: Mapping[str, pl.DataFrame] = {}
+        with Path(path).open(encoding=None) as fp:
+            data = json.load(fp)
 
-        for k, series in (
-            pl.read_json(Path(path)).select(self._fields).to_dict().items()
-        ):
-            df_schema = {
-                name: dtype
-                for name, dtype in self._fields[k].items()
-                if dtype is not None
-            }
-            df = pl.DataFrame(series).lazy().explode(k).unnest(k)
-            dfs[k] = (
-                df.select(unnest_all(df.collect_schema()))
-                .select(self._fields[k].keys())
-                .cast(df_schema)  # pyright: ignore[reportArgumentType]
-                .collect()
-            )
+        def json_normalize(accessor: PyTreeAccessor, schema: Schema) -> pl.DataFrame:
+            return pl.json_normalize(accessor(data), schema=schema.root)  # pyright: ignore[reportArgumentType]
 
-        return dfs  # pyright: ignore[reportReturnType]
+        return tree_map_with_accessor(
+            json_normalize,
+            self._fields,  # pyright: ignore[reportArgumentType]
+            is_leaf=lambda x: isinstance(x, Schema),
+        )
