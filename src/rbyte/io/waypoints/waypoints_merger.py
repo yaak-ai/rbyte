@@ -11,8 +11,6 @@ import shapely
 from pyproj import Transformer
 from structlog import get_logger
 
-CoordinatesType = Literal["lat_lon", "xy"]
-
 
 logger = get_logger(__name__)
 
@@ -30,54 +28,23 @@ class DataFrameWaypointsMerger:
     def __init__(
         self,
         waypoints_path: os.PathLike,
-        coordinates_type: CoordinatesType,
-        ego_lat_y_col: str,
-        ego_lon_x_col: str,
+        ego_x_col: str,
+        ego_y_col: str,
         timestamp_col: str,
+        out_col: str,
         num_waypoints: int = 10,
-        out_col: str = "Waypoints.xy",
-        predict_mode: bool = False,
-        relative_to_wpts: bool = False,
+        predict_mode: bool = False,  # noqa: FBT001, FBT002
+        relative_to_wpts: bool = False,  # noqa: FBT001, FBT002
     ) -> None:
-        """
-        We assume that wpts and ego coordinates are in the same CRS.
-        """
-
-        assert coordinates_type in ["lat_lon", "xy"], (
-            "coordinates_type must be either 'lat_lon' or 'xy'"
-        )
-
-        match coordinates_type:
-            # not necessary tho
-            case "lat_lon":
-                self.wpts_lon_x_col = "Waypoints.lon"
-                self.wpts_lat_y_col = "Waypoints.lat"
-            case "xy":
-                self.wpts_lon_x_col = "Waypoints.x"
-                self.wpts_lat_y_col = "Waypoints.y"
-
-        self.ego_lon_x_col = ego_lon_x_col
-        self.ego_lat_y_col = ego_lat_y_col
-
-        self.wpts_mapview_col = f"Waypoints.mapview.{coordinates_type}"
+        self.wpts_mapview_col = "Waypoints.mapview"
+        self.ego_x_col = ego_x_col
+        self.ego_y_col = ego_y_col
         self.waypoints_path = waypoints_path
         self.timestamp_col = timestamp_col
         self.n_wpts = num_waypoints
         self.out_col = out_col
         self.predict_mode = predict_mode
-        self.transform = self._transform_factory(coordinates_type)
         self.relative_to_wpts = relative_to_wpts
-
-    @staticmethod
-    def _transform_factory(coordinates_type: CoordinatesType) -> Transformer | Callable:
-        # TODO: make it a separate function to call in pipeline
-        match coordinates_type:
-            case "lat_lon":
-                return Transformer.from_crs(
-                    "EPSG:4326", "EPSG:3857", always_xy=True
-                ).transform
-            case "xy":
-                return lambda *args: args
 
     def __call__(self, input: pl.DataFrame) -> pl.DataFrame:
         return self._merge_wpts(input)
@@ -156,38 +123,15 @@ class DataFrameWaypointsMerger:
             )
         return df_wpts[: -(self.n_wpts - 1)]
 
-    def _json_to_df(self, file_path: os.PathLike) -> pl.DataFrame:
-        with open(file_path, "r") as file:
-            geojson = json.load(file)
-
-        data = {
-            self.timestamp_col: [],
-            self.heading_col: [],
-            self.wpts_lon_x_col: [],
-            self.wpts_lat_y_col: [],
-        }
-        for feature in geojson["features"]:
-            data[self.timestamp_col].append(feature["properties"]["timestamp"])
-            data[self.heading_col].append(
-                math.radians(feature["properties"]["heading"])
-            )
-            data[self.wpts_lon_x_col].append(feature["geometry"]["coordinates"][0])
-            data[self.wpts_lat_y_col].append(feature["geometry"]["coordinates"][1])
-        df = pl.DataFrame(data)
-        # WARN: Bad hack to handle idx type
-        if self.timestamp_col != "_idx_":
-            df = df.with_columns(
-                pl.from_epoch(pl.col(self.timestamp_col) * 1e9, time_unit="ns").alias(
-                    self.timestamp_col
-                )
-            )
-        return df.sort(self.timestamp_col)
 
     def _center_and_rotate(self, df: pl.DataFrame, out_col: str) -> pl.DataFrame:
         """
         Usage of geopandas and shapely significantly improves performance.
         This function explodes lists of waypoints into one series of points and duplicate ego points accordingly.
-        Then it calculates distance between each waypoint and ego position, rotates it and aggregate back into lists
+        Then it calculates distance between each waypoint and ego position, rotates it and aggregate back into lists.
+
+        Returns:
+            pl.DataFrame: A DataFrame with centered and rotated waypoints.
         """
 
         # wpts
@@ -197,24 +141,22 @@ class DataFrameWaypointsMerger:
         wpts_series = gpd.GeoSeries(shapely.points(x_wpts, y_wpts))
 
         # ego
-        x_ego, y_ego = self.transform(
-            df.select(
-                pl.col(self.ego_lon_x_col).repeat_by(self.n_wpts).flatten().explode()
-            ),
-            df.select(
+        x_ego = df.select(
                 pl.col(self.ego_lat_y_col).repeat_by(self.n_wpts).flatten().explode()
-            ),
         )
+        y_ego = df.select(
+            pl.col(self.ego_lon_x_col).repeat_by(self.n_wpts).flatten().explode()
+        )
+
         ego_pos_series = gpd.GeoSeries(shapely.points(x_ego, y_ego)[:, 0])
 
-        x_diff = wpts_series.x - ego_pos_series.x
-        y_diff = wpts_series.y - ego_pos_series.y
-        headings = df.select(
+        headings_series = df.select(
             pl.col(self.heading_col).repeat_by(self.n_wpts).flatten().explode()
         )
 
-        x_diff_col = uuid4().hex
-        y_diff_col = uuid4().hex
+        x_diff = wpts_series.x - ego_pos_series.x
+        y_diff = wpts_series.y - ego_pos_series.y
+        x_diff_col, y_diff_col = uuid4().hex, uuid4().hex
 
         df_ = (
             pl.DataFrame({x_diff_col: x_diff, y_diff_col: y_diff, "_heading": headings})

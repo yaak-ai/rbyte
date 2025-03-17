@@ -36,6 +36,7 @@ samples:
     #@ for input_id in drives:
     (@=input_id@):
       yaak_metadata_path: ${data_dir}/(@=input_id@)/metadata.log
+      yaak_waypoints_path: ${data_dir}/(@=input_id@)/waypoints.json
       #@ for camera in cameras:
       (@=camera@)_path: ${data_dir}/(@=input_id@)/frames/(@=camera@).defish.mp4/576x324
       #@ end
@@ -177,25 +178,105 @@ samples:
       - _target_: pipefunc.PipeFunc
         renames:
           input: aligned
-        output_name: with_waypoints
-        mapspec: "aligned[i] -> with_waypoints[i]"
+        output_name: columns_concated
+        mapspec: "aligned[i] -> columns_concated[i]"
         func:
-          _target_: rbyte.io.DataFrameWaypointsMerger
-          waypoints_path: ${data_dir}/(@=input_id@)/waypoints.json
-          coordinates_type: lat_lon
-          ego_lon_x_col: Gnss.longitude
-          ego_lat_y_col: Gnss.latitude
-          timestamp_col: ImageMetadata.(@=cameras[0]@).time_stamp
-          num_waypoints: 10
-          out_col: Waypoints.xy
-          predict_mode: true
-      
+          _target_: rbyte.io.DataFrameColumnsConcater
+          columns_in: ["Gnss.latitude", "Gnss.longitude"]
+          col_out: "Gnss.lat_lon"
 
       - _target_: pipefunc.PipeFunc
         renames:
+          input: columns_concated
+        output_name: vehicle_data
+        mapspec: "columns_concated[i] -> vehicle_data[i]"
+        func:
+          _target_: rbyte.io.DataFrameCoordinatesTransform
+          col_coords: "Gnss.lat_lon"
+          format_coords: "lat_lon"
+          col_out_xy: "Gnss.xy"
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          path: yaak_waypoints_path
+        output_name: data_waypoints
+        mapspec: "yaak_waypoints_path[i] -> data_waypoints[i]"
+        func:
+          _target_: rbyte.io.JsonDataFrameBuilder
+          fields:
+            features:
+              properties.timestamp:
+              properties.heading:
+              geometry.coordinates: 
+                _target_: polars.Array
+                inner: 
+                  _target_: polars.Float64
+                shape: 2
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input: data_waypoints
+        output_name: waypoints
+        mapspec: "data_waypoints[i] -> waypoints[i]"
+        func:
+          _target_: rbyte.io.DataFrameConcater
+          method: vertical
+      
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input: waypoints
+        output_name: waypoints_transformed
+        mapspec: "waypoints[i] -> waypoints_transformed[i]"
+        func:
+          _target_: rbyte.io.DataFrameCoordinatesTransform
+          col_coords: "geometry.coordinates"
+          format_coords: "lon_lat"
+          col_out_xy: "geometry.xy"
+          
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input: waypoints_transformed
+        output_name: waypoints_preprocessed
+        mapspec: "waypoints_transformed[i] -> waypoints_preprocessed[i]"
+        func:
+          _target_: rbyte.io.YaakWaypointsPreprocessor
+          n_wpts: 10
+          coords_col: "geometry.xy"
+          heading_col: "properties.heading"
+          timestamp_col: "properties.timestamp"
+          idx_col: "_idx_"
+          datetime_col: "datetime"
+          waypoints_col: "waypoints.xy"
+            
+      - _target_: pipefunc.PipeFunc
+        renames:
+          left: vehicle_data
+          right: waypoints_preprocessed
+        output_name: with_waypoints
+        mapspec: "vehicle_data[i], waypoints_preprocessed[i] -> with_waypoints[i]"
+        func:
+          _target_: rbyte.io.DataFrameJoinerAsof
+          strategy: nearest
+          left_on: ImageMetadata.(@=cameras[0]@).time_stamp
+          right_on: "datetime"
+      
+      - _target_: pipefunc.PipeFunc
+        renames:
           input: with_waypoints
+        output_name: waypoints_normalized
+        mapspec: "with_waypoints[i] -> waypoints_normalized[i]"
+        func:
+          _target_: rbyte.io.WaypointsNormalizer
+          ego_coords_col: "Gnss.xy"
+          waypoints_coords_col: "waypoints.xy"
+          heading_col: "properties.heading"
+          out_col: "waypoints_normalized"
+                  
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input: waypoints_normalized
         output_name: filtered
-        mapspec: "with_waypoints[i] -> filtered[i]"
+        mapspec: "waypoints_normalized[i] -> filtered[i]"
         func:
           _target_: rbyte.io.DataFrameFilter
           predicate: |
