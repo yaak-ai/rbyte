@@ -2,15 +2,14 @@ from collections.abc import Sequence
 from datetime import timedelta
 from typing import TypedDict, Unpack, final
 
-import polars as pl
-from polars import Expr
-from polars._typing import AsofJoinStrategy, JoinValidation, MaintainOrderJoin
 from pydantic import ConfigDict, validate_call
 from structlog import get_logger
 
+import polars as pl
+from polars import Expr
+from polars._typing import AsofJoinStrategy, JoinValidation, MaintainOrderJoin
+
 logger = get_logger(__name__)
-
-
 
 
 class _Kwargs(TypedDict, total=False):
@@ -35,7 +34,4 @@ class DataFrameJoinerAsof:
         self._kwargs = kwargs
 
     def __call__(self, left: pl.DataFrame, right: pl.DataFrame) -> pl.DataFrame:
-        out = left.join_asof(other=right, **self._kwargs)
-        out.write_parquet('tmp/example.parquet')
-        return out
-
+        return left.join_asof(other=right, **self._kwargs)

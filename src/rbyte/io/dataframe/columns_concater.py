@@ -1,7 +1,8 @@
 from typing import final
 
-import polars as pl
 from pydantic import validate_call
+
+import polars as pl
 
 
 @final

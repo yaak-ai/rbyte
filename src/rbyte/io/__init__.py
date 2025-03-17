@@ -77,7 +77,6 @@ else:
 
 try:
     from .waypoints import (
-        CarlaWaypointsPreprocessor,
         WaypointsNormalizer,
         YaakWaypointsPreprocessor,
     )
@@ -85,7 +84,6 @@ except ImportError:
     pass
 else:
     __all__ += [
-        "CarlaWaypointsPreprocessor",
         "WaypointsNormalizer",
         "YaakWaypointsPreprocessor",
     ]
