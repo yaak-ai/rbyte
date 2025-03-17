@@ -12,6 +12,7 @@ wheels/
 # generated
 config/*
 !config/_templates
+tmp
 
 **/*_pb2.py
 **/*_pb2.pyi
@@ -25,3 +26,4 @@ uv.lock
 .ipynb_checkpoints
 
 .dprint.json
+*.ipynb
