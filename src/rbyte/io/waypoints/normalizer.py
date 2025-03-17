@@ -55,7 +55,7 @@ class WaypointsNormalizer:
         n_wpts = wpts_list_len[0]
 
         wpts_exploded = df[self.waypoints_coords_col].explode()
-        ego_pos_exploded = repeat_by_arr(df, self.ego_coords_col, n_wpts)
+        ego_pos_exploded = repeat_by_arr(df[self.ego_coords_col], n_wpts)
         headings_exploded = df.select(
             pl.col(self.heading_col).repeat_by(n_wpts).flatten().explode()
         ).to_series()
@@ -89,7 +89,7 @@ class WaypointsNormalizer:
         return df.hstack(df_)
 
 
-def repeat_by_arr(df: pl.DataFrame, col: str, n: int) -> pl.Series:
+def repeat_by_arr(series: pl.Series, n: int) -> pl.Series:
     """
     `repeat_by` implementation for arrays
 
@@ -99,14 +99,9 @@ def repeat_by_arr(df: pl.DataFrame, col: str, n: int) -> pl.Series:
     TODO: replace with native polars `repeat_by` when 1.25.3 is released
     """
 
+    df = pl.DataFrame()
+    arr_len = series.arr.len()[0]
     df = df.with_columns(
-        pl.col(col).explode().gather_every(2, offset=0).alias(f"{col}.x"),
-        pl.col(col).explode().gather_every(2, offset=1).alias(f"{col}.y"),
-    )
-    df_exploded = df.select(
-        pl.col(f"{col}.x").repeat_by(n).flatten(),
-        pl.col(f"{col}.y").repeat_by(n).flatten(),
-    )
-    return df_exploded.with_columns(
-        pl.concat_arr([pl.col(f"{col}.x"), pl.col(f"{col}.y")]).alias(col)
-    )[col]
+        series.arr.get(i).alias(str(i)) for i in range(arr_len)
+    ).select(pl.col(str(i)).repeat_by(n).flatten() for i in range(arr_len))
+    return df.with_columns(pl.concat_arr(df.columns).alias("_"))["_"]
