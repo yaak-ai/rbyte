@@ -1,28 +1,20 @@
-from collections.abc import Sequence
 from datetime import timedelta
 from typing import TypedDict, Unpack, final
 
-from pydantic import ConfigDict, validate_call
-from structlog import get_logger
-
 import polars as pl
 from polars import Expr
-from polars._typing import AsofJoinStrategy, JoinValidation, MaintainOrderJoin
-
-logger = get_logger(__name__)
+from polars._typing import AsofJoinStrategy
+from pydantic import ConfigDict, validate_call
 
 
 class _Kwargs(TypedDict, total=False):
-    on: str | Expr | Sequence[str | Expr] | None
+    on: str | Expr | None
     strategy: AsofJoinStrategy
-    left_on: str | Expr | Sequence[str | Expr] | None
-    right_on: str | Expr | Sequence[str | Expr] | None
+    left_on: str | Expr | None
+    right_on: str | Expr | None
     suffix: str
-    validate: JoinValidation
     tolerance: str | int | float | timedelta | None
-    nulls_equal: bool
-    coalesce: bool | None
-    maintain_order: MaintainOrderJoin | None
+    coalesce: bool
 
 
 @final

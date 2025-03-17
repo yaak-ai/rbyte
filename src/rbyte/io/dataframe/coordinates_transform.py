@@ -11,7 +11,8 @@ logger = get_logger(__name__)
 class DataFrameCoordinatesTransform:
     __name__ = __qualname__
     """
-    Wrapper around pyproj.Transformer to transform lat/lon coordinates to x/y coordinates.
+    Wrapper around pyproj.Transformer
+    Transforms lat/lon coordinates to x/y coordinates.
     """
 
     def __init__(

@@ -244,8 +244,6 @@ samples:
           coords_col: "geometry.xy"
           heading_col: "properties.heading"
           timestamp_col: "properties.timestamp"
-          idx_col: "_idx_"
-          datetime_col: "datetime"
           waypoints_col: "waypoints.xy"
             
       - _target_: pipefunc.PipeFunc
@@ -258,7 +256,7 @@ samples:
           _target_: rbyte.io.DataFrameJoinerAsof
           strategy: nearest
           left_on: ImageMetadata.(@=cameras[0]@).time_stamp
-          right_on: "datetime"
+          right_on: "properties.timestamp"
       
       - _target_: pipefunc.PipeFunc
         renames:

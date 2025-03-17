@@ -8,7 +8,6 @@ from .indexer import DataFrameIndexer
 from .joiner import DataFrameJoiner
 from .joiner_asof import DataFrameJoinerAsof
 from .sample_builder import FixedWindowSampleBuilder
-from ..waypoints.waypoints_merger import DataFrameWaypointsMerger
 
 __all__ = [
     "DataFrameAligner",
@@ -20,6 +19,5 @@ __all__ = [
     "DataFrameIndexer",
     "DataFrameJoiner",
     "DataFrameJoinerAsof",
-    "DataFrameWaypointsMerger",
     "FixedWindowSampleBuilder",
 ]

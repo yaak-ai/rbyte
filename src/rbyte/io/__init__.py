@@ -10,7 +10,6 @@ from .dataframe import (
     DataFrameIndexer,
     DataFrameJoiner,
     DataFrameJoinerAsof,
-    DataFrameWaypointsMerger,
     FixedWindowSampleBuilder,
 )
 from .path import PathDataFrameBuilder, PathTensorSource
@@ -25,7 +24,6 @@ __all__: list[str] = [
     "DataFrameIndexer",
     "DataFrameJoiner",
     "DataFrameJoinerAsof",
-    "DataFrameWaypointsMerger",
     "FixedWindowSampleBuilder",
     "JsonDataFrameBuilder",
     "NumpyTensorSource",
@@ -76,14 +74,8 @@ else:
     __all__ += ["YaakMetadataDataFrameBuilder"]
 
 try:
-    from .waypoints import (
-        WaypointsNormalizer,
-        YaakWaypointsPreprocessor,
-    )
+    from .waypoints import WaypointsNormalizer, YaakWaypointsPreprocessor
 except ImportError:
     pass
 else:
-    __all__ += [
-        "WaypointsNormalizer",
-        "YaakWaypointsPreprocessor",
-    ]
+    __all__ += ["WaypointsNormalizer", "YaakWaypointsPreprocessor"]

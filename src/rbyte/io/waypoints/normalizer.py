@@ -1,8 +1,7 @@
 from typing import final
 
-from structlog import get_logger
-
 import polars as pl
+from structlog import get_logger
 
 logger = get_logger(__name__)
 
@@ -35,14 +34,16 @@ class WaypointsNormalizer:
 
     def _center_and_rotate(self, df: pl.DataFrame) -> pl.DataFrame:
         """
-        Usage of geopandas and shapely significantly improves performance.
         This function explodes lists of waypoints into one series of points
-          and duplicate ego points accordingly.
-        Then it calculates distance between each waypoint and ego position,
-          rotates it and aggregate back into lists.
+        and duplicates ego points accordingly.
+        Then it calculates the distance between each waypoint and ego position,
+        rotates it, and aggregates back into lists.
 
         Returns:
             pl.DataFrame: A DataFrame with centered and rotated waypoints.
+
+        Raises:
+            ValueError: If waypoints list length is not constant across all samples.
         """
 
         # get n_wpts
@@ -91,6 +92,10 @@ class WaypointsNormalizer:
 def repeat_by_arr(df: pl.DataFrame, col: str, n: int) -> pl.Series:
     """
     `repeat_by` implementation for arrays
+
+    Returns:
+        pl.Series: A Series with repeated array elements.
+
     TODO: replace with native polars `repeat_by` when 1.25.3 is released
     """
 
