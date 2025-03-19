@@ -9,7 +9,7 @@ from pydantic import ConfigDict, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 
-from .proto import can_pb2, sensor_pb2
+from rbyte.io.yaak.proto import can_pb2, sensor_pb2
 
 logger = get_logger(__name__)
 
