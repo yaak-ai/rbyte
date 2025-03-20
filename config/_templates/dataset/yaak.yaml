@@ -32,6 +32,7 @@ samples:
     (@=input_id@):
       meta_path: ${data_dir}/(@=input_id@)/metadata.log
       mcap_path: ${data_dir}/(@=input_id@)/ai.mcap
+      waypoints_path: ${data_dir}/(@=input_id@)/waypoints.json
       #@ for camera in cameras:
       (@=camera@)_path: ${data_dir}/(@=input_id@)/(@=camera@).pii.mp4
       #@ end
@@ -85,6 +86,17 @@ samples:
                 _target_: polars.Enum
                 categories: ["0", "1", "2", "3"]
 
+            rbyte.io.yaak.proto.sensor_pb2.Gnss:
+              time_stamp:
+                _target_: polars.Datetime
+                time_unit: ns
+
+              latitude:
+                _target_: polars.Float32
+
+              longitude:
+                _target_: polars.Float32
+
       - _target_: pipefunc.PipeFunc
         renames:
           path: mcap_path
@@ -103,11 +115,45 @@ samples:
                 _target_: polars.Float32
 
       - _target_: pipefunc.PipeFunc
+        renames:
+          path: waypoints_path
+        output_name: features
+        output_picker:
+          _target_: hydra.utils.get_method
+          path: builtins.dict.get
+        mapspec: "waypoints_path[i] -> features[i]"
+        func:
+          _target_: rbyte.io.JsonDataFrameBuilder
+          fields:
+            features:
+              properties.timestamp:
+              properties.heading:
+              geometry.coordinates:
+                _target_: polars.Array
+                inner:
+                  _target_: polars.Float32
+                shape: 2
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input: features
+        output_name: waypoints
+        mapspec: "features[i] -> waypoints[i]"
+        func:
+          _target_: rbyte.io.YaakWaypointPreprocessor
+          num_waypoints: 10
+          columns:
+            timestamp: properties.timestamp
+            heading: properties.heading
+            coordinates: geometry.coordinates
+            output: waypoints
+
+      - _target_: pipefunc.PipeFunc
         output_name: data
-        mapspec: "meta[i], mcap[i] -> data[i]"
+        mapspec: "meta[i], mcap[i], waypoints[i] -> data[i]"
         func:
           _target_: pipefunc.helpers.collect_kwargs
-          parameters: [meta, mcap]
+          parameters: [meta, mcap, waypoints]
           function_name: aggregate
 
       - _target_: pipefunc.PipeFunc
@@ -143,6 +189,18 @@ samples:
                     tolerance: 100ms
                     strategy: nearest
 
+              Gnss:
+                key: time_stamp
+                columns:
+                  latitude:
+                    method: asof
+                    tolerance: 500ms
+                    strategy: nearest
+                  longitude:
+                    method: asof
+                    tolerance: 500ms
+                    strategy: nearest
+
             mcap:
               /ai/safety_score:
                 key: clip.end_timestamp
@@ -154,6 +212,17 @@ samples:
                   score:
                     tolerance: 500ms
                     strategy: nearest
+
+            waypoints:
+              key: properties.timestamp
+              columns:
+                properties.heading:
+                  method: asof
+                  strategy: nearest
+
+                waypoints:
+                  method: asof
+                  strategy: nearest
 
       - _target_: pipefunc.PipeFunc
         renames:
@@ -194,11 +263,23 @@ samples:
       #@ end
 
       - _target_: pipefunc.PipeFunc
-        #@ input = "joined_{}".format('_'.join(cameras))
         renames:
-          input: (@=input@)
+          input: (@=joined@)
+        output_name: with_waypoints_normalized
+        mapspec: "(@=joined@)[i] -> with_waypoints_normalized[i]"
+        func:
+          _target_: rbyte.io.YaakWaypointNormalizer
+          columns:
+            ego_coordinates: [meta/Gnss/longitude, meta/Gnss/latitude]
+            waypoint_coordinates: waypoints/waypoints
+            heading: waypoints/properties.heading
+            output: waypoints/waypoints_normalized
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input: with_waypoints_normalized
         output_name: samples
-        mapspec: "(@=input@)[i] -> samples[i]"
+        mapspec: "with_waypoints_normalized[i] -> samples[i]"
         func:
           _target_: rbyte.io.FixedWindowSampleBuilder
           index_column: meta/ImageMetadata.(@=cameras[0]@)/frame_idx
