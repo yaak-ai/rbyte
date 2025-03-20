@@ -21,9 +21,9 @@ from tqdm import tqdm
 from xxhash import xxh3_64_hexdigest as digest
 
 from rbyte.config.base import PickleableImportString
+from rbyte.io.yaak.proto import sensor_pb2
 
 from .message_iterator import YaakMetadataMessageIterator
-from .proto import sensor_pb2
 
 logger = get_logger(__name__)
 

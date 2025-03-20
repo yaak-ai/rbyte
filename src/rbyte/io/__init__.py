@@ -61,8 +61,15 @@ else:
     __all__ += ["VideoDataFrameBuilder"]
 
 try:
-    from .yaak import YaakMetadataDataFrameBuilder
+    from .yaak.metadata import YaakMetadataDataFrameBuilder
 except ImportError:
     pass
 else:
     __all__ += ["YaakMetadataDataFrameBuilder"]
+
+try:
+    from .yaak.waypoints import YaakWaypointNormalizer, YaakWaypointPreprocessor
+except ImportError:
+    pass
+else:
+    __all__ += ["YaakWaypointNormalizer", "YaakWaypointPreprocessor"]
