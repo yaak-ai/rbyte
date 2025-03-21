@@ -50,6 +50,9 @@ class FixedWindowSampleBuilder:
         return result
 
     def _build(self, input: pl.DataFrame) -> pl.DataFrame:
+        # TODO: make it better
+        if self._index_column_name == "meta/_idx_":
+            input = input.with_columns(self._index_column.cast(pl.Int32))
         return (
             input.sort(self._index_column)
             .with_columns(self._index_column.alias(_index_column := uuid4().hex))

@@ -3,8 +3,11 @@ from uuid import uuid4
 
 import polars as pl
 from pydantic import validate_call
+from structlog import get_logger
 
 from rbyte.config.base import BaseModel
+
+logger = get_logger(__name__)
 
 
 class Columns(BaseModel):
@@ -13,9 +16,8 @@ class Columns(BaseModel):
     coordinates: str
     output: str
 
-
 @final
-class YaakWaypointPreprocessor:
+class CarlaWaypointPreprocessor:
     __name__ = __qualname__
 
     INDEX_COLUMN = uuid4().hex
@@ -32,10 +34,7 @@ class YaakWaypointPreprocessor:
     def _preprocess(self, df: pl.DataFrame) -> pl.DataFrame:
         return df.lazy().with_columns(
             pl.col(self._columns.heading).radians(),
-            pl.col(self._columns.timestamp)
-            .pipe(pl.from_epoch, time_unit="s")
-            .cast(pl.Datetime("ns")),
-        ).sort(self._columns.timestamp).collect()
+        ).collect().sort(self._columns.timestamp)
 
     def _sample_waypoints(self, df: pl.DataFrame) -> pl.DataFrame:
         df_ = (

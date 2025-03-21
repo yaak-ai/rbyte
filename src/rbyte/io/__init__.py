@@ -73,3 +73,10 @@ except ImportError:
     pass
 else:
     __all__ += ["YaakWaypointNormalizer", "YaakWaypointPreprocessor"]
+
+try:
+    from .carla.waypoints import CarlaWaypointNormalizer, CarlaWaypointPreprocessor
+except ImportError:
+    pass
+else:
+    __all__ += ["CarlaWaypointNormalizer", "CarlaWaypointPreprocessor"]
