@@ -26,33 +26,42 @@ class YaakWaypointPreprocessor:
         self._columns = columns
 
     def __call__(self, input: pl.DataFrame) -> pl.DataFrame:
-        return self._preprocess(input)
+        df = self._preprocess(input)
+        return self._sample_waypoints(df)
 
-    def _preprocess(self, input: pl.DataFrame) -> pl.DataFrame:
-        df = input.with_columns(
-            pl.col(self._columns.heading).radians(),
-            pl.col(self._columns.timestamp)
-            .pipe(pl.from_epoch, time_unit="s")
-            .cast(pl.Datetime("ns")),
-        ).sort(self._columns.timestamp)
+    def _preprocess(self, df: pl.DataFrame) -> pl.DataFrame:
+        return (
+            df.lazy()
+            .with_columns(
+                pl.col(self._columns.heading).radians(),
+                pl.col(self._columns.timestamp)
+                .pipe(pl.from_epoch, time_unit="s")
+                .cast(pl.Datetime("ns")),
+            )
+            .sort(self._columns.timestamp)
+            .collect()
+        )
 
-        df = (
+    def _sample_waypoints(self, df: pl.DataFrame) -> pl.DataFrame:
+        df_ = (
             pl.concat([df] + [df[-1, :]] * (self._num_waypoints - 1))
+            .lazy()
             .with_row_index(name=self.INDEX_COLUMN)
             .cast({self.INDEX_COLUMN: pl.Int32})
-        )  # duplicate last waypoints
+        )
 
-        df = (
-            df.group_by_dynamic(
+        return (
+            df_.group_by_dynamic(
                 index_column=self.INDEX_COLUMN,
                 period=f"{self._num_waypoints}i",
                 every="1i",
             )
             .agg(pl.col(self._columns.coordinates).alias(self._columns.output))
-            .join(df, on=self.INDEX_COLUMN, how="left")
+            .join(df_, on=self.INDEX_COLUMN, how="left")
             .drop(self.INDEX_COLUMN)
-        )
-
-        return df[: -(self._num_waypoints - 1)].with_columns(
-            pl.col(self._columns.output).list.to_array(self._num_waypoints)
+            .collect()
+            .slice(0, -(self._num_waypoints - 1))
+            .with_columns(
+                pl.col(self._columns.output).list.to_array(width=self._num_waypoints)
+            )
         )

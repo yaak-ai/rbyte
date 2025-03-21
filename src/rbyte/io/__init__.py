@@ -66,3 +66,13 @@ except ImportError:
     pass
 else:
     __all__ += ["YaakWaypointNormalizer", "YaakWaypointPreprocessor"]
+
+try:
+    from .carla_garage.waypoints import (
+        CarlaGarageWaypointNormalizer,
+        CarlaGarageWaypointPreprocessor,
+    )
+except ImportError:
+    pass
+else:
+    __all__ += ["CarlaGarageWaypointNormalizer", "CarlaGarageWaypointPreprocessor"]

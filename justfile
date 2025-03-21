@@ -61,6 +61,10 @@ visualize-yaak *ARGS:
     just visualize dataset=yaak logger=rerun/yaak ++data_dir={{ justfile_directory() }}/tests/data/yaak {{ ARGS }}
 
 [group('visualize')]
+visualize-carla-garage *ARGS:
+    just visualize dataset=carla_garage logger=rerun/carla_garage ++data_dir={{ justfile_directory() }}/tests/data/carla_garage {{ ARGS }}
+
+[group('visualize')]
 visualize-zod *ARGS:
     just visualize dataset=zod logger=rerun/zod ++data_dir={{ justfile_directory() }}/tests/data/zod {{ ARGS }}
 

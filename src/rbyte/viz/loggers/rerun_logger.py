@@ -162,7 +162,7 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
                         case (*batch_dims, 3, _h, _w):
                             tensor = tensor.permute(*range(len(batch_dims)), -2, -1, -3)
 
-                        case (*batch_dims, _d, _w):
+                        case (*batch_dims, d, _w):
                             pass
 
                         case shape:
@@ -175,13 +175,14 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
 
                     return config.instantiate(**kwargs.cpu().numpy())  # pyright: ignore[reportUnknownMemberType]
 
-                case rr.Points3D.columns:
+                case rr.Points2D.columns | rr.Points3D.columns:
+                    d = 2 if isinstance(config.target.__self__, rr.Points2D) else 3  # pyright: ignore[reportFunctionMemberAccess]
                     match (tensor := kwargs[key := "positions"]).shape:
-                        case (3,):
+                        case (d,):
                             return config.instantiate(**kwargs.cpu().numpy())  # pyright: ignore[reportUnknownMemberType]
 
-                        case (*batch_dims, n, 3):
-                            kwargs[key] = tensor.view(-1, 3)
+                        case (*batch_dims, n, d):
+                            kwargs[key] = tensor.view(-1, d)
                             return config.instantiate(**kwargs.cpu().numpy()).partition(  # pyright: ignore[reportUnknownMemberType]
                                 [n] * prod(batch_dims)
                             )
