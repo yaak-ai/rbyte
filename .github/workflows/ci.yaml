@@ -54,9 +54,7 @@ jobs:
           cuda: "12.4.0"
 
       - name: setup ffmpeg
-        uses: AnimMouse/setup-ffmpeg@v1
-        with:
-          version: 7.1
+        run: sudo apt update & sudo apt install -y ffmpeg
 
       - run: ldd $(which ffmpeg)
       - run: uv lock --no-sources
