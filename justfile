@@ -6,8 +6,8 @@ export TQDM_DISABLE := "1"
 _default:
     @just --list --unsorted
 
-sync:
-    uv sync --all-extras --dev
+sync *ARGS:
+    uv sync --all-extras --dev {{ ARGS }}
 
 install-tools:
     uv tool install --force --upgrade ruff

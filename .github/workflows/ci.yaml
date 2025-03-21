@@ -48,7 +48,19 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "**/pyproject.toml"
 
-      - run: just sync
+      - name: setup cuda-toolkit
+        uses: Jimver/cuda-toolkit@v0.2.22
+        with:
+          cuda: "12.4.0"
+
+      - name: setup ffmpeg
+        uses: AnimMouse/setup-ffmpeg@v1
+        with:
+          version: 7.1
+
+      - run: ldd $(which ffmpeg)
+      - run: uv lock --no-sources
+      - run: just sync --frozen
       - run: just build
       - run: just format --check
       - run: just lint
