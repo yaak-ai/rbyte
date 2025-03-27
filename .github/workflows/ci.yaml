@@ -9,12 +9,13 @@ on:
 
   workflow_dispatch:
 
+env:
+  UV_INDEX: ${{ env.UV_INDEX }}
+  UV_INDEX_STRATEGY: ${{ env.UV_INDEX_STRATEGY }}
+
 jobs:
   ci:
     runs-on: ubuntu-latest
-    env:
-      UV_INDEX: ${{ env.UV_INDEX }}
-      UV_INDEX_STRATEGY: ${{ env.UV_INDEX_STRATEGY }}
     steps:
       - name: setup ssh
         uses: webfactory/ssh-agent@v0.9.0
