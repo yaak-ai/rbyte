@@ -11,7 +11,7 @@ on:
 
 env:
   UV_INDEX: ${{ vars.UV_INDEX }}
-  UV_INDEX_STRATEGY: ${{ vars.UV_INDEX }}
+  UV_INDEX_STRATEGY: ${{ vars.UV_INDEX_STRATEGY }}
 
 jobs:
   ci:
