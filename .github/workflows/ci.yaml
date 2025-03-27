@@ -48,6 +48,12 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "**/pyproject.toml"
 
+      - name: setup ffmpeg
+        uses: awalsh128/cache-apt-pkgs-action@v1.4.3
+        with:
+          packages: ffmpeg
+
+      - run: export UV_INDEX=${{ env.UV_INDEX }} && export UV_INDEX_STRATEGY=${{ env.UV_INDEX_STRATEGY }}
       - run: just sync
       - run: just build
       - run: just format --check
