@@ -118,6 +118,7 @@ reportMissingTypeStubs = "none"
 reportAny = "none"
 reportExplicitAny = "none"
 reportIgnoreCommentWithoutRule = "error"
+reportPrivateImportUsage = "none"
 
 venvPath = "."
 venv = ".venv"
