@@ -10,8 +10,8 @@ on:
   workflow_dispatch:
 
 env:
-  UV_INDEX: ${{ env.UV_INDEX }}
-  UV_INDEX_STRATEGY: ${{ env.UV_INDEX_STRATEGY }}
+  UV_INDEX: ${{ vars.UV_INDEX }}
+  UV_INDEX_STRATEGY: ${{ vars.UV_INDEX }}
 
 jobs:
   ci:
