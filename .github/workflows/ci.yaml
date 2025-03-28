@@ -53,7 +53,10 @@ jobs:
           cache-dependency-glob: "**/pyproject.toml"
 
       - name: setup ffmpeg
-        run: sudo apt update && sudo apt install -y ffmpeg
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: ffmpeg
+          version: 1.0
 
       - run: just sync
       - run: just build
