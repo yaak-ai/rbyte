@@ -1,7 +1,7 @@
 from collections.abc import Generator, Mapping
 
 import polars as pl
-from polars._typing import PolarsDataType
+from polars._typing import PolarsDataType  # pyright: ignore[reportPrivateImportUsage]
 
 
 # TODO: https://github.com/pola-rs/polars/issues/12353  # noqa: FIX002

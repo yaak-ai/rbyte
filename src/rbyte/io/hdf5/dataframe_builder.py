@@ -1,30 +1,26 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from os import PathLike
 from typing import final
 
 import polars as pl
 from h5py import Dataset, File
 from optree import PyTree, tree_map, tree_map_with_path
-from polars._typing import PolarsDataType  # noqa: PLC2701
-from polars.datatypes import (
-    DataType,  # pyright: ignore[reportUnusedImport]  # noqa: F401
-    DataTypeClass,  # pyright: ignore[reportUnusedImport]  # noqa: F401
-)
-from pydantic import ConfigDict, validate_call
+from polars.datatypes import DataType
+from pydantic import InstanceOf, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 
 logger = get_logger(__name__)
 
 
-type Fields = Mapping[str, PolarsDataType | None] | Mapping[str, Fields]
+type Fields = dict[str, InstanceOf[DataType] | None] | dict[str, Fields]
 
 
 @final
 class Hdf5DataFrameBuilder:
     __name__ = __qualname__
 
-    @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
+    @validate_call
     def __init__(self, fields: Fields) -> None:
         self._fields = fields
 
@@ -39,7 +35,7 @@ class Hdf5DataFrameBuilder:
         with File(path) as f:
 
             def build_series(
-                path: Sequence[str], dtype: PolarsDataType | None
+                path: Sequence[str], dtype: DataType | None
             ) -> pl.Series | None:
                 name = "/".join((prefix, *path))
                 match obj := f.get(name):  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]

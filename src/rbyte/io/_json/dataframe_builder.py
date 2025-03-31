@@ -1,35 +1,29 @@
 import json
-from collections.abc import Mapping
 from os import PathLike
 from pathlib import Path
-from typing import ClassVar, final
+from typing import final
 
 import polars as pl
 from optree import PyTree, PyTreeAccessor, tree_map, tree_map_with_accessor
-from polars._typing import PolarsDataType  # noqa: PLC2701
-from polars.datatypes import (
-    DataType,  # pyright: ignore[reportUnusedImport]  # noqa: F401
-    DataTypeClass,  # pyright: ignore[reportUnusedImport]  # noqa: F401
-)
-from pydantic import ConfigDict, RootModel, validate_call
+from polars.datatypes import DataType
+from pydantic import InstanceOf, RootModel, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 
 logger = get_logger(__name__)
 
 
-class Schema(RootModel[Mapping[str, PolarsDataType | None]]):
-    model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
+class Schema(RootModel[dict[str, InstanceOf[DataType] | None]]): ...
 
 
-type Fields = Schema | Mapping[str, Fields]
+type Fields = Schema | dict[str, Fields]
 
 
 @final
 class JsonDataFrameBuilder:
     __name__ = __qualname__
 
-    @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
+    @validate_call
     def __init__(self, fields: Fields) -> None:
         self._fields = fields
 
