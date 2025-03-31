@@ -1,6 +1,6 @@
 [project]
 name = "rbyte"
-version = "0.16.0"
+version = "0.16.1"
 description = "Multimodal PyTorch dataset library"
 authors = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 maintainers = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
@@ -9,7 +9,7 @@ dependencies = [
   "torch",
   "numpy",
   "polars>=1.25.2",
-  "pydantic>=2.10.6",
+  "pydantic>=2.11.1",
   "more-itertools>=10.6.0",
   "hydra-core>=1.3.2",
   "optree>=0.14.1",

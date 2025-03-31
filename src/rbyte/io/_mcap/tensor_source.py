@@ -1,4 +1,4 @@
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from mmap import ACCESS_READ, mmap
@@ -102,7 +102,7 @@ class McapTensorSource(TensorSource):
     def __getitem__(self, indexes: int | Iterable[int]) -> Tensor:
         match indexes:
             case Iterable():
-                arrays: Mapping[int, npt.ArrayLike] = {}
+                arrays: dict[int, npt.ArrayLike] = {}
                 message_indexes = (self._message_indexes[idx] for idx in indexes)
                 indexes_by_chunk_start_offset = mit.map_reduce(
                     zip(indexes, message_indexes, strict=True),

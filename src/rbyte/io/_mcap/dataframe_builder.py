@@ -1,5 +1,5 @@
 from collections import defaultdict
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Sequence
 from enum import StrEnum, unique
 from mmap import ACCESS_READ, mmap
 from operator import attrgetter
@@ -11,12 +11,8 @@ import more_itertools as mit
 import polars as pl
 from mcap.decoder import DecoderFactory
 from mcap.reader import SeekingReader
-from polars._typing import PolarsDataType  # noqa: PLC2701
-from polars.datatypes import (
-    DataType,  # pyright: ignore[reportUnusedImport]  # noqa: F401
-    DataTypeClass,  # pyright: ignore[reportUnusedImport]  # noqa: F401
-)
-from pydantic import ConfigDict, ImportString, validate_call
+from polars.datatypes import DataType
+from pydantic import ImportString, InstanceOf, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from tqdm import tqdm
@@ -26,7 +22,8 @@ from rbyte.utils.dataframe import unnest_all
 logger = get_logger(__name__)
 
 
-type Fields = Mapping[str, Mapping[str, PolarsDataType | None]]
+type Fields = dict[str, dict[str, InstanceOf[DataType] | None]]
+
 type DecoderFactories = Sequence[
     ImportString[type[DecoderFactory]] | type[DecoderFactory]
 ]
@@ -47,7 +44,7 @@ class SpecialField(StrEnum):
 class McapDataFrameBuilder:
     __name__ = __qualname__
 
-    @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
+    @validate_call
     def __init__(
         self,
         *,
@@ -59,7 +56,7 @@ class McapDataFrameBuilder:
         self._fields = fields
         self._validate_crcs = validate_crcs
 
-    def __call__(self, path: PathLike[str]) -> Mapping[str, pl.DataFrame]:
+    def __call__(self, path: PathLike[str]) -> dict[str, pl.DataFrame]:
         with bound_contextvars(path=path):
             result = self._build(path)
             logger.debug(
@@ -68,7 +65,7 @@ class McapDataFrameBuilder:
 
             return result
 
-    def _build(self, path: PathLike[str]) -> Mapping[str, pl.DataFrame]:
+    def _build(self, path: PathLike[str]) -> dict[str, pl.DataFrame]:
         with (
             bound_contextvars(path=str(path)),
             Path(path).open("rb") as _f,
@@ -105,7 +102,7 @@ class McapDataFrameBuilder:
                 else None
             )
 
-            rows: Mapping[str, list[pl.DataFrame]] = defaultdict(list)
+            rows: dict[str, list[pl.DataFrame]] = defaultdict(list)
 
             for dmt in tqdm(
                 reader.iter_decoded_messages(topics),
@@ -139,7 +136,7 @@ class McapDataFrameBuilder:
 
     @staticmethod
     def _build_message_df(
-        message: object, fields: Mapping[str, PolarsDataType | None]
+        message: object, fields: dict[str, DataType | None]
     ) -> pl.DataFrame | None:
         if not fields:
             return None

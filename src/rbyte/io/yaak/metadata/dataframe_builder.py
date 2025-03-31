@@ -1,4 +1,3 @@
-from collections.abc import Mapping
 from mmap import ACCESS_READ, mmap
 from operator import itemgetter
 from os import PathLike
@@ -8,13 +7,9 @@ from typing import cast, final
 import more_itertools as mit
 import polars as pl
 from google.protobuf.message import Message
-from polars._typing import PolarsDataType  # noqa: PLC2701
-from polars.datatypes import (
-    DataType,  # pyright: ignore[reportUnusedImport]  # noqa: F401
-    DataTypeClass,  # pyright: ignore[reportUnusedImport]  # noqa: F401
-)
+from polars.datatypes import DataType
 from ptars import HandlerPool
-from pydantic import ConfigDict, validate_call
+from pydantic import InstanceOf, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from tqdm import tqdm
@@ -28,8 +23,8 @@ from .message_iterator import YaakMetadataMessageIterator
 logger = get_logger(__name__)
 
 
-type Fields = Mapping[
-    PickleableImportString[type[Message]], Mapping[str, PolarsDataType | None]
+type Fields = dict[
+    PickleableImportString[type[Message]], dict[str, InstanceOf[DataType] | None]
 ]
 
 
@@ -37,7 +32,7 @@ type Fields = Mapping[
 class YaakMetadataDataFrameBuilder:
     __name__ = __qualname__
 
-    @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
+    @validate_call
     def __init__(self, *, fields: Fields) -> None:
         super().__init__()
 
@@ -46,7 +41,7 @@ class YaakMetadataDataFrameBuilder:
     def __pipefunc_hash__(self) -> str:  # noqa: PLW3201
         return digest(str(self._fields))
 
-    def __call__(self, path: PathLike[str]) -> Mapping[str, pl.DataFrame]:
+    def __call__(self, path: PathLike[str]) -> dict[str, pl.DataFrame]:
         with bound_contextvars(path=path):
             result = self._build(path)
             logger.debug(
@@ -55,7 +50,7 @@ class YaakMetadataDataFrameBuilder:
 
             return result
 
-    def _build(self, path: PathLike[str]) -> Mapping[str, pl.DataFrame]:
+    def _build(self, path: PathLike[str]) -> dict[str, pl.DataFrame]:
         with Path(path).open("rb") as _f, mmap(_f.fileno(), 0, access=ACCESS_READ) as f:
             handler_pool = HandlerPool()
 

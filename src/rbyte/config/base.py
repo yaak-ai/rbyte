@@ -5,23 +5,12 @@ from typing import Any, ClassVar, Literal, override
 from hydra.utils import instantiate
 from pydantic import BaseModel as _BaseModel
 from pydantic import ConfigDict, Field, ImportString, TypeAdapter, model_validator
-from pydantic import RootModel as _RootModel
 
 
 class BaseModel(_BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(
-        arbitrary_types_allowed=True,
         frozen=True,
         extra="forbid",
-        validate_assignment=True,
-        ignored_types=(cached_property,),
-    )
-
-
-class RootModel[T](_RootModel[T]):
-    model_config: ClassVar[ConfigDict] = ConfigDict(
-        arbitrary_types_allowed=True,
-        frozen=True,
         validate_assignment=True,
         ignored_types=(cached_property,),
     )
