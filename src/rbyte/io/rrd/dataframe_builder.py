@@ -1,4 +1,4 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from enum import StrEnum, auto, unique
 from os import PathLike
 from typing import cast, final
@@ -24,13 +24,11 @@ class RrdDataFrameBuilder:
     __name__ = __qualname__
 
     @validate_call
-    def __init__(
-        self, index: str, contents: Mapping[str, Sequence[str] | None]
-    ) -> None:
+    def __init__(self, index: str, contents: dict[str, Sequence[str] | None]) -> None:
         self._index = index
         self._contents = contents
 
-    def __call__(self, path: PathLike[str]) -> Mapping[str, pl.DataFrame]:
+    def __call__(self, path: PathLike[str]) -> dict[str, pl.DataFrame]:
         with bound_contextvars(path=path):
             result = self._build(path)
             logger.debug(
@@ -39,12 +37,12 @@ class RrdDataFrameBuilder:
 
             return result
 
-    def _build(self, path: PathLike[str]) -> Mapping[str, pl.DataFrame]:
+    def _build(self, path: PathLike[str]) -> dict[str, pl.DataFrame]:
         recording = rrd.load_recording(path)  # pyright: ignore[reportUnknownMemberType]
         schema = recording.schema()
 
         # Entity contents must include a non-static component to get index values.
-        extra_contents: Mapping[str, Sequence[str]] = {}
+        extra_contents: dict[str, Sequence[str]] = {}
         for entity_path, components in self._contents.items():
             if components is None or all(
                 (col := schema.column_for(entity_path, component)) is not None

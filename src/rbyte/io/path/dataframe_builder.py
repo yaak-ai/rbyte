@@ -1,17 +1,19 @@
 import os
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator
 from functools import cached_property
 from typing import Self, final
 
 import polars as pl
 from optree import tree_map
-from polars._typing import PolarsDataType  # noqa: PLC2701
-from polars.datatypes import (
-    DataType,  # pyright: ignore[reportUnusedImport]  # noqa: F401
-    DataTypeClass,  # pyright: ignore[reportUnusedImport]  # noqa: F401
-)
+from polars.datatypes import DataType
 from polars.polars import dtype_str_repr  # pyright: ignore[reportUnknownVariableType]
-from pydantic import DirectoryPath, field_serializer, model_validator, validate_call
+from pydantic import (
+    DirectoryPath,
+    InstanceOf,
+    field_serializer,
+    model_validator,
+    validate_call,
+)
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from xxhash import xxh3_64_hexdigest as digest
@@ -21,7 +23,7 @@ from rbyte.config.base import BaseModel
 logger = get_logger(__name__)
 
 
-type Fields = Mapping[str, PolarsDataType | None]
+type Fields = dict[str, InstanceOf[DataType] | None]
 
 
 def scantree(path: str) -> Iterator[str]:
@@ -53,7 +55,7 @@ class Config(BaseModel):
 
     @field_serializer("fields", when_used="json")
     @staticmethod
-    def _serialize_fields(fields: Fields) -> Mapping[str, str | None]:
+    def _serialize_fields(fields: Fields) -> dict[str, str | None]:
         return tree_map(dtype_str_repr, fields)  # pyright: ignore[reportArgumentType, reportUnknownArgumentType, reportUnknownVariableType, reportReturnType]
 
 
@@ -94,7 +96,7 @@ class PathDataFrameBuilder:
         )
 
     @cached_property
-    def _schema(self) -> Mapping[str, PolarsDataType]:
+    def _schema(self) -> dict[str, DataType]:
         return {
             name: dtype
             for name, dtype in self._config.fields.items()

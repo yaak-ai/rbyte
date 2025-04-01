@@ -1,4 +1,4 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from concurrent.futures import Executor
 from enum import StrEnum, unique
 from functools import cache
@@ -8,7 +8,9 @@ import polars as pl
 import torch
 from optree import tree_map, tree_structure, tree_transpose
 from pipefunc import Pipeline
-from pipefunc._pipeline._types import OUTPUT_TYPE
+from pipefunc._pipeline._types import (
+    OUTPUT_TYPE,  # pyright: ignore[reportPrivateImportUsage]
+)
 from pydantic import ConfigDict, StringConstraints, validate_call
 from structlog import get_logger
 from tensordict import TensorDict
@@ -33,14 +35,14 @@ class SourceConfig(BaseModel):
     index_column: str
 
 
-type SourcesConfig = Mapping[Id, Mapping[Id, SourceConfig]]
+type SourcesConfig = dict[Id, dict[Id, SourceConfig]]
 
 
 class PipelineConfig(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow")
 
     pipeline: HydraConfig[Pipeline]
-    inputs: Mapping[str, Any]
+    inputs: dict[str, Any]
     executor: (
         HydraConfig[Executor] | dict[OUTPUT_TYPE, HydraConfig[Executor]] | None
     ) = None
@@ -97,7 +99,7 @@ class Dataset(TorchDataset[Batch]):
         *,
         keys: BatchKeys = BATCH_KEYS_DEFAULT,
     ) -> Batch:
-        subkeys: Mapping[Literal["data", "meta"], set[_ALL_TYPE | str]] = {
+        subkeys: dict[Literal["data", "meta"], set[_ALL_TYPE | str]] = {
             "data": set(),
             "meta": set(),
         }
@@ -245,9 +247,7 @@ class Dataset(TorchDataset[Batch]):
         )
 
     @classmethod
-    def _build_sources(
-        cls, sources: Mapping[Id, Mapping[Id, SourceConfig]]
-    ) -> pl.DataFrame:
+    def _build_sources(cls, sources: dict[Id, dict[Id, SourceConfig]]) -> pl.DataFrame:
         logger.debug("building sources")
 
         input_id_enum = pl.Enum(categories=sources.keys())

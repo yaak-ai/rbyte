@@ -1,11 +1,11 @@
 import struct
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator
 from collections.abc import Set as AbstractSet
 from mmap import mmap
-from typing import BinaryIO, Self, override
+from typing import BinaryIO, ClassVar, Self, override
 
 from google.protobuf.message import Message
-from pydantic import ConfigDict, validate_call
+from pydantic import InstanceOf, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 
@@ -21,7 +21,7 @@ def to_uint32(buf: bytes) -> int:
 class YaakMetadataMessageIterator(Iterator[tuple[type[Message], bytes]]):
     """An iterator over a metadata file(-like object) producing messages."""
 
-    MESSAGE_TYPES: Mapping[int, type[Message]] = {
+    MESSAGE_TYPES: ClassVar[dict[int, type[Message]]] = {
         0: sensor_pb2.Gnss,
         4: sensor_pb2.ImageMetadata,
         7: can_pb2.VehicleMotion,
@@ -32,10 +32,10 @@ class YaakMetadataMessageIterator(Iterator[tuple[type[Message], bytes]]):
     FILE_HEADER_LEN: int = 12
     MESSAGE_HEADER_LEN: int = 8
 
-    @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
+    @validate_call
     def __init__(
         self,
-        file: BinaryIO | mmap,
+        file: InstanceOf[BinaryIO] | InstanceOf[mmap],
         *,
         message_types: AbstractSet[type[Message]] | None = None,
     ) -> None:
@@ -53,7 +53,7 @@ class YaakMetadataMessageIterator(Iterator[tuple[type[Message], bytes]]):
                 raise ValueError(msg)
 
         if message_types is None:
-            self._message_types: Mapping[int, type[Message]] = self.MESSAGE_TYPES
+            self._message_types: dict[int, type[Message]] = self.MESSAGE_TYPES
         else:
             if unknown_message_types := (
                 message_types - set(self.MESSAGE_TYPES.values())

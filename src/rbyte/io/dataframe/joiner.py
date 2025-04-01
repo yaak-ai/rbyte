@@ -2,16 +2,19 @@ from collections.abc import Sequence
 from typing import TypedDict, Unpack, final
 
 import polars as pl
-from polars import Expr
-from polars._typing import JoinStrategy, JoinValidation, MaintainOrderJoin
-from pydantic import ConfigDict, validate_call
+from polars._typing import (
+    JoinStrategy,  # pyright: ignore[reportPrivateImportUsage]
+    JoinValidation,  # pyright: ignore[reportPrivateImportUsage]
+    MaintainOrderJoin,  # pyright: ignore[reportPrivateImportUsage]
+)
+from pydantic import validate_call
 
 
 class _Kwargs(TypedDict, total=False):
-    on: str | Expr | Sequence[str | Expr] | None
+    on: str | Sequence[str] | None
     how: JoinStrategy
-    left_on: str | Expr | Sequence[str | Expr] | None
-    right_on: str | Expr | Sequence[str | Expr] | None
+    left_on: str | Sequence[str] | None
+    right_on: str | Sequence[str] | None
     suffix: str
     validate: JoinValidation
     nulls_equal: bool
@@ -23,7 +26,7 @@ class _Kwargs(TypedDict, total=False):
 class DataFrameJoiner:
     __name__ = __qualname__
 
-    @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
+    @validate_call
     def __init__(self, **kwargs: Unpack[_Kwargs]) -> None:
         self._kwargs = kwargs
 

@@ -13,7 +13,7 @@ from optree import (
     tree_map_with_accessor,
     tree_map_with_path,
 )
-from polars._typing import AsofJoinStrategy
+from polars._typing import AsofJoinStrategy  # pyright: ignore[reportPrivateImportUsage]
 from pydantic import Field, validate_call
 from structlog import get_logger
 
