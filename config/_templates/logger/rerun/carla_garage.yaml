@@ -1,0 +1,45 @@
+#@yaml/text-templated-strings
+
+#@ cameras = [
+#@     'rgb',
+#@ ]
+---
+_target_: rbyte.viz.loggers.RerunLogger
+_convert_: all
+_recursive_: false
+application_id: [meta, input_id]
+schema:
+  #@ for/end camera in cameras:
+  (@=camera@):
+    - _target_: rerun.Image.columns
+      buffer: [data, (@=camera@)]
+    - static: true
+      entity:
+        _target_: rerun.Image.from_fields
+        format:
+          _target_: rerun.components.ImageFormat
+          height: 512
+          
+          width: 1024
+          color_model: RGB
+          channel_datatype: u8
+
+  _idx_:
+    _target_: rerun.TimeSequenceColumn
+    times: [data, "meta/_idx_"]
+
+  #@ for entity, key in {
+  #@     "brake": "meta/brake",
+  #@     "steer": "meta/steer",
+  #@     "throttle": "meta/throttle",
+  #@     "speed": "meta/speed",
+  #@     "heading": "waypoints/properties.heading",
+  #@ }.items():
+  (@=entity@):
+    _target_: rerun.Scalar.columns
+    scalar: [data, "(@=key@)"]
+  #@ end
+
+  waypoints:
+    _target_: rerun.Points2D.columns
+    positions: [data, "waypoints/waypoints_normalized"]
