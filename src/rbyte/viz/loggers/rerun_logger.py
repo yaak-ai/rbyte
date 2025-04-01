@@ -1,5 +1,5 @@
 from collections import defaultdict
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Sequence
 from functools import cache, cached_property
 from math import prod
 from typing import (
@@ -65,7 +65,7 @@ class StaticSchemaItem(BaseModel):
 
 class Schema(
     RootModel[
-        Mapping[
+        dict[
             str,
             IndexSchemaItem
             | StaticSchemaItem
@@ -75,12 +75,12 @@ class Schema(
     ]
 ):
     @cached_property
-    def indexes(self) -> Mapping[str, IndexSchemaItem]:
+    def indexes(self) -> dict[str, IndexSchemaItem]:
         return {k: v for k, v in self.root.items() if isinstance(v, IndexSchemaItem)}
 
     @cached_property
-    def static(self) -> Mapping[str, Sequence[StaticSchemaItem]]:
-        result: Mapping[str, list[StaticSchemaItem]] = defaultdict(list)
+    def static(self) -> dict[str, Sequence[StaticSchemaItem]]:
+        result: dict[str, list[StaticSchemaItem]] = defaultdict(list)
 
         for k, v in self.root.items():
             match v:
@@ -96,8 +96,8 @@ class Schema(
         return {k: v for k, v in result.items() if v}
 
     @cached_property
-    def columns(self) -> Mapping[str, Sequence[ComponentColumnListConfig]]:
-        result: Mapping[str, list[ComponentColumnListConfig]] = defaultdict(list)
+    def columns(self) -> dict[str, Sequence[ComponentColumnListConfig]]:
+        result: dict[str, list[ComponentColumnListConfig]] = defaultdict(list)
 
         for k, v in self.root.items():
             match v:
@@ -116,7 +116,7 @@ class Schema(
 
 
 class RerunLogger(Logger[TensorDict | TensorClass]):
-    @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
+    @validate_call
     def __init__(
         self,
         *,

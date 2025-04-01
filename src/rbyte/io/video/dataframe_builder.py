@@ -1,14 +1,10 @@
-from collections.abc import Mapping
 from os import PathLike
 from pathlib import Path
 from typing import Literal, final
 
 import polars as pl
-from polars._typing import PolarsIntegerType  # noqa: PLC2701
-from polars.datatypes import (
-    IntegerType,  # pyright: ignore[reportUnusedImport] # noqa: F401
-)
-from pydantic import ConfigDict, validate_call
+from polars.datatypes import IntegerType
+from pydantic import InstanceOf, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from torchcodec.decoders import VideoDecoder
@@ -16,14 +12,14 @@ from torchcodec.decoders import VideoDecoder
 logger = get_logger(__name__)
 
 
-type Fields = Mapping[Literal["frame_idx"], PolarsIntegerType]
+type Fields = dict[Literal["frame_idx"], InstanceOf[IntegerType]]
 
 
 @final
 class VideoDataFrameBuilder:
     __name__ = __qualname__
 
-    @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
+    @validate_call
     def __init__(self, fields: Fields) -> None:
         self._fields = fields
 

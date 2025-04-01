@@ -2,7 +2,7 @@ from typing import final
 
 import polars as pl
 from optree import PyTree, tree_leaves, tree_map_with_path
-from polars._typing import ConcatMethod
+from polars._typing import ConcatMethod  # pyright: ignore[reportPrivateImportUsage]
 from pydantic import validate_call
 
 
