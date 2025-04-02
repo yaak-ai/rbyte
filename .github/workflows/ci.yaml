@@ -19,7 +19,7 @@ jobs:
     container: jrottenberg/ffmpeg:7.1-ubuntu
     steps:
       - name: install basics
-        run: apt update & apt install -y git git-lfs openssh-client & git lfs install
+        run: apt update && apt install -y git git-lfs openssh-client curl wget && git lfs install
 
       - name: setup ssh
         uses: webfactory/ssh-agent@v0.9.0
