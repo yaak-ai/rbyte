@@ -47,6 +47,7 @@ yaak = [
 ]
 jpeg = ["simplejpeg>=1.8.2"]
 video = [
+  "video-reader-rs>=0.2.3",
   "torchcodec>=0.2.1",
 ]
 hdf5 = ["h5py>=3.13.0"]
