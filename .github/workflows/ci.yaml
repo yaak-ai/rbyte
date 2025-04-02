@@ -16,12 +16,11 @@ env:
 jobs:
   ci:
     runs-on: ubuntu-latest
-    container:
-      image: jrottenberg/ffmpeg:7.1-ubuntu
-      volumes:
-        - /usr/bin:/usr/bin
-        - /usr/lib:/usr/lib
+    container: jrottenberg/ffmpeg:7.1-ubuntu
     steps:
+      - name: install basics
+        run: apt update & apt install -y git git-lfs openssh-client & git lfs install
+
       - name: setup ssh
         uses: webfactory/ssh-agent@v0.9.0
         with:
