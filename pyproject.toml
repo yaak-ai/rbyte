@@ -47,11 +47,30 @@ yaak = [
 ]
 jpeg = ["simplejpeg>=1.8.2"]
 video = [
-  "python-vali>=4.2.10post1; sys_platform == 'linux'",
-  "video-reader-rs>=0.2.3",
+  "torchcodec>=0.2.1",
 ]
 hdf5 = ["h5py>=3.13.0"]
 rrd = ["rerun-sdk>=0.22.1", "pyarrow-stubs"]
+
+[tool.uv.sources]
+torchcodec = [
+  { index = "darwin", marker = "sys_platform == 'darwin'" },
+  { index = "linux", marker = "sys_platform == 'linux'"},
+]
+torch = [
+  { index = "darwin", marker = "sys_platform == 'darwin'" },
+  { index = "linux", marker = "sys_platform == 'linux'"},
+]
+
+[[tool.uv.index]]
+name = "darwin"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "linux"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
 
 [project.scripts]
 rbyte-visualize = 'rbyte.scripts.visualize:main'

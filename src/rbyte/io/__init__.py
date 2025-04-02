@@ -47,11 +47,11 @@ else:
     __all__ += ["RrdDataFrameBuilder", "RrdFrameSource"]
 
 try:
-    from .video.ffmpeg_source import FfmpegFrameSource
+    from .video.torchcodec_source import TorchCodecFrameSource
 except ImportError:
     pass
 else:
-    __all__ += ["FfmpegFrameSource"]
+    __all__ += ["TorchCodecFrameSource"]
 
 try:
     from .video.dataframe_builder import VideoDataFrameBuilder

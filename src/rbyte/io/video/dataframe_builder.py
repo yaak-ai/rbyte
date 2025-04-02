@@ -7,9 +7,7 @@ from polars.datatypes import IntegerType
 from pydantic import InstanceOf, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
-from video_reader import (
-    PyVideoReader,  # pyright: ignore[reportAttributeAccessIssue, reportUnknownVariableType]
-)
+from torchcodec.decoders import VideoDecoder
 
 logger = get_logger(__name__)
 
@@ -33,9 +31,7 @@ class VideoDataFrameBuilder:
             return result
 
     def _build(self, path: PathLike[str]) -> pl.DataFrame:
-        vr = PyVideoReader(Path(path).resolve().as_posix())  # pyright: ignore[reportUnknownVariableType]
-        info = vr.get_info()  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-        frame_count = int(info["frame_count"])  # pyright: ignore[reportUnknownArgumentType]
-        data = pl.arange(frame_count, eager=True)
+        decoder = VideoDecoder(Path(path).resolve().as_posix())
+        data = pl.arange(decoder.metadata.num_frames, eager=True)  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportUnknownArgumentType]
 
         return pl.DataFrame(data=data, schema=self._fields)  # pyright: ignore[reportArgumentType]
