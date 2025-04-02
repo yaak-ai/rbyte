@@ -20,6 +20,7 @@ jobs:
       image: jrottenberg/ffmpeg:7.1-ubuntu
       volumes:
         - /usr/bin:/usr/bin
+        - /usr/lib:/usr/lib
     steps:
       - name: setup ssh
         uses: webfactory/ssh-agent@v0.9.0
