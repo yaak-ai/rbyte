@@ -1,7 +1,7 @@
 #@yaml/text-templated-strings
 
 #@ drives = [
-#@  'DynamicObjectCrossing/Town12_Rep0_3201_0_route0_11_08_02_22_17'
+#@     'DynamicObjectCrossing/Town12_Rep0_3201_0_route0_11_08_02_22_17'
 #@ ]
 
 #@ cameras = [
@@ -19,7 +19,7 @@ sources:
       index_column: meta/_idx_
       source:
         _target_: rbyte.io.PathTensorSource
-        path: '${data_dir}/(@=input_id@)/(@=source_id@)/{:04d}.jpg'
+        path: "${data_dir}/(@=input_id@)/(@=source_id@)/{:04d}.jpg"
         decoder:
           _target_: simplejpeg.decode_jpeg
           _partial_: true
@@ -49,73 +49,80 @@ samples:
       - _target_: pipefunc.PipeFunc
         renames:
           path: measurements_path
-        output_name: logs
-        mapspec: "measurements_path[i] -> logs[i]"
+        output_name: records
+        output_picker:
+          _target_: hydra.utils.get_method
+          path: builtins.dict.get
+        mapspec: "measurements_path[i] -> records[i]"
         func:
           _target_: rbyte.io.JsonDataFrameBuilder
           fields:
             records:
-              speed: 
+              speed:
               steer:
               throttle:
               brake:
                 _target_: polars.Float32 # in data it's just 0 and 1
               pos_global:
-                _target_: polars.Array
-                inner:
-                  _target_: polars.Float32
-                shape: 2
 
       - _target_: pipefunc.PipeFunc
         renames:
-          input: logs
-        output_name: data_logs
-        mapspec: "logs[i] -> data_logs[i]"
+          input: records
+        output_name: records_converted
+        mapspec: "records[i] -> records_converted[i]"
         func:
-          _target_: rbyte.io.DataFrameConcater
-          method: vertical 
+          _target_: rbyte.io.DataFrameQuery
+          query: |
+            SELECT
+              speed,
+              steer,
+              throttle,
+              brake,
+              array_get(pos_global, 2) as pos_global_x,
+              array_get(pos_global, 1) as pos_global_y
+            FROM self
 
       - _target_: pipefunc.PipeFunc
         renames:
-          input: data_logs
+          input: records_converted
         output_name: meta
-        mapspec: "data_logs[i] -> meta[i]"
+        mapspec: "records_converted[i] -> meta[i]"
         func:
           _target_: rbyte.io.DataFrameIndexer
-          name: _idx_                
-      
+          name: _idx_
+          dtype:
+            _target_: polars.Int32
+
       - _target_: pipefunc.PipeFunc
         renames:
           path: waypoints_path
         output_name: features
-        output_picker:
-          _target_: hydra.utils.get_method
-          path: builtins.dict.get
         mapspec: "waypoints_path[i] -> features[i]"
         func:
-          _target_: rbyte.io.JsonDataFrameBuilder
-          fields:
-            features:
-              properties.timestamp:
-              properties.heading:
-              geometry.coordinates:
-                _target_: polars.Array
-                inner:
-                  _target_: polars.Float32
-                shape: 2
-        
+          _target_: rbyte.io.GeoDataFrameBuilder
+          srid: 0
+          columns: [heading, timestamp, geometry]
+
       - _target_: pipefunc.PipeFunc
         renames:
           input: features
-        output_name: waypoints
-        mapspec: "features[i] -> waypoints[i]"
+        output_name: features_converted
+        mapspec: "features[i] -> features_converted[i]"
         func:
-          _target_: rbyte.io.CarlaGarageWaypointPreprocessor
-          num_waypoints: 10
+          _target_: rbyte.io.DataFrameQuery
+          query: |
+            SELECT * FROM self ORDER BY timestamp
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input: features_converted
+        output_name: waypoints
+        mapspec: "features_converted[i] -> waypoints[i]"
+        func:
+          _target_: rbyte.io.WaypointBuilder
+          length: 10
           columns:
-            timestamp: properties.timestamp
-            heading: properties.heading
-            coordinates: geometry.coordinates
+            points: geometry
             output: waypoints
 
       - _target_: pipefunc.PipeFunc
@@ -125,7 +132,7 @@ samples:
           _target_: pipefunc.helpers.collect_kwargs
           parameters: [meta, waypoints]
           function_name: aggregate
-        
+
       - _target_: pipefunc.PipeFunc
         renames:
           input: data
@@ -151,9 +158,9 @@ samples:
                   strategy: nearest
 
             waypoints:
-              key: properties.timestamp
+              key: timestamp
               columns:
-                properties.heading:
+                heading:
                   method: asof
                   strategy: nearest
                 waypoints:
@@ -165,13 +172,14 @@ samples:
         output_name: with_waypoints_normalized
         mapspec: "aligned[i] -> with_waypoints_normalized[i]"
         func:
-          _target_: rbyte.io.CarlaGarageWaypointNormalizer
+          _target_: rbyte.io.WaypointNormalizer
+          srid: 0
           columns:
-            ego_coordinates: meta/pos_global
-            waypoint_coordinates: waypoints/waypoints
-            heading: waypoints/properties.heading
+            ego: [meta/pos_global_x, meta/pos_global_y]
+            waypoints: waypoints/waypoints
+            heading: waypoints/heading
             output: waypoints/waypoints_normalized
-      
+
       - _target_: pipefunc.PipeFunc
         renames:
           input: with_waypoints_normalized
@@ -180,22 +188,4 @@ samples:
         func:
           _target_: rbyte.io.DataFrameFilter
           predicate: |
-            `meta/_idx_` > 110
-            and `meta/_idx_` < 150
-
-      - _target_: pipefunc.PipeFunc
-        renames:
-          input: filtered
-        output_name: samples
-        mapspec: "filtered[i] -> samples[i]"
-        func:
-          _target_: rbyte.io.FixedWindowSampleBuilder
-          index_column: meta/_idx_
-          every: 1i
-          period: 7i
-          closed: both
-          gather_every: 1
-          length: 8
-      
-      
-
+            `meta/_idx_` between 115 and 135

@@ -19,7 +19,6 @@ schema:
         format:
           _target_: rerun.components.ImageFormat
           height: 512
-          
           width: 1024
           color_model: RGB
           channel_datatype: u8
@@ -33,7 +32,7 @@ schema:
   #@     "steer": "meta/steer",
   #@     "throttle": "meta/throttle",
   #@     "speed": "meta/speed",
-  #@     "heading": "waypoints/properties.heading",
+  #@     "heading": "waypoints/heading",
   #@ }.items():
   (@=entity@):
     _target_: rerun.Scalar.columns
