@@ -46,7 +46,7 @@ schema:
   safety_score/score:
     _target_: rerun.Scalar.columns
     scalar: [data, mcap//ai/safety_score/score]
-  
+
   waypoints:
     _target_: rerun.Points2D.columns
     positions: [data, waypoints/waypoints_normalized]

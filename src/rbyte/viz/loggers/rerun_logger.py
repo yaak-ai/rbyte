@@ -2,6 +2,7 @@ from collections import defaultdict
 from collections.abc import Callable, Sequence
 from functools import cache, cached_property
 from math import prod
+from types import SimpleNamespace
 from typing import (
     Annotated,
     Any,
@@ -175,14 +176,30 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
 
                     return config.instantiate(**kwargs.cpu().numpy())  # pyright: ignore[reportUnknownMemberType]
 
-                case rr.Points2D.columns | rr.Points3D.columns:
-                    d = 2 if isinstance(config.target.__self__, rr.Points2D) else 3  # pyright: ignore[reportFunctionMemberAccess]
+                case rr.Points2D.columns:
                     match (tensor := kwargs[key := "positions"]).shape:
-                        case (d,):
+                        case (2,):
                             return config.instantiate(**kwargs.cpu().numpy())  # pyright: ignore[reportUnknownMemberType]
 
-                        case (*batch_dims, n, d):
-                            kwargs[key] = tensor.view(-1, d)
+                        case (*batch_dims, n, 2):
+                            kwargs[key] = tensor.view(-1, 2)
+                            return config.instantiate(**kwargs.cpu().numpy()).partition(  # pyright: ignore[reportUnknownMemberType]
+                                [n] * prod(batch_dims)
+                            )
+
+                        case shape:
+                            logger.error(
+                                (msg := "shape not supported"), key=key, shape=shape
+                            )
+                            raise NotImplementedError(msg)
+
+                case rr.Points3D.columns:
+                    match (tensor := kwargs[key := "positions"]).shape:
+                        case (3,):
+                            return config.instantiate(**kwargs.cpu().numpy())  # pyright: ignore[reportUnknownMemberType]
+
+                        case (*batch_dims, n, 3):
+                            kwargs[key] = tensor.view(-1, 3)
                             return config.instantiate(**kwargs.cpu().numpy()).partition(  # pyright: ignore[reportUnknownMemberType]
                                 [n] * prod(batch_dims)
                             )

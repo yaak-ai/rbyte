@@ -36,11 +36,17 @@ schema:
 
   acceleration_pedal:
     _target_: rerun.Scalar.columns
-    scalar: [data, vehicle_data/ego_vehicle_controls/acceleration_pedal/ratio/unitless/value]
+    scalar: [
+      data,
+      vehicle_data/ego_vehicle_controls/acceleration_pedal/ratio/unitless/value,
+    ]
 
   steering_wheel_angle:
     _target_: rerun.Scalar.columns
-    scalar: [data, vehicle_data/ego_vehicle_controls/steering_wheel_angle/angle/radians/value]
+    scalar: [
+      data,
+      vehicle_data/ego_vehicle_controls/steering_wheel_angle/angle/radians/value,
+    ]
 
   speed:
     _target_: rerun.Scalar.columns
