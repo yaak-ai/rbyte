@@ -1,5 +1,4 @@
-from collections.abc import Iterable
-from pathlib import Path
+from collections.abc import Sequence
 from typing import Literal, final, override
 
 from pydantic import FilePath, validate_call
@@ -12,18 +11,21 @@ from rbyte.io.base import TensorSource
 @final
 class TorchCodecFrameSource(TensorSource):
     @validate_call
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
-        path: FilePath,
+        *,
+        source: FilePath,
+        stream_index: int | None = None,
         dimension_order: Literal["NCHW", "NHWC"] = "NCHW",
         num_ffmpeg_threads: int = 1,
-        device: str = "cpu",
+        device: str | None = "cpu",
         seek_mode: Literal["exact", "approximate"] = "exact",
     ) -> None:
         super().__init__()
 
         self._decoder = VideoDecoder(
-            Path(path),
+            source=source,
+            stream_index=stream_index,
             dimension_order=dimension_order,
             num_ffmpeg_threads=num_ffmpeg_threads,
             device=device,
@@ -31,14 +33,13 @@ class TorchCodecFrameSource(TensorSource):
         )
 
     @override
-    def __getitem__(self, indexes: int | Iterable[int]) -> Tensor:
+    def __getitem__(self, indexes: int | Sequence[int]) -> Tensor:
         match indexes:
-            case Iterable():
-                frames = self._decoder.get_frames_at(indices=list(indexes)).data
-            case _:
-                frames = self._decoder.get_frame_at(index=indexes).data
+            case Sequence():
+                return self._decoder.get_frames_at(indices=indexes).data  # pyright: ignore[reportArgumentType]
 
-        return frames
+            case int():
+                return self._decoder.get_frame_at(index=indexes).data
 
     @override
     def __len__(self) -> int:

@@ -1,6 +1,6 @@
 [project]
 name = "rbyte"
-version = "0.16.1"
+version = "0.17.0"
 description = "Multimodal PyTorch dataset library"
 authors = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 maintainers = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
@@ -46,20 +46,18 @@ yaak = [
   "pyproj>=3.7.1",
 ]
 jpeg = ["simplejpeg>=1.8.2"]
-video = [
-  "torchcodec>=0.2.1",
-]
+video = ["torchcodec>=0.2.1"]
 hdf5 = ["h5py>=3.13.0"]
 rrd = ["rerun-sdk>=0.22.1", "pyarrow-stubs"]
 
 [tool.uv.sources]
 torchcodec = [
   { index = "darwin", marker = "sys_platform == 'darwin'" },
-  { index = "linux", marker = "sys_platform == 'linux'"},
+  { index = "linux", marker = "sys_platform == 'linux'" },
 ]
 torch = [
   { index = "darwin", marker = "sys_platform == 'darwin'" },
-  { index = "linux", marker = "sys_platform == 'linux'"},
+  { index = "linux", marker = "sys_platform == 'linux'" },
 ]
 
 [[tool.uv.index]]

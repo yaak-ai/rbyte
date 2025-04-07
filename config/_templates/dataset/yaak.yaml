@@ -21,7 +21,7 @@ sources:
       index_column: meta/ImageMetadata.(@=source_id@)/frame_idx
       source:
         _target_: rbyte.io.TorchCodecFrameSource
-        path: ${data_dir}/(@=input_id@)/(@=source_id@).pii.mp4
+        source: ${data_dir}/(@=input_id@)/(@=source_id@).pii.mp4
         device: cpu
     #@ end
   #@ end

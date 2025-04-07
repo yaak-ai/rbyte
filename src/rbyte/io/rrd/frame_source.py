@@ -1,4 +1,4 @@
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Sequence
 from typing import cast, final, override
 
 import numpy.typing as npt
@@ -48,14 +48,14 @@ class RrdFrameSource(TensorSource):
         return torch.from_numpy(array)  # pyright: ignore[reportUnknownMemberType]
 
     @override
-    def __getitem__(self, indexes: int | Iterable[int]) -> Tensor:
+    def __getitem__(self, indexes: int | Sequence[int]) -> Tensor:
         match indexes:
-            case Iterable():
+            case Sequence():
                 tensors = map(self._getitem, indexes)
 
                 return torch.stack(list(tensors))
 
-            case _:
+            case int():
                 return self._getitem(indexes)
 
     @override
