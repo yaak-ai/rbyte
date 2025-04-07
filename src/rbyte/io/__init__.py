@@ -47,18 +47,11 @@ else:
     __all__ += ["RrdDataFrameBuilder", "RrdFrameSource"]
 
 try:
-    from .video.ffmpeg_source import FfmpegFrameSource
+    from .video import TorchCodecFrameSource, VideoDataFrameBuilder
 except ImportError:
     pass
 else:
-    __all__ += ["FfmpegFrameSource"]
-
-try:
-    from .video.dataframe_builder import VideoDataFrameBuilder
-except ImportError:
-    pass
-else:
-    __all__ += ["VideoDataFrameBuilder"]
+    __all__ += ["TorchCodecFrameSource", "VideoDataFrameBuilder"]
 
 try:
     from .yaak.metadata import YaakMetadataDataFrameBuilder

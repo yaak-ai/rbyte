@@ -20,9 +20,9 @@ sources:
     (@=source_id@):
       index_column: meta/ImageMetadata.(@=source_id@)/frame_idx
       source:
-        _target_: rbyte.io.FfmpegFrameSource
-        path: ${data_dir}/(@=input_id@)/(@=source_id@).pii.mp4
-        resize_shorter_side: 324
+        _target_: rbyte.io.TorchCodecFrameSource
+        source: ${data_dir}/(@=input_id@)/(@=source_id@).pii.mp4
+        device: cpu
     #@ end
   #@ end
 

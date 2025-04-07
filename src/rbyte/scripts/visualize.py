@@ -14,7 +14,7 @@ def main(config: DictConfig) -> None:
     logger = cast(Logger[Any], instantiate(config.logger))
     dataloader = cast(DataLoader[Any], instantiate(config.dataloader))
 
-    for batch in tqdm(dataloader):
+    for batch in tqdm(dataloader, disable=False):
         logger.log(batch)
 
 

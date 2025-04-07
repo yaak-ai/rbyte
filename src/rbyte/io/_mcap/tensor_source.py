@@ -99,9 +99,9 @@ class McapTensorSource(TensorSource):
         return self._mmap  # pyright: ignore[reportReturnType]
 
     @override
-    def __getitem__(self, indexes: int | Iterable[int]) -> Tensor:
+    def __getitem__(self, indexes: int | Sequence[int]) -> Tensor:
         match indexes:
-            case Iterable():
+            case Sequence():
                 arrays: dict[int, npt.ArrayLike] = {}
                 message_indexes = (self._message_indexes[idx] for idx in indexes)
                 indexes_by_chunk_start_offset = mit.map_reduce(
@@ -129,7 +129,7 @@ class McapTensorSource(TensorSource):
 
                 return torch.stack(tensors)
 
-            case _:
+            case int():
                 message_index = self._message_indexes[indexes]
                 _ = self._file.seek(message_index.chunk_start_offset + 1 + 8)
                 chunk = Chunk.read(ReadDataStream(self._file))

@@ -9,6 +9,10 @@ on:
 
   workflow_dispatch:
 
+env:
+  UV_INDEX: ${{ vars.UV_INDEX }}
+  UV_INDEX_STRATEGY: ${{ vars.UV_INDEX_STRATEGY }}
+
 jobs:
   ci:
     runs-on: ubuntu-latest
@@ -25,9 +29,6 @@ jobs:
           persist-credentials: false
           lfs: true
 
-      - name: git lfs checkout
-        run: git lfs checkout
-
       - name: setup just
         uses: extractions/setup-just@v2
 
@@ -35,11 +36,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version-file: "pyproject.toml"
-
-      - name: setup ytt
-        uses: carvel-dev/setup-action@v2
-        with:
-          only: ytt
 
       - name: setup uv
         uses: astral-sh/setup-uv@v4
@@ -53,4 +49,16 @@ jobs:
       - run: just format --check
       - run: just lint
       - run: just typecheck
+
+      - name: git lfs checkout
+        run: git lfs checkout
+
+      - name: setup ytt
+        uses: carvel-dev/setup-action@v2
+        with:
+          only: ytt
+
+      - name: install ffmpeg
+        run: sudo apt update && sudo apt install -y ffmpeg
+
       - run: just test

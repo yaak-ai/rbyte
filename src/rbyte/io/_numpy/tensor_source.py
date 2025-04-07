@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from functools import cached_property
 from os import PathLike
 from pathlib import Path
@@ -36,9 +36,9 @@ class NumpyTensorSource(TensorSource):
         return torch.from_numpy(np.ascontiguousarray(array))  # pyright: ignore[reportUnknownMemberType]
 
     @override
-    def __getitem__(self, indexes: object | Iterable[object]) -> Tensor:
+    def __getitem__(self, indexes: object | Sequence[object]) -> Tensor:
         match indexes:
-            case Iterable():
+            case Sequence():
                 tensors = map(self._getitem, indexes)  # pyright: ignore[reportUnknownArgumentType]
 
                 return pad_sequence(list(tensors), dim=0, value=torch.nan)
