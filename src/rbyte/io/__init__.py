@@ -7,6 +7,8 @@ from .dataframe import (
     DataFrameFpsResampler,
     DataFrameIndexer,
     DataFrameJoiner,
+    DataFrameQuery,
+    DataFrameWithColumns,
     FixedWindowSampleBuilder,
 )
 from .path import PathDataFrameBuilder, PathTensorSource
@@ -18,12 +20,15 @@ __all__: list[str] = [
     "DataFrameFpsResampler",
     "DataFrameIndexer",
     "DataFrameJoiner",
+    "DataFrameQuery",
+    "DataFrameWithColumns",
     "FixedWindowSampleBuilder",
     "JsonDataFrameBuilder",
     "NumpyTensorSource",
     "PathDataFrameBuilder",
     "PathTensorSource",
 ]
+
 
 try:
     from .hdf5 import Hdf5DataFrameBuilder, Hdf5TensorSource
@@ -60,9 +65,10 @@ except ImportError:
 else:
     __all__ += ["YaakMetadataDataFrameBuilder"]
 
+
 try:
-    from .yaak.waypoints import YaakWaypointNormalizer, YaakWaypointPreprocessor
+    from .geo import GeoDataFrameBuilder, WaypointBuilder, WaypointNormalizer
 except ImportError:
     pass
 else:
-    __all__ += ["YaakWaypointNormalizer", "YaakWaypointPreprocessor"]
+    __all__ += ["GeoDataFrameBuilder", "WaypointBuilder", "WaypointNormalizer"]

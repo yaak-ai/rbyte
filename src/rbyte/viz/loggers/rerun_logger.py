@@ -147,7 +147,7 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
         return recording
 
     @classmethod
-    def _build_columns(
+    def _build_columns(  # noqa: C901, PLR0912
         cls, config: ComponentColumnListConfig, data: TensorDict
     ) -> rr.ComponentColumnList:
         kwargs = TensorDict({k: data[v] for k, v in config.__pydantic_extra__.items()})
@@ -174,6 +174,23 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
                     kwargs[key] = tensor.reshape(prod(batch_dims), -1).view(torch.uint8)
 
                     return config.instantiate(**kwargs.cpu().numpy())  # pyright: ignore[reportUnknownMemberType]
+
+                case rr.Points2D.columns:
+                    match (tensor := kwargs[key := "positions"]).shape:
+                        case (2,):
+                            return config.instantiate(**kwargs.cpu().numpy())  # pyright: ignore[reportUnknownMemberType]
+
+                        case (*batch_dims, n, 2):
+                            kwargs[key] = tensor.view(-1, 2)
+                            return config.instantiate(**kwargs.cpu().numpy()).partition(  # pyright: ignore[reportUnknownMemberType]
+                                [n] * prod(batch_dims)
+                            )
+
+                        case shape:
+                            logger.error(
+                                (msg := "shape not supported"), key=key, shape=shape
+                            )
+                            raise NotImplementedError(msg)
 
                 case rr.Points3D.columns:
                     match (tensor := kwargs[key := "positions"]).shape:
