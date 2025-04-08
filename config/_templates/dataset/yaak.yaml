@@ -57,7 +57,7 @@ samples:
             rbyte.io.yaak.proto.sensor_pb2.ImageMetadata:
               time_stamp:
                 _target_: polars.Datetime
-                time_unit: ns
+                time_unit: us
 
               frame_idx:
                 _target_: polars.Int32
@@ -77,7 +77,7 @@ samples:
             rbyte.io.yaak.proto.can_pb2.VehicleMotion:
               time_stamp:
                 _target_: polars.Datetime
-                time_unit: ns
+                time_unit: us
 
               speed:
                 _target_: polars.Float32
@@ -89,7 +89,7 @@ samples:
             rbyte.io.yaak.proto.sensor_pb2.Gnss:
               time_stamp:
                 _target_: polars.Datetime
-                time_unit: ns
+                time_unit: us
 
               latitude:
                 _target_: polars.Float32
@@ -109,7 +109,7 @@ samples:
             /ai/safety_score:
               clip.end_timestamp:
                 _target_: polars.Datetime
-                time_unit: ns
+                time_unit: us
 
               score:
                 _target_: polars.Float32
@@ -118,34 +118,31 @@ samples:
         renames:
           path: waypoints_path
         output_name: features
-        output_picker:
-          _target_: hydra.utils.get_method
-          path: builtins.dict.get
         mapspec: "waypoints_path[i] -> features[i]"
         func:
-          _target_: rbyte.io.JsonDataFrameBuilder
-          fields:
-            features:
-              properties.timestamp:
-              properties.heading:
-              geometry.coordinates:
-                _target_: polars.Array
-                inner:
-                  _target_: polars.Float32
-                shape: 2
+          _target_: rbyte.io.GeoDataFrameBuilder
+          srid: 4326
+          columns: [heading, timestamp, geometry]
 
       - _target_: pipefunc.PipeFunc
         renames:
           input: features
-        output_name: waypoints
-        mapspec: "features[i] -> waypoints[i]"
+        output_name: features_converted
+        mapspec: "features[i] -> features_converted[i]"
         func:
-          _target_: rbyte.io.YaakWaypointPreprocessor
-          num_waypoints: 10
+          _target_: rbyte.io.DataFrameWithColumns
+          timestamp: "TIMESTAMP(CAST(timestamp AS string), '%s%.6f')"
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input: features_converted
+        output_name: waypoints
+        mapspec: "features_converted[i] -> waypoints[i]"
+        func:
+          _target_: rbyte.io.WaypointBuilder
+          length: 10
           columns:
-            timestamp: properties.timestamp
-            heading: properties.heading
-            coordinates: geometry.coordinates
+            points: geometry
             output: waypoints
 
       - _target_: pipefunc.PipeFunc
@@ -214,9 +211,9 @@ samples:
                     strategy: nearest
 
             waypoints:
-              key: properties.timestamp
+              key: timestamp
               columns:
-                properties.heading:
+                heading:
                   method: asof
                   strategy: nearest
 
@@ -268,11 +265,12 @@ samples:
         output_name: with_waypoints_normalized
         mapspec: "(@=joined@)[i] -> with_waypoints_normalized[i]"
         func:
-          _target_: rbyte.io.YaakWaypointNormalizer
+          _target_: rbyte.io.WaypointNormalizer
+          srid: 3857
           columns:
-            ego_coordinates: [meta/Gnss/longitude, meta/Gnss/latitude]
-            waypoint_coordinates: waypoints/waypoints
-            heading: waypoints/properties.heading
+            ego: [meta/Gnss/longitude, meta/Gnss/latitude]
+            waypoints: waypoints/waypoints
+            heading: waypoints/heading
             output: waypoints/waypoints_normalized
 
       - _target_: pipefunc.PipeFunc

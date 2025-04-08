@@ -147,7 +147,7 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
         return recording
 
     @classmethod
-    def _build_columns(
+    def _build_columns(  # noqa: C901, PLR0912
         cls, config: ComponentColumnListConfig, data: TensorDict
     ) -> rr.ComponentColumnList:
         kwargs = TensorDict({k: data[v] for k, v in config.__pydantic_extra__.items()})
@@ -162,7 +162,7 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
                         case (*batch_dims, 3, _h, _w):
                             tensor = tensor.permute(*range(len(batch_dims)), -2, -1, -3)
 
-                        case (*batch_dims, d, _w):
+                        case (*batch_dims, _d, _w):
                             pass
 
                         case shape:
@@ -175,14 +175,30 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
 
                     return config.instantiate(**kwargs.cpu().numpy())  # pyright: ignore[reportUnknownMemberType]
 
-                case rr.Points2D.columns | rr.Points3D.columns:
-                    d = 2 if isinstance(config.target.__self__, rr.Points2D) else 3  # pyright: ignore[reportFunctionMemberAccess]
+                case rr.Points2D.columns:
                     match (tensor := kwargs[key := "positions"]).shape:
-                        case (d,):
+                        case (2,):
                             return config.instantiate(**kwargs.cpu().numpy())  # pyright: ignore[reportUnknownMemberType]
 
-                        case (*batch_dims, n, d):
-                            kwargs[key] = tensor.view(-1, d)
+                        case (*batch_dims, n, 2):
+                            kwargs[key] = tensor.view(-1, 2)
+                            return config.instantiate(**kwargs.cpu().numpy()).partition(  # pyright: ignore[reportUnknownMemberType]
+                                [n] * prod(batch_dims)
+                            )
+
+                        case shape:
+                            logger.error(
+                                (msg := "shape not supported"), key=key, shape=shape
+                            )
+                            raise NotImplementedError(msg)
+
+                case rr.Points3D.columns:
+                    match (tensor := kwargs[key := "positions"]).shape:
+                        case (3,):
+                            return config.instantiate(**kwargs.cpu().numpy())  # pyright: ignore[reportUnknownMemberType]
+
+                        case (*batch_dims, n, 3):
+                            kwargs[key] = tensor.view(-1, 3)
                             return config.instantiate(**kwargs.cpu().numpy()).partition(  # pyright: ignore[reportUnknownMemberType]
                                 [n] * prod(batch_dims)
                             )

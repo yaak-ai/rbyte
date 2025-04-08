@@ -17,6 +17,60 @@ CONFIG_PATH = "../config"
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
 
+def test_carla_garage() -> None:
+    with initialize(version_base=None, config_path=CONFIG_PATH):
+        cfg = compose(
+            "visualize",
+            overrides=[
+                "dataset=carla_garage",
+                "logger=rerun/carla_garage",
+                f"+data_dir={DATA_DIR}/carla_garage",
+            ],
+        )
+
+    dataloader = instantiate(cfg.dataloader)
+
+    c = SimpleNamespace(B=cfg.dataloader.batch_size)
+
+    batch = next(iter(dataloader))
+    match batch.to_dict():
+        case {
+            "data": {
+                "rgb": Tensor(shape=[c.B, *_]),
+                "meta/_idx_": Tensor(shape=[c.B, *_]),
+                "meta/brake": Tensor(shape=[c.B, *_]),
+                "meta/pos_global_x": Tensor(shape=[c.B, *_]),
+                "meta/pos_global_y": Tensor(shape=[c.B, *_]),
+                "meta/steer": Tensor(shape=[c.B, *_]),
+                "meta/throttle": Tensor(shape=[c.B, *_]),
+                "meta/speed": Tensor(shape=[c.B, *_]),
+                "waypoints/heading": Tensor(shape=[c.B, *_]),
+                "waypoints/waypoints": Tensor(shape=[c.B, *_]),
+                "waypoints/waypoints_normalized": Tensor(shape=[c.B, *_]),
+                **data_rest,
+            },
+            "meta": {
+                "input_id": input_id,
+                "sample_idx": Tensor(shape=[c.B]),
+                **meta_rest,
+            },
+            **batch_rest,
+        } if set(input_id).issubset(cfg.dataloader.dataset.sources) and not any((
+            batch_rest,
+            data_rest,
+            meta_rest,
+        )):
+            pass
+
+        case _:
+            logger.error(msg := "invalid batch structure", batch=batch)
+
+            raise AssertionError(msg)
+
+    batch_logger: Logger[Batch] = instantiate(cfg.logger, spawn=False)
+    batch_logger.log(batch)
+
+
 def test_mimicgen() -> None:
     with initialize(version_base=None, config_path=CONFIG_PATH):
         cfg = compose(
@@ -201,7 +255,8 @@ def test_yaak() -> None:
                 "meta/Gnss/longitude": Tensor(shape=[c.B, *_]),
                 "mcap//ai/safety_score/clip.end_timestamp": Tensor(shape=[c.B, *_]),
                 "mcap//ai/safety_score/score": Tensor(shape=[c.B, *_]),
-                "waypoints/properties.heading": Tensor(shape=[c.B, *_]),
+                "waypoints/heading": Tensor(shape=[c.B, *_]),
+                "waypoints/waypoints": Tensor(shape=[c.B, *_]),
                 "waypoints/waypoints_normalized": Tensor(shape=[c.B, *_]),
                 **data_rest,
             },
