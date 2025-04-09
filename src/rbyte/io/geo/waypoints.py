@@ -48,7 +48,7 @@ class WaypointBuilder:
             )
             .agg(
                 st.geom(self._columns.points)
-                .st.multipoint()
+                .st.collect()
                 .st.set_srid(srid)
                 .alias(self._columns.output)
             )
