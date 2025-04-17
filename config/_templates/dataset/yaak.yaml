@@ -223,13 +223,15 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         renames:
-          input: aligned
+          self: aligned
         output_name: filtered
         mapspec: "aligned[i] -> filtered[i]"
         func:
-          _target_: rbyte.io.DataFrameFilter
-          predicate: |
-            `meta/VehicleMotion/speed` > 44
+          _target_: hydra.utils.get_method
+          path: polars.DataFrame.sql
+        bound:
+          query: |
+            SELECT * FROM self WHERE `meta/VehicleMotion/speed` > 44
 
       #@ for i, camera in enumerate(cameras):
       - _target_: pipefunc.PipeFunc

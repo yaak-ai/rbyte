@@ -67,11 +67,13 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         renames:
-          input: records
+          self: records
         output_name: records_converted
         mapspec: "records[i] -> records_converted[i]"
         func:
-          _target_: rbyte.io.DataFrameQuery
+          _target_: hydra.utils.get_method
+          path: polars.DataFrame.sql
+        bound:
           query: |
             SELECT
               speed,
@@ -105,11 +107,13 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         renames:
-          input: features
+          self: features
         output_name: features_converted
         mapspec: "features[i] -> features_converted[i]"
         func:
-          _target_: rbyte.io.DataFrameQuery
+          _target_: hydra.utils.get_method
+          path: polars.DataFrame.sql
+        bound:
           query: |
             SELECT * FROM self ORDER BY timestamp
 
@@ -182,10 +186,12 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         renames:
-          input: with_waypoints_normalized
+          self: with_waypoints_normalized
         output_name: filtered
         mapspec: "with_waypoints_normalized[i] -> filtered[i]"
         func:
-          _target_: rbyte.io.DataFrameFilter
-          predicate: |
-            `meta/_idx_` between 115 and 135
+          _target_: hydra.utils.get_method
+          path: polars.DataFrame.sql
+        bound:
+          query: |
+            SELECT * FROM self WHERE `meta/_idx_` BETWEEN 115 and 135

@@ -110,10 +110,12 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         renames:
-          input: aligned
+          self: aligned
         output_name: samples
         mapspec: "aligned[i] -> samples[i]"
         func:
-          _target_: rbyte.io.DataFrameFilter
-          predicate: |
-            `/odom/vel.x` >= 8
+          _target_: hydra.utils.get_method
+          path: polars.DataFrame.sql
+        bound:
+          query: |
+            SELECT * FROM self WHERE `/odom/vel.x` >= 8
