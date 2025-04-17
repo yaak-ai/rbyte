@@ -104,7 +104,7 @@ samples:
         mapspec: "mcap_path[i] -> mcap[i]"
         func:
           _target_: rbyte.io.McapDataFrameBuilder
-          decoder_factories: [rbyte.utils._mcap.ProtobufDecoderFactory]
+          decoder_factories: [rbyte.io.ProtobufMcapDecoderFactory]
           fields:
             /ai/safety_score:
               clip.end_timestamp:

@@ -1,6 +1,6 @@
 [project]
 name = "rbyte"
-version = "0.18.2"
+version = "0.19.0"
 description = "Multimodal PyTorch dataset library"
 authors = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 maintainers = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]

@@ -9,7 +9,7 @@ from structlog import get_logger
 logger = get_logger(__name__)
 
 
-class JsonDecoderFactory(McapDecoderFactory):
+class JsonMcapDecoderFactory(McapDecoderFactory):
     @override
     def decoder_for(
         self, message_encoding: str, schema: Schema | None

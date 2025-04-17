@@ -54,8 +54,8 @@ samples:
         func:
           _target_: rbyte.io.McapDataFrameBuilder
           decoder_factories:
-            - rbyte.utils._mcap.ProtobufDecoderFactory
-            - rbyte.utils._mcap.JsonDecoderFactory
+            - rbyte.io.ProtobufMcapDecoderFactory
+            - rbyte.io.JsonMcapDecoderFactory
           fields:
             #@ for topic in camera_topics.values():
             (@=topic@):
