@@ -9,7 +9,7 @@ from rbyte.io.base import TensorSource
 
 
 @final
-class TorchCodecFrameSource(TensorSource):
+class TorchCodecFrameSource(TensorSource[int]):
     @validate_call
     def __init__(  # noqa: PLR0913
         self,

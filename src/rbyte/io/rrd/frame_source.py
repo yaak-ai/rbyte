@@ -14,7 +14,7 @@ from rbyte.io.base import TensorSource
 
 
 @final
-class RrdFrameSource(TensorSource):
+class RrdFrameSource(TensorSource[int]):
     @validate_call(config=BaseModel.model_config)
     def __init__(
         self,

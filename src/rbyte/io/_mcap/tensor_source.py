@@ -33,7 +33,7 @@ class MessageIndex:
 
 
 @final
-class McapTensorSource(TensorSource):
+class McapTensorSource(TensorSource[int]):
     @validate_call(config=BaseModel.model_config)
     def __init__(
         self,
