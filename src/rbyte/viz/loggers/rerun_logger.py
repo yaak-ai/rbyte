@@ -18,7 +18,9 @@ import rerun as rr
 import torch
 from hydra.utils import get_method, instantiate
 from pydantic import BeforeValidator, ConfigDict, Field, RootModel, validate_call
-from rerun._send_columns import TimeColumnLike as _TimeColumnLike  # noqa: PLC2701
+from rerun._send_columns import (
+    TimeColumnLike as _TimeColumnLike,  # pyright: ignore[reportPrivateImportUsage] # noqa: PLC2701
+)
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from tensordict import TensorClass, TensorDict

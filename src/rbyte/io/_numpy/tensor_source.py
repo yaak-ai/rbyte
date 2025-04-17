@@ -16,7 +16,7 @@ from rbyte.utils.tensor import pad_sequence
 
 
 @final
-class NumpyTensorSource(TensorSource):
+class NumpyTensorSource(TensorSource[object]):
     @validate_call(config=BaseModel.model_config)
     def __init__(
         self, path: PathLike[str], select: Sequence[str] | None = None

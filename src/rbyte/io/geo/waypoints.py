@@ -89,7 +89,9 @@ class WaypointNormalizer:
             .item()
         )
         lf = lf.with_columns(
-            st.from_xy(*self._columns.ego).st.set_srid(srid).alias(self._ego_column),
+            st.point(pl.concat_arr(self._columns.ego))
+            .st.set_srid(srid)
+            .alias(self._ego_column),
             st.geom(self._columns.waypoints).alias(self._columns.output),
         )
 

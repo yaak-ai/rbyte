@@ -10,7 +10,7 @@ from rbyte.io.base import TensorSource
 
 
 @final
-class Hdf5TensorSource(TensorSource):
+class Hdf5TensorSource(TensorSource[int]):
     @validate_call
     def __init__(self, path: FilePath, key: str) -> None:
         self._dataset = cast(Dataset, File(path)[key])

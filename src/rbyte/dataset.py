@@ -31,7 +31,7 @@ type Id = Annotated[
 
 
 class SourceConfig(BaseModel):
-    source: HydraConfig[TensorSource]
+    source: HydraConfig[TensorSource]  # pyright: ignore[reportMissingTypeArgument]
     index_column: str
 
 
@@ -143,7 +143,7 @@ class Dataset(TorchDataset[Batch]):
             source_data = {
                 row[Column.source_id]: pad_sequence(
                     [
-                        self._get_source(source)[idxs]
+                        self._get_source(source)[idxs]  # pyright: ignore[reportUnknownMemberType]
                         for (source, idxs) in zip(
                             row[Column.source_config],
                             row[Column.source_idxs],
@@ -201,8 +201,8 @@ class Dataset(TorchDataset[Batch]):
         return len(self.samples)
 
     @cache  # noqa: B019
-    def _get_source(self, config: str) -> TensorSource:  # noqa: PLR6301
-        return HydraConfig[TensorSource].model_validate_json(config).instantiate()
+    def _get_source(self, config: str) -> TensorSource:  # pyright: ignore[reportUnknownParameterType, reportMissingTypeArgument] # noqa: PLR6301
+        return HydraConfig[TensorSource].model_validate_json(config).instantiate()  # pyright: ignore[reportUnknownVariableType, reportMissingTypeArgument]
 
     @classmethod
     def _build_samples(cls, samples: PipelineConfig) -> pl.DataFrame:
@@ -213,7 +213,7 @@ class Dataset(TorchDataset[Batch]):
         input_ids, input_values = zip(*samples.inputs.items(), strict=False)
         outer = tree_structure(list(range(len(input_values))))  # pyright: ignore[reportArgumentType]
         inner = tree_structure(input_values[0])
-        inputs: dict[str, Any] = tree_transpose(outer, inner, input_values)  # pyright: ignore[reportArgumentType, reportAssignmentType]
+        inputs = tree_transpose(outer, inner, input_values)  # pyright: ignore[reportUnknownVariableType, reportArgumentType]
 
         executor: Executor | dict[OUTPUT_TYPE, Executor] = tree_map(  # pyright: ignore[reportAssignmentType]
             HydraConfig[Executor].instantiate,
@@ -221,7 +221,7 @@ class Dataset(TorchDataset[Batch]):
         )
 
         results = pipeline.map(
-            inputs=inputs,
+            inputs=inputs,  # pyright: ignore[reportArgumentType]
             executor=executor,
             **samples.model_dump(exclude={"pipeline", "inputs", "executor"}),
         )
@@ -261,7 +261,7 @@ class Dataset(TorchDataset[Batch]):
                             source_cfg.model_dump(exclude={"source"})
                             | {
                                 "id": source_id,
-                                "config": source_cfg.source.model_dump_json(
+                                "config": source_cfg.source.model_dump_json(  # pyright: ignore[reportUnknownMemberType]
                                     by_alias=True
                                 ),
                             }

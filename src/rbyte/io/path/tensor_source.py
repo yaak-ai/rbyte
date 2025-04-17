@@ -13,7 +13,7 @@ from rbyte.io.base import TensorSource
 
 
 @final
-class PathTensorSource(TensorSource):
+class PathTensorSource(TensorSource[object]):
     @validate_call
     def __init__(
         self, path: PathLike[str], decoder: Callable[[bytes], npt.ArrayLike]

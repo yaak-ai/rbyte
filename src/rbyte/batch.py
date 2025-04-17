@@ -10,7 +10,7 @@ from torch import Tensor
 
 class BatchMeta(TensorClass, autocast=True):  # pyright: ignore[reportGeneralTypeIssues, reportCallIssue]
     sample_idx: Tensor | None = None
-    input_id: NonTensorData | None = None  # pyright: ignore[reportUnknownVariableType]
+    input_id: NonTensorData | None = None
 
 
 class Batch(TensorClass, autocast=True):  # pyright: ignore[reportGeneralTypeIssues, reportCallIssue]
