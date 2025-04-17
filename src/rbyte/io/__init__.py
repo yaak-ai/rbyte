@@ -38,11 +38,21 @@ else:
     __all__ += ["Hdf5DataFrameBuilder", "Hdf5TensorSource"]
 
 try:
-    from ._mcap import McapDataFrameBuilder, McapTensorSource
+    from ._mcap import (
+        JsonMcapDecoderFactory,
+        McapDataFrameBuilder,
+        McapTensorSource,
+        ProtobufMcapDecoderFactory,
+    )
 except ImportError:
     pass
 else:
-    __all__ += ["McapDataFrameBuilder", "McapTensorSource"]
+    __all__ += [
+        "JsonMcapDecoderFactory",
+        "McapDataFrameBuilder",
+        "McapTensorSource",
+        "ProtobufMcapDecoderFactory",
+    ]
 
 try:
     from .rrd import RrdDataFrameBuilder, RrdFrameSource

@@ -4,7 +4,7 @@ from typing import override
 
 import more_itertools as mit
 import polars as pl
-from cachetools import cached
+from cachetools import LRUCache, cachedmethod
 from google.protobuf.descriptor_pb2 import FileDescriptorProto, FileDescriptorSet
 from google.protobuf.descriptor_pool import DescriptorPool
 from google.protobuf.message import Message
@@ -19,9 +19,10 @@ from structlog import get_logger
 logger = get_logger(__name__)
 
 
-class ProtobufDecoderFactory(McapDecoderFactory):
+class ProtobufMcapDecoderFactory(McapDecoderFactory):
     def __init__(self) -> None:
         self._handler_pool: HandlerPool = HandlerPool()
+        self._message_type_cache: LRUCache[bytes, type[Message]] = LRUCache(maxsize=32)
 
     @override
     def decoder_for(
@@ -43,9 +44,11 @@ class ProtobufDecoderFactory(McapDecoderFactory):
 
         return None
 
-    @staticmethod
-    @cached(cache={}, key=attrgetter("id"))
-    def _get_message_type(schema: Schema) -> type[Message]:
+    @cachedmethod(
+        cache=lambda self: self._message_type_cache,
+        key=lambda _, schema: hash(schema.data),  # pyright: ignore[reportUnknownArgumentType, reportUnknownLambdaType, reportUnknownMemberType]
+    )
+    def _get_message_type(self, schema: Schema) -> type[Message]:  # noqa: PLR6301
         fds = FileDescriptorSet.FromString(schema.data)
         pool = DescriptorPool()
         descriptor_by_name = mit.map_reduce(
