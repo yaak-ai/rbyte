@@ -3,11 +3,9 @@ from ._numpy import NumpyTensorSource
 from .dataframe import (
     DataFrameAligner,
     DataFrameConcater,
-    DataFrameFilter,
     DataFrameFpsResampler,
     DataFrameIndexer,
     DataFrameJoiner,
-    DataFrameQuery,
     DataFrameWithColumns,
     FixedWindowSampleBuilder,
 )
@@ -16,11 +14,9 @@ from .path import PathDataFrameBuilder, PathTensorSource
 __all__: list[str] = [
     "DataFrameAligner",
     "DataFrameConcater",
-    "DataFrameFilter",
     "DataFrameFpsResampler",
     "DataFrameIndexer",
     "DataFrameJoiner",
-    "DataFrameQuery",
     "DataFrameWithColumns",
     "FixedWindowSampleBuilder",
     "JsonDataFrameBuilder",

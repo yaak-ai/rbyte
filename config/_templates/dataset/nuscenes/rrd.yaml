@@ -104,10 +104,12 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         renames:
-          input: aligned
+          self: aligned
         output_name: samples
         mapspec: "aligned[i] -> samples[i]"
         func:
-          _target_: rbyte.io.DataFrameFilter
-          predicate: |
-            `/world/ego_vehicle/CAM_FRONT/timestamp` between '2018-07-24 03:28:48' and '2018-07-24 03:28:50'
+          _target_: hydra.utils.get_method
+          path: polars.DataFrame.sql
+        bound:
+          query: |
+            SELECT * FROM self WHERE `/world/ego_vehicle/CAM_FRONT/timestamp` BETWEEN '2018-07-24 03:28:48' and '2018-07-24 03:28:50'

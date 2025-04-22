@@ -131,10 +131,12 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         renames:
-          input: indexed
+          self: indexed
         output_name: samples
         mapspec: "indexed[i] -> samples[i]"
         func:
-          _target_: rbyte.io.DataFrameFilter
-          predicate: |
-            `control.throttle` > 0.5
+          _target_: hydra.utils.get_method
+          path: polars.DataFrame.sql
+        bound:
+          query: |
+            SELECT * FROM self WHERE `control.throttle` > 0.5
