@@ -67,27 +67,27 @@ _ALL = _ALL_TYPE()
 
 
 class Dataset(TorchDataset[Batch]):
-    _samples: pl.DataFrame
-    _sources: pl.DataFrame
-
-    @validate_call(config=BaseModel.model_config)
-    def __init__(self, sources: SourcesConfig, samples: PipelineConfig) -> None:
+    @validate_call
+    def __init__(
+        self, *, samples: PipelineConfig, sources: SourcesConfig | None = None
+    ) -> None:
         super().__init__()
 
         logger.debug("initializing dataset")
 
-        self._samples = self._build_samples(samples)
+        self._samples: pl.DataFrame = self._build_samples(samples)
         logger.debug("built samples", length=len(self._samples))
 
-        self._sources = self._build_sources(sources)
-        logger.debug("built sources")
+        self._sources: pl.DataFrame | None = (
+            self._build_sources(sources) if sources is not None else None
+        )
 
     @property
     def samples(self) -> pl.DataFrame:
         return self._samples
 
     @property
-    def sources(self) -> pl.DataFrame:
+    def sources(self) -> pl.DataFrame | None:
         return self._sources
 
     @validate_call(
@@ -119,42 +119,45 @@ class Dataset(TorchDataset[Batch]):
         batch_size = [samples.height]
 
         if subkeys_data := subkeys["data"]:
-            source_idx_cols = self._sources[Column.source_index_column].unique()
-            sources = (
-                samples.lazy()
-                .join(self.sources.lazy(), on=Column.input_id, how="left")
-                .with_columns(
-                    pl.coalesce(
-                        pl.when(pl.col(Column.source_index_column) == idx_col).then(
-                            idx_col
-                        )
-                        for idx_col in source_idx_cols
-                    ).alias(Column.source_idxs)
+            if self.sources is not None:
+                source_idx_cols = self.sources[Column.source_index_column].unique()
+                sources = (
+                    samples.lazy()
+                    .join(self.sources.lazy(), on=Column.input_id, how="left")
+                    .with_columns(
+                        pl.coalesce(
+                            pl.when(pl.col(Column.source_index_column) == idx_col).then(
+                                idx_col
+                            )
+                            for idx_col in source_idx_cols
+                        ).alias(Column.source_idxs)
+                    )
+                    .group_by(Column.source_id)
+                    .agg(Column.source_config, Column.source_idxs)
+                    .filter(
+                        True
+                        if _ALL in subkeys_data
+                        else pl.col(Column.source_id).is_in(subkeys_data)
+                    )
                 )
-                .group_by(Column.source_id)
-                .agg(Column.source_config, Column.source_idxs)
-                .filter(
-                    True
-                    if _ALL in subkeys_data
-                    else pl.col(Column.source_id).is_in(subkeys_data)
-                )
-            )
 
-            source_data = {
-                row[Column.source_id]: pad_sequence(
-                    [
-                        self._get_source(source)[idxs]  # pyright: ignore[reportUnknownMemberType]
-                        for (source, idxs) in zip(
-                            row[Column.source_config],
-                            row[Column.source_idxs],
-                            strict=True,
-                        )
-                    ],
-                    dim=1,
-                    value=torch.nan,
-                )
-                for row in sources.collect().iter_rows(named=True)
-            }
+                source_data = {
+                    row[Column.source_id]: pad_sequence(
+                        [
+                            self._get_source(source)[idxs]  # pyright: ignore[reportUnknownMemberType]
+                            for (source, idxs) in zip(
+                                row[Column.source_config],
+                                row[Column.source_idxs],
+                                strict=True,
+                            )
+                        ],
+                        dim=1,
+                        value=torch.nan,
+                    )
+                    for row in sources.collect().iter_rows(named=True)
+                }
+            else:
+                source_data = {}
 
             sample_data_cols = (
                 pl.all()
