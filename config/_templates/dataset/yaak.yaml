@@ -231,7 +231,7 @@ samples:
           path: polars.DataFrame.sql
         bound:
           query: |
-            SELECT * FROM self WHERE `meta/VehicleMotion/speed` > 44
+            SELECT * FROM self WHERE COLUMNS(*) IS NOT NULL AND `meta/VehicleMotion/speed` > 44
 
       #@ for i, camera in enumerate(cameras):
       - _target_: pipefunc.PipeFunc

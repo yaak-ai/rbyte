@@ -172,9 +172,21 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         renames:
-          input: aligned
+          self: aligned
+        output_name: filtered
+        mapspec: "aligned[i] -> filtered[i]"
+        func:
+          _target_: hydra.utils.get_method
+          path: polars.DataFrame.sql
+        bound:
+          query: |
+            SELECT * FROM self WHERE COLUMNS(*) IS NOT NULL AND `meta/_idx_` BETWEEN 115 AND 135
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input: filtered
         output_name: with_waypoints_normalized
-        mapspec: "aligned[i] -> with_waypoints_normalized[i]"
+        mapspec: "filtered[i] -> with_waypoints_normalized[i]"
         func:
           _target_: rbyte.io.WaypointNormalizer
           srid: 0
@@ -183,15 +195,3 @@ samples:
             waypoints: waypoints/waypoints
             heading: waypoints/heading
             output: waypoints/waypoints_normalized
-
-      - _target_: pipefunc.PipeFunc
-        renames:
-          self: with_waypoints_normalized
-        output_name: filtered
-        mapspec: "with_waypoints_normalized[i] -> filtered[i]"
-        func:
-          _target_: hydra.utils.get_method
-          path: polars.DataFrame.sql
-        bound:
-          query: |
-            SELECT * FROM self WHERE `meta/_idx_` BETWEEN 115 and 135

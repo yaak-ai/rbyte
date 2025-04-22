@@ -99,19 +99,13 @@ class DataFrameAligner:
                     case AsofColumnAlignConfig(strategy=strategy, tolerance=tolerance):
                         right_on = key if key == column else uuid4().hex
 
-                        df = (
-                            df.join_asof(
-                                other=other.select({key, column}).rename({
-                                    key: right_on
-                                }),
-                                left_on=left_on,
-                                right_on=right_on,
-                                strategy=strategy,
-                                tolerance=tolerance,
-                            )
-                            .drop_nulls(column)
-                            .drop({right_on} - {key})
-                        )
+                        df = df.join_asof(
+                            other=other.select({key, column}).rename({key: right_on}),
+                            left_on=left_on,
+                            right_on=right_on,
+                            strategy=strategy,
+                            tolerance=tolerance,
+                        ).drop({right_on} - {key})
 
                     case InterpColumnAlignConfig():
                         if key == column:
@@ -135,6 +129,6 @@ class DataFrameAligner:
                             # narrow back to original ref col
                             .join(df.select(left_on), on=left_on, how="semi")
                             .sort(left_on)
-                        ).drop_nulls(column)
+                        )
 
         return df
