@@ -142,9 +142,21 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         renames:
-          input: aligned
+          self: aligned
+        output_name: filtered
+        mapspec: "aligned[i] -> filtered[i]"
+        func:
+          _target_: hydra.utils.get_method
+          path: polars.DataFrame.sql
+        bound:
+          query: |
+            SELECT * FROM self WHERE COLUMNS(*) IS NOT NULL
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input: filtered
         output_name: samples
-        mapspec: "aligned[i] -> samples[i]"
+        mapspec: "filtered[i] -> samples[i]"
         func:
           _target_: rbyte.io.FixedWindowSampleBuilder
           index_column: camera_front_blur_meta/timestamp

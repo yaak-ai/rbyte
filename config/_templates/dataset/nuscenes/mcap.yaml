@@ -118,4 +118,4 @@ samples:
           path: polars.DataFrame.sql
         bound:
           query: |
-            SELECT * FROM self WHERE `/odom/vel.x` >= 8
+            SELECT * FROM self WHERE COLUMNS(*) IS NOT NULL AND `/odom/vel.x` >= 8

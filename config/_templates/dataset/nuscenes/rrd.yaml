@@ -112,4 +112,4 @@ samples:
           path: polars.DataFrame.sql
         bound:
           query: |
-            SELECT * FROM self WHERE `/world/ego_vehicle/CAM_FRONT/timestamp` BETWEEN '2018-07-24 03:28:48' and '2018-07-24 03:28:50'
+            SELECT * FROM self WHERE COLUMNS(*) IS NOT NULL AND `/world/ego_vehicle/CAM_FRONT/timestamp` BETWEEN '2018-07-24 03:28:48' AND '2018-07-24 03:28:50'
