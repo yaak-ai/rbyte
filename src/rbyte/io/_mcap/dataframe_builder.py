@@ -81,17 +81,12 @@ class McapDataFrameBuilder:
                 logger.error(msg := "missing summary")
                 raise ValueError(msg)
 
-            topics = self._fields.keys()
-            if missing_topics := topics - (
-                available_topics := {ch.topic for ch in summary.channels.values()}
-            ):
-                with bound_contextvars(
-                    missing_topics=sorted(missing_topics),
-                    available_topics=sorted(available_topics),
-                ):
-                    logger.error(msg := "missing topics")
-                    raise ValueError(msg)
+            topics_requested = self._fields.keys()
+            topics_available = {channel.topic for channel in summary.channels.values()}
+            if topics_missing := (topics_requested - topics_available):
+                logger.warning("missing topics", topics=topics_missing)
 
+            topics = topics_requested & topics_available
             message_count = (
                 sum(
                     stats.channel_message_counts[channel.id]
