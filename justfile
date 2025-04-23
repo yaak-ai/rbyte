@@ -41,7 +41,10 @@ generate-config:
         --output yaml \
         --strict
 
-test *ARGS: build generate-config
+install-duckdb-extensions:
+    uv run python -c "import duckdb; duckdb.connect().install_extension('spatial')"
+
+test *ARGS: build generate-config install-duckdb-extensions
     uv run --all-extras pytest --capture=no {{ ARGS }}
 
 notebook FILE *ARGS: sync generate-config

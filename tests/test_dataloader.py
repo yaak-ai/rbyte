@@ -37,13 +37,11 @@ def test_carla_garage() -> None:
         case {
             "data": {
                 "rgb": Tensor(shape=[c.B, *_]),
-                "meta/_idx_": Tensor(shape=[c.B, *_]),
-                "meta/brake": Tensor(shape=[c.B, *_]),
-                "meta/pos_global_x": Tensor(shape=[c.B, *_]),
-                "meta/pos_global_y": Tensor(shape=[c.B, *_]),
-                "meta/steer": Tensor(shape=[c.B, *_]),
-                "meta/throttle": Tensor(shape=[c.B, *_]),
-                "meta/speed": Tensor(shape=[c.B, *_]),
+                "measurements/_idx_": Tensor(shape=[c.B, *_]),
+                "measurements/brake": Tensor(shape=[c.B, *_]),
+                "measurements/steer": Tensor(shape=[c.B, *_]),
+                "measurements/throttle": Tensor(shape=[c.B, *_]),
+                "measurements/speed": Tensor(shape=[c.B, *_]),
                 "waypoints/heading": Tensor(shape=[c.B, *_]),
                 "waypoints/waypoints": Tensor(shape=[c.B, *_]),
                 "waypoints/waypoints_normalized": Tensor(shape=[c.B, *_]),
@@ -249,7 +247,6 @@ def test_yaak() -> None:
                 "meta/ImageMetadata.cam_right_backward/frame_idx": Tensor(
                     shape=[c.B, *_]
                 ),
-                "meta/VehicleMotion/gear": Tensor(shape=[c.B, *_]),
                 "meta/VehicleMotion/speed": Tensor(shape=[c.B, *_]),
                 "meta/Gnss/latitude": Tensor(shape=[c.B, *_]),
                 "meta/Gnss/longitude": Tensor(shape=[c.B, *_]),

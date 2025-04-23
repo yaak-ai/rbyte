@@ -1,17 +1,13 @@
 from .aligner import DataFrameAligner
 from .concater import DataFrameConcater
-from .fps_resampler import DataFrameFpsResampler
 from .indexer import DataFrameIndexer
-from .joiner import DataFrameJoiner
 from .sample_builder import FixedWindowSampleBuilder
-from .sql import DataFrameWithColumns
+from .sql import DataFrameDuckDbQuery
 
 __all__ = [
     "DataFrameAligner",
     "DataFrameConcater",
-    "DataFrameFpsResampler",
+    "DataFrameDuckDbQuery",
     "DataFrameIndexer",
-    "DataFrameJoiner",
-    "DataFrameWithColumns",
     "FixedWindowSampleBuilder",
 ]

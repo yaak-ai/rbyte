@@ -32,6 +32,11 @@ class VideoDataFrameBuilder:
 
     def _build(self, path: PathLike[str]) -> pl.DataFrame:
         decoder = VideoDecoder(Path(path).resolve().as_posix())
-        data = pl.arange(decoder.metadata.num_frames, eager=True)  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportUnknownArgumentType]
+        match num_frames := decoder.metadata.num_frames:
+            case int():
+                data = pl.arange(num_frames, eager=True)
+
+            case None:
+                raise RuntimeError
 
         return pl.DataFrame(data=data, schema=self._fields)  # pyright: ignore[reportArgumentType]
