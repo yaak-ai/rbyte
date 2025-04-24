@@ -24,7 +24,7 @@ class RrdFrameSource(TensorSource[int]):
         entity_path: str,
         decoder: Callable[[bytes], npt.ArrayLike],
     ) -> None:
-        recording = rr.dataframe.load_recording(path)  # pyright: ignore[reportUnknownMemberType]
+        recording = rr.dataframe.load_recording(path)
         view = recording.view(index=index, contents={entity_path: [Blob]})
         reader = view.select(columns=[index, f"{entity_path}:{Blob.__name__}"])
 

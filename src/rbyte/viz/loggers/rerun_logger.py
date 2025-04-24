@@ -123,18 +123,20 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
         application_id: str | tuple[str, ...],
         schema: Schema,
         spawn: bool = True,
+        port: int = 9876,
     ) -> None:
         super().__init__()
 
         self._application_id: str | tuple[str, ...] = application_id
         self._schema: Schema = schema
         self._spawn: bool = spawn
+        self._port: int = port
 
     @cache  # noqa: B019
     def _get_recording(self, application_id: str) -> rr.RecordingStream:
-        recording = rr.new_recording(
-            application_id, spawn=self._spawn, make_default=True
-        )
+        recording = rr.RecordingStream(application_id, make_default=True)
+        if self._spawn:
+            recording.spawn(port=self._port)
 
         for path, items in self._schema.static.items():
             rr.log(
@@ -195,6 +197,7 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
                 case rr.Points3D.columns:
                     match (tensor := kwargs[key := "positions"]).shape:
                         case (3,):
+                            kwargs[key] = tensor.view(-1, 3)
                             return config.instantiate(**kwargs.cpu().numpy())  # pyright: ignore[reportUnknownMemberType]
 
                         case (*batch_dims, n, 3):

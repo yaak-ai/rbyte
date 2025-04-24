@@ -14,7 +14,7 @@ class TorchCodecFrameSource(TensorSource[int]):
     def __init__(  # noqa: PLR0913
         self,
         *,
-        source: FilePath,
+        source: FilePath | str,
         stream_index: int | None = None,
         dimension_order: Literal["NCHW", "NHWC"] = "NCHW",
         num_ffmpeg_threads: int = 1,
