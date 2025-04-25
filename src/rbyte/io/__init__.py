@@ -1,12 +1,10 @@
-from ._json import JsonDataFrameBuilder
+from ._duckdb import DuckDbDataFrameBuilder
 from ._numpy import NumpyTensorSource
 from .dataframe import (
     DataFrameAligner,
     DataFrameConcater,
-    DataFrameFpsResampler,
+    DataFrameDuckDbQuery,
     DataFrameIndexer,
-    DataFrameJoiner,
-    DataFrameWithColumns,
     FixedWindowSampleBuilder,
 )
 from .path import PathDataFrameBuilder, PathTensorSource
@@ -14,12 +12,10 @@ from .path import PathDataFrameBuilder, PathTensorSource
 __all__: list[str] = [
     "DataFrameAligner",
     "DataFrameConcater",
-    "DataFrameFpsResampler",
+    "DataFrameDuckDbQuery",
     "DataFrameIndexer",
-    "DataFrameJoiner",
-    "DataFrameWithColumns",
+    "DuckDbDataFrameBuilder",
     "FixedWindowSampleBuilder",
-    "JsonDataFrameBuilder",
     "NumpyTensorSource",
     "PathDataFrameBuilder",
     "PathTensorSource",
@@ -73,8 +69,8 @@ else:
 
 
 try:
-    from .geo import GeoDataFrameBuilder, WaypointBuilder, WaypointNormalizer
+    from .geo import WaypointBuilder, WaypointNormalizer
 except ImportError:
     pass
 else:
-    __all__ += ["GeoDataFrameBuilder", "WaypointBuilder", "WaypointNormalizer"]
+    __all__ += ["WaypointBuilder", "WaypointNormalizer"]

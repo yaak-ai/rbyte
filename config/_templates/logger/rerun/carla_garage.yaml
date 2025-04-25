@@ -25,13 +25,13 @@ schema:
 
   _idx_:
     _target_: rerun.TimeSequenceColumn
-    times: [data, "meta/_idx_"]
+    times: [data, "measurements/_idx_"]
 
   #@ for entity, key in {
-  #@     "brake": "meta/brake",
-  #@     "steer": "meta/steer",
-  #@     "throttle": "meta/throttle",
-  #@     "speed": "meta/speed",
+  #@     "brake": "measurements/brake",
+  #@     "steer": "measurements/steer",
+  #@     "throttle": "measurements/throttle",
+  #@     "speed": "measurements/speed",
   #@     "heading": "waypoints/heading",
   #@ }.items():
   (@=entity@):

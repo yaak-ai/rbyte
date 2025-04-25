@@ -3,7 +3,7 @@ from typing import final
 from uuid import uuid4
 
 import polars as pl
-from polars._typing import ClosedInterval  # pyright: ignore[reportPrivateImportUsage]
+from polars._typing import ClosedInterval
 from pydantic import PositiveInt, validate_call
 from structlog import get_logger
 

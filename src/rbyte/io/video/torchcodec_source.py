@@ -43,4 +43,4 @@ class TorchCodecFrameSource(TensorSource[int]):
 
     @override
     def __len__(self) -> int:
-        return self._decoder.metadata.num_frames  # pyright: ignore[reportAttributeAccessIssue, reportUnknownVariableType, reportUnknownMemberType]
+        return self._decoder.metadata.num_frames or 0

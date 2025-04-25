@@ -16,7 +16,7 @@ sources:
   (@=input_id@):
     #@ for source_id in cameras:
     (@=source_id@):
-      index_column: meta/_idx_
+      index_column: measurements/_idx_
       source:
         _target_: rbyte.io.PathTensorSource
         path: "${data_dir}/(@=input_id@)/(@=source_id@)/{:04d}.jpg"
@@ -38,10 +38,7 @@ samples:
       waypoints_path: ${data_dir}/(@=input_id@)/waypoints.json
     #@ end
 
-  executor:
-    _target_: concurrent.futures.ThreadPoolExecutor
-
-  storage: dict
+  parallel: false
   pipeline:
     _target_: pipefunc.Pipeline
     validate_type_annotations: false
@@ -49,79 +46,42 @@ samples:
       - _target_: pipefunc.PipeFunc
         renames:
           path: measurements_path
-        output_name: records
-        output_picker:
-          _target_: hydra.utils.get_method
-          path: builtins.dict.get
-        mapspec: "measurements_path[i] -> records[i]"
+        output_name: measurements
+        mapspec: "measurements_path[i] -> measurements[i]"
         func:
-          _target_: rbyte.io.JsonDataFrameBuilder
-          fields:
-            records:
-              speed:
-              steer:
-              throttle:
-              brake:
-                _target_: polars.Float32 # in data it's just 0 and 1
-              pos_global:
-
-      - _target_: pipefunc.PipeFunc
-        renames:
-          self: records
-        output_name: records_converted
-        mapspec: "records[i] -> records_converted[i]"
-        func:
-          _target_: hydra.utils.get_method
-          path: polars.DataFrame.sql
+          _target_: rbyte.io.DuckDbDataFrameBuilder
         bound:
           query: |
-            SELECT
-              speed,
-              steer,
-              throttle,
-              brake,
-              array_get(pos_global, 2) as pos_global_x,
-              array_get(pos_global, 1) as pos_global_y
-            FROM self
-
-      - _target_: pipefunc.PipeFunc
-        renames:
-          input: records_converted
-        output_name: meta
-        mapspec: "records_converted[i] -> meta[i]"
-        func:
-          _target_: rbyte.io.DataFrameIndexer
-          name: _idx_
-          dtype:
-            _target_: polars.Int32
+            LOAD spatial;
+            SELECT (row_number() OVER () - 1) as _idx_,
+                   speed,
+                   steer,
+                   throttle,
+                   brake::DOUBLE AS brake,
+                   ST_AsWKB(ST_Point(pos_global[2], pos_global[1])) AS pos_global
+            FROM (SELECT unnest(records, recursive := true)
+                  FROM read_json('{path}')
+            )
 
       - _target_: pipefunc.PipeFunc
         renames:
           path: waypoints_path
-        output_name: features
-        mapspec: "waypoints_path[i] -> features[i]"
+        output_name: waypoints_raw
+        mapspec: "waypoints_path[i] -> waypoints_raw[i]"
         func:
-          _target_: rbyte.io.GeoDataFrameBuilder
-          srid: 0
-          columns: [heading, timestamp, geometry]
-
-      - _target_: pipefunc.PipeFunc
-        renames:
-          self: features
-        output_name: features_converted
-        mapspec: "features[i] -> features_converted[i]"
-        func:
-          _target_: hydra.utils.get_method
-          path: polars.DataFrame.sql
+          _target_: rbyte.io.DuckDbDataFrameBuilder
         bound:
           query: |
-            SELECT * FROM self ORDER BY timestamp
+            LOAD spatial;
+            SELECT timestamp, heading, ST_AsWKB(geom) AS geometry
+            FROM ST_Read('{path}')
+            ORDER BY timestamp
 
       - _target_: pipefunc.PipeFunc
         renames:
-          input: features_converted
+          input: waypoints_raw
         output_name: waypoints
-        mapspec: "features_converted[i] -> waypoints[i]"
+        mapspec: "waypoints_raw[i] -> waypoints[i]"
         func:
           _target_: rbyte.io.WaypointBuilder
           length: 10
@@ -131,10 +91,10 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         output_name: data
-        mapspec: "meta[i], waypoints[i] -> data[i]"
+        mapspec: "measurements[i], waypoints[i] -> data[i]"
         func:
           _target_: pipefunc.helpers.collect_kwargs
-          parameters: [meta, waypoints]
+          parameters: [measurements, waypoints]
           function_name: aggregate
 
       - _target_: pipefunc.PipeFunc
@@ -146,18 +106,18 @@ samples:
           _target_: rbyte.io.DataFrameAligner
           separator: /
           fields:
-            meta:
+            measurements:
               key: _idx_
               columns:
-                records.speed:
+                speed:
                   method: interp
-                records.steer:
+                steer:
                   method: interp
-                records.throttle:
+                throttle:
                   method: interp
-                records.brake:
+                brake:
                   method: interp
-                records.pos_global:
+                pos_global:
                   method: asof
                   strategy: nearest
 
@@ -172,26 +132,25 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         renames:
-          self: aligned
+          input: aligned
+        output_name: with_waypoints_normalized
+        mapspec: "aligned[i] -> with_waypoints_normalized[i]"
+        func:
+          _target_: rbyte.io.WaypointNormalizer
+          columns:
+            ego: measurements/pos_global
+            waypoints: waypoints/waypoints
+            heading: waypoints/heading
+            output: waypoints/waypoints_normalized
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          self: with_waypoints_normalized
         output_name: filtered
-        mapspec: "aligned[i] -> filtered[i]"
+        mapspec: "with_waypoints_normalized[i] -> filtered[i]"
         func:
           _target_: hydra.utils.get_method
           path: polars.DataFrame.sql
         bound:
           query: |
-            SELECT * FROM self WHERE COLUMNS(*) IS NOT NULL AND `meta/_idx_` BETWEEN 115 AND 135
-
-      - _target_: pipefunc.PipeFunc
-        renames:
-          input: filtered
-        output_name: with_waypoints_normalized
-        mapspec: "filtered[i] -> with_waypoints_normalized[i]"
-        func:
-          _target_: rbyte.io.WaypointNormalizer
-          srid: 0
-          columns:
-            ego: [meta/pos_global_x, meta/pos_global_y]
-            waypoints: waypoints/waypoints
-            heading: waypoints/heading
-            output: waypoints/waypoints_normalized
+            SELECT * EXCLUDE `measurements/pos_global` FROM self WHERE COLUMNS(*) IS NOT NULL AND `measurements/_idx_` BETWEEN 115 AND 135

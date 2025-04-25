@@ -1,16 +1,20 @@
+from collections.abc import Mapping
 from typing import final
 
+import duckdb
 import polars as pl
-from pydantic import validate_call
+from pydantic import InstanceOf, validate_call
 
 
 @final
-class DataFrameWithColumns:
+class DataFrameDuckDbQuery:
     __name__ = __qualname__
 
     @validate_call
-    def __init__(self, **sql_exprs: str) -> None:
-        self._named_exprs = {k: pl.sql_expr(v) for k, v in sql_exprs.items()}
+    def __call__(
+        self, *, query: str, context: Mapping[str, InstanceOf[pl.DataFrame]]
+    ) -> pl.DataFrame:
+        for k, v in context.items():
+            duckdb.register(k, v)  # pyright: ignore[reportUnusedCallResult]
 
-    def __call__(self, input: pl.DataFrame) -> pl.DataFrame:
-        return input.with_columns(**self._named_exprs)
+        return duckdb.sql(query).pl()

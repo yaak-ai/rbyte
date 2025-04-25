@@ -8,9 +8,7 @@ import polars as pl
 import torch
 from optree import tree_map, tree_structure, tree_transpose
 from pipefunc import Pipeline
-from pipefunc._pipeline._types import (
-    OUTPUT_TYPE,  # pyright: ignore[reportPrivateImportUsage]
-)
+from pipefunc._pipeline._types import OUTPUT_TYPE
 from pydantic import ConfigDict, StringConstraints, validate_call
 from structlog import get_logger
 from tensordict import TensorDict

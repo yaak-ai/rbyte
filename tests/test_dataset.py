@@ -36,7 +36,6 @@ def test_yaak() -> None:
                 "meta/ImageMetadata.cam_right_backward/frame_idx": Tensor(
                     shape=[c.B, *_]
                 ),
-                "meta/VehicleMotion/gear": Tensor(shape=[c.B, *_]),
                 "meta/VehicleMotion/speed": Tensor(shape=[c.B, *_]),
                 "meta/Gnss/latitude": Tensor(shape=[c.B, *_]),
                 "meta/Gnss/longitude": Tensor(shape=[c.B, *_]),
