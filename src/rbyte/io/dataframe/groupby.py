@@ -1,4 +1,6 @@
+from collections.abc import Mapping
 from datetime import timedelta
+from functools import cached_property
 from typing import final
 from uuid import uuid4
 
@@ -11,7 +13,7 @@ logger = get_logger(__name__)
 
 
 @final
-class FixedWindowSampleBuilder:
+class DataFrameGroupByDynamic:
     """
     Build samples using `polars.DataFrame.group_by_dynamic`.
     """
@@ -19,27 +21,33 @@ class FixedWindowSampleBuilder:
     __name__ = __qualname__
 
     @validate_call
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         *,
         index_column: str,
         every: str | timedelta,
         period: str | timedelta | None = None,
         closed: ClosedInterval = "left",
-        gather_every: PositiveInt = 1,
-        length: PositiveInt | None = None,
+        gather_every: PositiveInt | Mapping[str, PositiveInt] | None = None,
     ) -> None:
         self._index_column_name = index_column
         self._index_column = pl.col(index_column)
         self._every = every
         self._period = period
         self._closed: ClosedInterval = closed
-        self._gather_every = gather_every
-        self._length_filter = (
-            (self._index_column.list.len() > 0)
-            if length is None
-            else (self._index_column.list.len() == length)
-        )
+
+        match gather_every:
+            case None:
+                self._agg = pl.all()
+
+            case int():
+                self._agg = pl.all().gather_every(gather_every)
+
+            case Mapping():
+                self._agg = [
+                    pl.exclude(gather_every.keys()),
+                    *(pl.col(k).gather_every(v) for k, v in gather_every.items()),
+                ]
 
     def __call__(self, input: pl.DataFrame) -> pl.DataFrame:
         result = self._build(input)
@@ -49,19 +57,24 @@ class FixedWindowSampleBuilder:
 
         return result
 
+    @cached_property
+    def _index_column_tmp(self) -> str:
+        return uuid4().hex
+
     def _build(self, input: pl.DataFrame) -> pl.DataFrame:
         return (
-            input.sort(self._index_column)
-            .with_columns(self._index_column.alias(_index_column := uuid4().hex))
+            input.lazy()
+            .sort(self._index_column)
+            .with_columns(self._index_column.alias(self._index_column_tmp))
             .group_by_dynamic(
-                index_column=_index_column,
+                index_column=self._index_column_tmp,
                 every=self._every,
                 period=self._period,
                 closed=self._closed,
                 label="datapoint",
                 start_by="datapoint",
             )
-            .agg(pl.all().gather_every(self._gather_every))
-            .filter(self._length_filter)
-            .drop(_index_column)
+            .agg(self._agg)
+            .drop(self._index_column_tmp)
+            .collect()
         )

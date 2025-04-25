@@ -4,8 +4,8 @@ from .dataframe import (
     DataFrameAligner,
     DataFrameConcater,
     DataFrameDuckDbQuery,
+    DataFrameGroupByDynamic,
     DataFrameIndexer,
-    FixedWindowSampleBuilder,
 )
 from .path import PathDataFrameBuilder, PathTensorSource
 
@@ -13,9 +13,9 @@ __all__: list[str] = [
     "DataFrameAligner",
     "DataFrameConcater",
     "DataFrameDuckDbQuery",
+    "DataFrameGroupByDynamic",
     "DataFrameIndexer",
     "DuckDbDataFrameBuilder",
-    "FixedWindowSampleBuilder",
     "NumpyTensorSource",
     "PathDataFrameBuilder",
     "PathTensorSource",
