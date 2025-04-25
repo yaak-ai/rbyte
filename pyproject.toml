@@ -1,6 +1,6 @@
 [project]
 name = "rbyte"
-version = "0.23.0"
+version = "0.23.1"
 description = "Multimodal PyTorch dataset library"
 authors = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 maintainers = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
@@ -39,13 +39,13 @@ repo = "https://github.com/yaak-ai/rbyte"
 [project.optional-dependencies]
 build = ["hatchling>=1.27.0"]
 protos = ["grpcio-tools>=1.70.0", "protoletariat>=3.3.10"]
-visualize = ["rerun-sdk[notebook]==0.22.1"]
+visualize = ["rerun-sdk[notebook]>=0.23.0"]
 mcap = ["mcap>=1.2.2", "mcap-protobuf-support>=0.5.3", "protobuf"]
-yaak = ["ptars>=0.0.3", "protobuf"]
+yaak = ["ptars>=0.0.5", "protobuf"]
 jpeg = ["simplejpeg>=1.8.2"]
-video = ["torchcodec>=0.2.1"]
+video = ["torchcodec>=0.3.0"]
 hdf5 = ["h5py>=3.13.0"]
-rrd = ["rerun-sdk==0.22.1", "pyarrow-stubs"]
+rrd = ["rerun-sdk>=0.23.0", "pyarrow-stubs"]
 geo = ["polars-st==0.1.0a27"]
 
 [tool.uv.sources]
@@ -65,7 +65,7 @@ explicit = true
 
 [[tool.uv.index]]
 name = "linux"
-url = "https://download.pytorch.org/whl/cu124"
+url = "https://download.pytorch.org/whl/cu126"
 explicit = true
 
 [project.scripts]

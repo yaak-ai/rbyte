@@ -87,11 +87,10 @@ visualize-nuscenes-rrd *ARGS:
 visualize-all: visualize-yaak visualize-zod visualize-mimicgen visualize-nuscenes-mcap visualize-nuscenes-rrd
 
 # rerun server and viewer
-rerun bind="0.0.0.0" port="9876" ws-server-port="9877" web-viewer-port="9090":
+rerun bind="0.0.0.0" port="9876" web-viewer-port="9090":
     RUST_LOG=debug uv run rerun \
     	--bind {{ bind }} \
     	--port {{ port }} \
-    	--ws-server-port {{ ws-server-port }} \
     	--web-viewer \
     	--web-viewer-port {{ web-viewer-port }} \
     	--memory-limit 95% \

@@ -38,7 +38,7 @@ class RrdDataFrameBuilder:
             return result
 
     def _build(self, path: PathLike[str]) -> dict[str, pl.DataFrame]:
-        recording = rrd.load_recording(path)  # pyright: ignore[reportUnknownMemberType]
+        recording = rrd.load_recording(path)
         schema = recording.schema()
 
         # Entity contents must include a non-static component to get index values.
