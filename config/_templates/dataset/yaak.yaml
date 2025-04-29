@@ -265,24 +265,25 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         renames:
-          self: with_waypoints_normalized
-        output_name: cleaned
-        mapspec: "with_waypoints_normalized[i] -> cleaned[i]"
+          input: with_waypoints_normalized
+        output_name: samples
+        mapspec: "with_waypoints_normalized[i] -> samples[i]"
+        func:
+          _target_: rbyte.io.DataFrameGroupByDynamic
+          index_column: meta/ImageMetadata.(@=cameras[0]@)/frame_idx
+          every: 6i
+          period: 6i
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          self: samples
+        output_name: samples_cleaned
+        mapspec: "samples[i] -> samples_cleaned[i]"
         func:
           _target_: hydra.utils.get_method
           path: polars.DataFrame.sql
         bound:
           query: |
-            SELECT * EXCLUDE `meta/Gnss/longitude_latitude` FROM self
-
-      - _target_: pipefunc.PipeFunc
-        renames:
-          input: cleaned
-        output_name: samples
-        mapspec: "cleaned[i] -> samples[i]"
-        func:
-          _target_: rbyte.io.FixedWindowSampleBuilder
-          index_column: meta/ImageMetadata.(@=cameras[0]@)/frame_idx
-          every: 6i
-          period: 6i
-          length: 6
+            SELECT * EXCLUDE `meta/Gnss/longitude_latitude`
+            FROM self
+            WHERE ARRAY_LENGTH(`meta/ImageMetadata.(@=cameras[0]@)/frame_idx`) == 6

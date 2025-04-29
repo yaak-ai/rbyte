@@ -158,6 +158,6 @@ samples:
         output_name: samples
         mapspec: "filtered[i] -> samples[i]"
         func:
-          _target_: rbyte.io.FixedWindowSampleBuilder
+          _target_: rbyte.io.DataFrameGroupByDynamic
           index_column: camera_front_blur_meta/timestamp
           every: 300ms
