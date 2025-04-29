@@ -2,14 +2,21 @@ from collections.abc import Sequence
 from concurrent.futures import Executor
 from enum import StrEnum, unique
 from functools import cache
-from typing import Annotated, Any, ClassVar, Literal, override
+from typing import Annotated, Any, ClassVar, Literal, Self, override
 
+import more_itertools as mit
 import polars as pl
 import torch
 from optree import tree_map, tree_structure, tree_transpose
 from pipefunc import Pipeline
 from pipefunc._pipeline._types import OUTPUT_TYPE
-from pydantic import ConfigDict, StringConstraints, validate_call
+from pydantic import (
+    ConfigDict,
+    RootModel,
+    StringConstraints,
+    model_validator,
+    validate_call,
+)
 from structlog import get_logger
 from tensordict import TensorDict
 from torch.utils.data import Dataset as TorchDataset
@@ -33,7 +40,33 @@ class SourceConfig(BaseModel):
     index_column: str
 
 
-type SourcesConfig = dict[Id, dict[Id, SourceConfig]]
+class SourcesConfig(RootModel[dict[Id, dict[Id, SourceConfig]]]):
+    @model_validator(mode="after")
+    def _validate_index_column(self) -> Self:
+        index_columns = {
+            input_id: tuple(
+                (source_id, source_cfg.index_column)
+                for source_id, source_cfg in input_source_cfg.items()
+            )
+            for input_id, input_source_cfg in self.root.items()
+        }
+
+        match list(mit.unique(index_columns.values())):
+            case []:
+                pass
+
+            case [input_index_columns]:
+                if not mit.all_unique(
+                    index_column for _, index_column in input_index_columns
+                ):
+                    msg = "`index_column` values not unique"
+                    raise ValueError(msg)
+
+            case _:
+                msg = "`index_column` values not consistent"
+                raise ValueError(msg)
+
+        return self
 
 
 class PipelineConfig(BaseModel):
@@ -248,10 +281,10 @@ class Dataset(TorchDataset[Batch]):
         )
 
     @classmethod
-    def _build_sources(cls, sources: dict[Id, dict[Id, SourceConfig]]) -> pl.DataFrame:
+    def _build_sources(cls, sources: SourcesConfig) -> pl.DataFrame:
         logger.debug("building sources")
 
-        input_id_enum = pl.Enum(categories=sources.keys())
+        input_id_enum = pl.Enum(categories=sources.root.keys())
 
         return (
             pl.DataFrame(
@@ -269,7 +302,7 @@ class Dataset(TorchDataset[Batch]):
                             for source_id, source_cfg in input_cfg.items()
                         ],
                     }
-                    for input_id, input_cfg in sources.items()
+                    for input_id, input_cfg in sources.root.items()
                 ],
                 schema_overrides={Column.input_id: input_id_enum},
             )
