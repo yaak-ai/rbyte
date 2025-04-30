@@ -37,12 +37,9 @@ def test_yaak() -> None:
                     shape=[c.B, *_]
                 ),
                 "meta/VehicleMotion/speed": Tensor(shape=[c.B, *_]),
-                "meta/Gnss/latitude": Tensor(shape=[c.B, *_]),
-                "meta/Gnss/longitude": Tensor(shape=[c.B, *_]),
                 "mcap//ai/safety_score/clip.end_timestamp": Tensor(shape=[c.B, *_]),
                 "mcap//ai/safety_score/score": Tensor(shape=[c.B, *_]),
                 "waypoints/heading": Tensor(shape=[c.B, *_]),
-                "waypoints/waypoints": Tensor(shape=[c.B, *_]),
                 "waypoints/waypoints_normalized": Tensor(shape=[c.B, *_]),
                 **data_rest,
             },

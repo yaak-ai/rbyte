@@ -196,9 +196,12 @@ class Dataset(TorchDataset[Batch]):
                 else pl.col(subkeys_data - source_data.keys())  # pyright: ignore[reportArgumentType]
             ).exclude(Column.sample_idx, Column.input_id)
 
-            sample_data = samples.select(sample_data_cols.to_physical()).to_dict(
-                as_series=False
-            )
+            samples_subset = samples.select(sample_data_cols.to_physical())
+
+            try:
+                sample_data = samples_subset.to_torch(return_type="dict")
+            except TypeError:
+                sample_data = samples_subset.to_dict(as_series=False)
 
             data = TensorDict(source_data | sample_data, batch_size=batch_size)  # pyright: ignore[reportArgumentType]
 
