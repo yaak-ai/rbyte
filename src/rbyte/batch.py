@@ -1,10 +1,6 @@
 from typing import Literal
 
-from tensordict import (
-    NonTensorData,  # pyright: ignore[reportAttributeAccessIssue, reportUnknownVariableType]
-    TensorClass,
-    TensorDict,
-)
+from tensordict import NonTensorData, TensorClass, TensorDict
 from torch import Tensor
 
 
