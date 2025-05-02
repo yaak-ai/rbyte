@@ -276,14 +276,21 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         renames:
-          self: samples
-        output_name: samples_cleaned
-        mapspec: "samples[i] -> samples_cleaned[i]"
+          df: samples
+        output_name: samples_cast
+        mapspec: "samples[i] -> samples_cast[i]"
         func:
-          _target_: hydra.utils.get_method
-          path: polars.DataFrame.sql
+          _target_: rbyte.io.DataFrameDuckDbQuery
         bound:
           query: |
-            SELECT * EXCLUDE `meta/Gnss/longitude_latitude`
-            FROM self
-            WHERE ARRAY_LENGTH(`meta/ImageMetadata.(@=cameras[0]@)/frame_idx`) == 6
+            SELECT "meta/ImageMetadata.cam_front_left/time_stamp"::TIMESTAMP[6] AS "meta/ImageMetadata.cam_front_left/time_stamp",
+                   "meta/ImageMetadata.cam_front_left/frame_idx"::INT32[6] AS "meta/ImageMetadata.cam_front_left/frame_idx",
+                   "meta/ImageMetadata.cam_left_backward/frame_idx"::INT32[6] AS "meta/ImageMetadata.cam_left_backward/frame_idx",
+                   "meta/ImageMetadata.cam_right_backward/frame_idx"::INT32[6] AS "meta/ImageMetadata.cam_right_backward/frame_idx",
+                   "meta/VehicleMotion/speed"::FLOAT[6] AS "meta/VehicleMotion/speed",
+                   "mcap//ai/safety_score/clip.end_timestamp"::TIMESTAMP[6] AS "mcap//ai/safety_score/clip.end_timestamp",
+                   "mcap//ai/safety_score/score"::FLOAT[6] AS "mcap//ai/safety_score/score",
+                   "waypoints/heading"::FLOAT[6] AS "waypoints/heading",
+                   "waypoints/waypoints_normalized"::FLOAT[2][10][6] AS "waypoints/waypoints_normalized",
+            FROM df
+            WHERE len("meta/ImageMetadata.cam_front_left/frame_idx") == 6

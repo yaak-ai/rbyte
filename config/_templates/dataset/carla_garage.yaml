@@ -145,12 +145,19 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         renames:
-          self: with_waypoints_normalized
-        output_name: filtered
-        mapspec: "with_waypoints_normalized[i] -> filtered[i]"
+          df: with_waypoints_normalized
+        output_name: samples
+        mapspec: "with_waypoints_normalized[i] -> samples[i]"
         func:
-          _target_: hydra.utils.get_method
-          path: polars.DataFrame.sql
+          _target_: rbyte.io.DataFrameDuckDbQuery
         bound:
           query: |
-            SELECT * EXCLUDE `measurements/pos_global` FROM self WHERE COLUMNS(*) IS NOT NULL AND `measurements/_idx_` BETWEEN 115 AND 135
+            SELECT "measurements/_idx_",
+                   "measurements/speed",
+                   "measurements/steer",
+                   "measurements/throttle",
+                   "measurements/brake",
+                   "waypoints/heading",
+                   "waypoints/waypoints_normalized"::FLOAT[2][10] AS "waypoints/waypoints_normalized",
+            FROM df
+            WHERE COLUMNS(*) IS NOT NULL AND "measurements/_idx_" BETWEEN 115 and 135
