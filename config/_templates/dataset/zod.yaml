@@ -2,6 +2,7 @@
 _target_: rbyte.Dataset
 _recursive_: false
 _convert_: all
+enable_batched_sampling: false
 sources:
   000002_short:
     camera_front_blur:
@@ -151,13 +152,3 @@ samples:
         bound:
           query: |
             SELECT * FROM self WHERE COLUMNS(*) IS NOT NULL
-
-      - _target_: pipefunc.PipeFunc
-        renames:
-          input: filtered
-        output_name: samples
-        mapspec: "filtered[i] -> samples[i]"
-        func:
-          _target_: rbyte.io.DataFrameGroupByDynamic
-          index_column: camera_front_blur_meta/timestamp
-          every: 300ms

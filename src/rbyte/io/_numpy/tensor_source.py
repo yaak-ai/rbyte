@@ -12,7 +12,6 @@ from torch import Tensor
 
 from rbyte.config.base import BaseModel
 from rbyte.io.base import TensorSource
-from rbyte.utils.tensor import pad_sequence
 
 
 @final
@@ -41,7 +40,7 @@ class NumpyTensorSource(TensorSource[object]):
             case Sequence():
                 tensors = map(self._getitem, indexes)  # pyright: ignore[reportUnknownArgumentType]
 
-                return pad_sequence(list(tensors), dim=0, value=torch.nan)
+                return torch.stack(list(tensors))
 
             case _:
                 return self._getitem(indexes)

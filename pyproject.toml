@@ -1,11 +1,11 @@
 [project]
 name = "rbyte"
-version = "0.25.0"
+version = "0.26.0"
 description = "Multimodal PyTorch dataset library"
 authors = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 maintainers = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 dependencies = [
-  "tensordict>=0.8.1",
+  "tensordict>=0.8.2",
   "torch",
   "numpy",
   "polars[pyarrow]>=1.29.0",

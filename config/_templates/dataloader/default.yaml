@@ -2,7 +2,8 @@
 _target_: torch.utils.data.DataLoader
 dataset: ${dataset}
 shuffle: false
-batch_size: 1
+batch_size: 2
+drop_last: false
 collate_fn:
   _target_: rbyte.utils.dataloader.collate_identity
   _partial_: true
