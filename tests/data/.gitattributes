@@ -5,5 +5,4 @@
 *.md filter= diff= merge= text
 *.mp4 filter=lfs diff=lfs merge=lfs -text
 *.npy filter=lfs diff=lfs merge=lfs -text
-*.rrd filter=lfs diff=lfs merge=lfs -text
 *.json filter=lfs diff=lfs merge=lfs -text

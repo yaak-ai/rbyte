@@ -80,7 +80,7 @@ class PathDataFrameBuilder:
 
     def _build(self, path: str) -> pl.DataFrame:
         return (
-            pl.LazyFrame({"path": scantree(path)})  # pyright: ignore[reportArgumentType]
+            pl.LazyFrame({"path": scantree(path)})
             .select(
                 pl.col("path")
                 .str.strip_prefix(path)

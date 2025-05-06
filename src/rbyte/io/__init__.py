@@ -47,13 +47,6 @@ else:
     ]
 
 try:
-    from .rrd import RrdDataFrameBuilder, RrdFrameSource
-except ImportError:
-    pass
-else:
-    __all__ += ["RrdDataFrameBuilder", "RrdFrameSource"]
-
-try:
     from .video import TorchCodecFrameSource, VideoDataFrameBuilder
 except ImportError:
     pass
