@@ -1,6 +1,6 @@
 ---
 defaults:
-  - /dataloader: torch
+  - /dataloader: default
   - /dataset: !!null
   - /logger: !!null
   - _self_

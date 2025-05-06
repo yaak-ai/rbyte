@@ -1,0 +1,9 @@
+---
+defaults:
+  - default
+  - _self_
+
+batch_size: 1
+collate_fn:
+  _target_: tensordict.stack
+  _partial_: true

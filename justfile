@@ -69,7 +69,7 @@ visualize-carla-garage *ARGS:
 
 [group('visualize')]
 visualize-zod *ARGS:
-    just visualize dataset=zod logger=rerun/zod ++data_dir={{ justfile_directory() }}/tests/data/zod {{ ARGS }}
+    just visualize dataloader=unbatched dataset=zod logger=rerun/zod ++data_dir={{ justfile_directory() }}/tests/data/zod {{ ARGS }}
 
 [group('visualize')]
 visualize-mimicgen *ARGS:
@@ -81,7 +81,7 @@ visualize-nuscenes-mcap *ARGS:
 
 [group('visualize')]
 visualize-nuscenes-rrd *ARGS:
-    just visualize dataset=nuscenes/rrd logger=rerun/nuscenes/rrd ++data_dir={{ justfile_directory() }}/tests/data/nuscenes/rrd {{ ARGS }}
+    just visualize dataloader=unbatched dataset=nuscenes/rrd logger=rerun/nuscenes/rrd ++data_dir={{ justfile_directory() }}/tests/data/nuscenes/rrd {{ ARGS }}
 
 [group('visualize')]
 visualize-all: visualize-yaak visualize-zod visualize-mimicgen visualize-nuscenes-mcap visualize-nuscenes-rrd

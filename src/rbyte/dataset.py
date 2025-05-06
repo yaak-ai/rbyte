@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from concurrent.futures import Executor
 from enum import StrEnum, unique
 from functools import cache
@@ -24,7 +24,6 @@ from torch.utils.data import Dataset as TorchDataset
 from rbyte.batch import BATCH_KEYS_DEFAULT, Batch, BatchKeys, BatchMeta
 from rbyte.config import BaseModel, HydraConfig
 from rbyte.io.base import TensorSource
-from rbyte.utils.tensor import pad_sequence
 
 __all__ = ["Dataset"]
 
@@ -100,7 +99,11 @@ _ALL = _ALL_TYPE()
 class Dataset(TorchDataset[Batch]):
     @validate_call
     def __init__(
-        self, *, samples: PipelineConfig, sources: SourcesConfig | None = None
+        self,
+        *,
+        samples: PipelineConfig,
+        sources: SourcesConfig | None = None,
+        enable_batched_sampling: bool = True,
     ) -> None:
         super().__init__()
 
@@ -112,6 +115,9 @@ class Dataset(TorchDataset[Batch]):
         self._sources: pl.DataFrame | None = (
             self._build_sources(sources) if sources is not None else None
         )
+
+        if enable_batched_sampling:
+            self.__getitems__: Callable[[Sequence[int]], Batch] = self._getitems
 
     @property
     def samples(self) -> pl.DataFrame:
@@ -173,18 +179,14 @@ class Dataset(TorchDataset[Batch]):
                 )
 
                 source_data = {
-                    row[Column.source_id]: pad_sequence(
-                        [
-                            self._get_source(source)[idxs]  # pyright: ignore[reportUnknownMemberType]
-                            for (source, idxs) in zip(
-                                row[Column.source_config],
-                                row[Column.source_idxs],
-                                strict=True,
-                            )
-                        ],
-                        dim=1,
-                        value=torch.nan,
-                    )
+                    row[Column.source_id]: torch.stack([
+                        self._get_source(source)[idxs]  # pyright: ignore[reportUnknownMemberType]
+                        for (source, idxs) in zip(
+                            row[Column.source_config],
+                            row[Column.source_idxs],
+                            strict=True,
+                        )
+                    ])
                     for row in sources.collect().iter_rows(named=True)
                 }
             else:
@@ -227,7 +229,7 @@ class Dataset(TorchDataset[Batch]):
 
         return Batch(data=data, meta=meta, batch_size=batch_size)
 
-    def __getitems__(self, index: Sequence[int]) -> Batch:  # noqa: PLW3201
+    def _getitems(self, index: Sequence[int]) -> Batch:
         return self.get_batch(index)
 
     @override

@@ -170,6 +170,7 @@ def test_nuscenes_rrd() -> None:
         cfg = compose(
             "visualize",
             overrides=[
+                "dataloader=unbatched",
                 "dataset=nuscenes/rrd",
                 "logger=rerun/nuscenes/rrd",
                 f"+data_dir={DATA_DIR}/nuscenes/rrd",
@@ -279,7 +280,12 @@ def test_zod() -> None:
     with initialize(version_base=None, config_path=CONFIG_PATH):
         cfg = compose(
             "visualize",
-            overrides=["dataset=zod", "logger=rerun/zod", f"+data_dir={DATA_DIR}/zod"],
+            overrides=[
+                "dataloader=unbatched",
+                "dataset=zod",
+                "logger=rerun/zod",
+                f"+data_dir={DATA_DIR}/zod",
+            ],
         )
 
     dataloader = instantiate(cfg.dataloader)
@@ -310,7 +316,7 @@ def test_zod() -> None:
             },
             "meta": {
                 "input_id": input_id,
-                "sample_idx": Tensor(shape=[c.B]),
+                "sample_idx": Tensor(shape=[c.B, *_]),
                 **meta_rest,
             },
             **batch_rest,
