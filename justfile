@@ -76,15 +76,11 @@ visualize-mimicgen *ARGS:
     just visualize dataset=mimicgen logger=rerun/mimicgen ++data_dir={{ justfile_directory() }}/tests/data/mimicgen {{ ARGS }}
 
 [group('visualize')]
-visualize-nuscenes-mcap *ARGS:
-    just visualize dataset=nuscenes/mcap logger=rerun/nuscenes/mcap ++data_dir={{ justfile_directory() }}/tests/data/nuscenes/mcap {{ ARGS }}
+visualize-nuscenes *ARGS:
+    just visualize dataset=nuscenes logger=rerun/nuscenes ++data_dir={{ justfile_directory() }}/tests/data/nuscenes {{ ARGS }}
 
 [group('visualize')]
-visualize-nuscenes-rrd *ARGS:
-    just visualize dataloader=unbatched dataset=nuscenes/rrd logger=rerun/nuscenes/rrd ++data_dir={{ justfile_directory() }}/tests/data/nuscenes/rrd {{ ARGS }}
-
-[group('visualize')]
-visualize-all: visualize-yaak visualize-zod visualize-mimicgen visualize-nuscenes-mcap visualize-nuscenes-rrd
+visualize-all: visualize-yaak visualize-zod visualize-mimicgen visualize-nuscenes
 
 # rerun server and viewer
 rerun bind="0.0.0.0" port="9876" web-viewer-port="9090":

@@ -4,7 +4,7 @@ import pytest
 from testbook import testbook
 
 
-@pytest.mark.parametrize("file", ["nuscenes_mcap.ipynb", "nuscenes_rrd.ipynb"])
+@pytest.mark.parametrize("file", ["nuscenes.ipynb"])
 def test_example(file: str) -> None:
     with pytest.MonkeyPatch.context() as mp:
         # hydra needs a relative `config_path`
