@@ -14,7 +14,10 @@ install-tools:
     uv tool install --force --upgrade basedpyright
     uv tool install --force --upgrade pre-commit --with pre-commit-uv
 
-setup: sync install-tools
+install-duckdb-extensions:
+    uv run python -c "import duckdb; duckdb.connect().install_extension('spatial')"
+
+setup: sync install-tools install-duckdb-extensions
     git submodule update --init --recursive --force --remote
     git lfs pull
     uvx pre-commit install --install-hooks
@@ -41,10 +44,7 @@ generate-config:
         --output yaml \
         --strict
 
-install-duckdb-extensions:
-    uv run python -c "import duckdb; duckdb.connect().install_extension('spatial')"
-
-test *ARGS: build generate-config install-duckdb-extensions
+test *ARGS: build generate-config
     uv run --all-extras pytest --capture=no {{ ARGS }}
 
 notebook FILE *ARGS: sync generate-config
