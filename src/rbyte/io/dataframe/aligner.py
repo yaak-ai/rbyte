@@ -40,7 +40,7 @@ class AlignConfig(BaseModel):
     columns: OrderedDict[str, ColumnAlignConfig] = Field(default_factory=OrderedDict)
 
 
-type Fields = AlignConfig | OrderedDict[str, Fields]
+type Fields = OrderedDict[str, AlignConfig | Fields]
 
 
 @final

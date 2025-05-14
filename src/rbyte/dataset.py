@@ -12,6 +12,7 @@ from pipefunc import Pipeline
 from pipefunc._pipeline._types import OUTPUT_TYPE
 from pydantic import (
     ConfigDict,
+    InstanceOf,
     RootModel,
     StringConstraints,
     model_validator,
@@ -68,15 +69,24 @@ class SourcesConfig(RootModel[dict[Id, dict[Id, SourceConfig]]]):
         return self
 
 
-class PipelineConfig(BaseModel):
+class BasePipelineConfig(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow")
-
-    pipeline: HydraConfig[Pipeline]
     inputs: dict[str, Any]
+    return_results: Literal[True] = True
+
+
+class PipelineInstanceConfig(BasePipelineConfig):
+    executor: InstanceOf[Executor] | dict[OUTPUT_TYPE, InstanceOf[Executor]] | None = (
+        None
+    )
+    pipeline: InstanceOf[Pipeline]
+
+
+class PipelineHydraConfig(BasePipelineConfig):
     executor: (
         HydraConfig[Executor] | dict[OUTPUT_TYPE, HydraConfig[Executor]] | None
     ) = None
-    return_results: Literal[True] = True
+    pipeline: HydraConfig[Pipeline]
 
 
 @unique
@@ -101,7 +111,7 @@ class Dataset(TorchDataset[Batch]):
     def __init__(
         self,
         *,
-        samples: PipelineConfig,
+        samples: PipelineInstanceConfig | PipelineHydraConfig,
         sources: SourcesConfig | None = None,
         enable_batched_sampling: bool = True,
     ) -> None:
@@ -244,20 +254,29 @@ class Dataset(TorchDataset[Batch]):
         return HydraConfig[TensorSource].model_validate_json(config).instantiate()  # pyright: ignore[reportUnknownVariableType, reportMissingTypeArgument]
 
     @classmethod
-    def _build_samples(cls, samples: PipelineConfig) -> pl.DataFrame:
+    def _build_samples(
+        cls, samples: PipelineInstanceConfig | PipelineHydraConfig
+    ) -> pl.DataFrame:
         logger.debug("building samples")
-        pipeline = samples.pipeline.instantiate()
+
+        match samples:
+            case PipelineInstanceConfig():
+                pipeline = samples.pipeline
+                executor = samples.executor
+
+            case PipelineHydraConfig():
+                pipeline = samples.pipeline.instantiate()
+                executor: Executor | dict[OUTPUT_TYPE, Executor] | None = tree_map(  # pyright: ignore[reportAssignmentType]
+                    HydraConfig[Executor].instantiate,
+                    samples.executor,  # pyright: ignore[reportArgumentType]
+                )
+
         pipeline.print_documentation()
 
         input_ids, input_values = zip(*samples.inputs.items(), strict=False)
         outer = tree_structure(list(range(len(input_values))))  # pyright: ignore[reportArgumentType]
         inner = tree_structure(input_values[0])
         inputs = tree_transpose(outer, inner, input_values)  # pyright: ignore[reportUnknownVariableType, reportArgumentType]
-
-        executor: Executor | dict[OUTPUT_TYPE, Executor] = tree_map(  # pyright: ignore[reportAssignmentType]
-            HydraConfig[Executor].instantiate,
-            samples.executor,  # pyright: ignore[reportArgumentType]
-        )
 
         results = pipeline.map(
             inputs=inputs,  # pyright: ignore[reportArgumentType]

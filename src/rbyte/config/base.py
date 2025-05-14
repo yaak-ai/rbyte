@@ -17,9 +17,13 @@ class BaseModel(_BaseModel):
 
 
 class HydraConfig[T](BaseModel):
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow")
+    model_config: ClassVar[ConfigDict] = ConfigDict(
+        extra="allow", populate_by_name=True
+    )
 
-    target: ImportString[type[T]] = Field(alias="_target_")
+    target: ImportString[type[T]] = Field(
+        serialization_alias="_target_", validation_alias="_target_"
+    )
     recursive: bool = Field(alias="_recursive_", default=True)
     convert: Literal["none", "partial", "object", "all"] = Field(
         alias="_convert_", default="all"
