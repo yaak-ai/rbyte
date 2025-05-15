@@ -44,7 +44,7 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "**/pyproject.toml"
 
-      - run: just sync
+      - run: uv sync --all-extras --group test
       - run: just build
       - run: just format --check
       - run: just lint

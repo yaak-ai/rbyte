@@ -207,6 +207,7 @@ samples:
                     tolerance: 500ms
                     strategy: nearest
                   score:
+                    method: asof
                     tolerance: 500ms
                     strategy: nearest
 
@@ -237,6 +238,7 @@ samples:
           _target_: rbyte.io.DataFrameDuckDbQuery
         bound:
           query: |
+            LOAD spatial;
             SELECT
               *,
               ST_AsWKB(ST_Transform(ST_Point("meta/Gnss/longitude", "meta/Gnss/latitude"), 'EPSG:4326', 'EPSG:3857')) as "meta/Gnss/longitude_latitude"

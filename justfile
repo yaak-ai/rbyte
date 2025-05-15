@@ -7,7 +7,7 @@ _default:
     @just --list --unsorted
 
 sync:
-    uv sync --all-extras --dev
+    uv sync --all-extras --all-groups
 
 install-tools:
     uv tool install --force --upgrade ruff

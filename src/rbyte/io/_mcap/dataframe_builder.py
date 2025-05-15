@@ -1,6 +1,7 @@
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from enum import StrEnum, unique
+from functools import cached_property
 from mmap import ACCESS_READ, mmap
 from operator import attrgetter
 from os import PathLike
@@ -24,10 +25,6 @@ logger = get_logger(__name__)
 
 type Fields = dict[str, dict[str, InstanceOf[DataType] | None]]
 
-type DecoderFactories = Sequence[
-    ImportString[type[DecoderFactory]] | type[DecoderFactory]
-]
-
 
 class RowValues(NamedTuple):
     topic: str
@@ -48,7 +45,8 @@ class McapDataFrameBuilder:
     def __init__(
         self,
         *,
-        decoder_factories: DecoderFactories,
+        decoder_factories: Sequence[ImportString[type[DecoderFactory]]]
+        | Sequence[type[DecoderFactory]],
         fields: Fields,
         validate_crcs: bool = True,
     ) -> None:
@@ -74,7 +72,7 @@ class McapDataFrameBuilder:
             reader = SeekingReader(
                 f,  # pyright: ignore[reportArgumentType]
                 validate_crcs=self._validate_crcs,
-                decoder_factories=[f() for f in self._decoder_factories],
+                decoder_factories=self._decoder_factories_instantiated,
             )
             summary = reader.get_summary()
             if summary is None:
@@ -151,3 +149,7 @@ class McapDataFrameBuilder:
                 return pl.from_dict({
                     field: attrgetter(field)(message) for field in fields
                 }).cast(df_schema)  # pyright: ignore[reportArgumentType]
+
+    @cached_property
+    def _decoder_factories_instantiated(self) -> tuple[DecoderFactory, ...]:
+        return tuple(f() for f in self._decoder_factories)
