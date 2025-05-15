@@ -133,6 +133,7 @@ samples:
         bound:
           query: |
             LOAD spatial;
+            SET TimeZone = 'UTC';
             SELECT TO_TIMESTAMP(timestamp)::TIMESTAMP as timestamp,
                    heading,
                    ST_AsWKB(ST_Transform(geom, 'EPSG:4326', 'EPSG:3857')) AS geometry
