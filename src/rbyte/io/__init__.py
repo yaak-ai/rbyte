@@ -47,11 +47,11 @@ else:
     ]
 
 try:
-    from .video import TorchCodecFrameSource, VideoDataFrameBuilder
+    from .video import HlsFrameSource, TorchCodecFrameSource, VideoDataFrameBuilder
 except ImportError:
     pass
 else:
-    __all__ += ["TorchCodecFrameSource", "VideoDataFrameBuilder"]
+    __all__ += ["HlsFrameSource", "TorchCodecFrameSource", "VideoDataFrameBuilder"]
 
 try:
     from .yaak.metadata import YaakMetadataDataFrameBuilder

@@ -1,51 +1,49 @@
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Literal, final, override
+from functools import cached_property
+from typing import Annotated, final, override
 
 import av
-import fsspec
 import m3u8
 import polars as pl
 import torch
-from av.container.input import InputContainer
-from pydantic import FilePath
+from pydantic import BeforeValidator, InstanceOf, validate_call
 from s3pathlib import S3Path
+from structlog import get_logger
+from torch import Tensor
 
 from rbyte.io.base import TensorSource
 
-if TYPE_CHECKING:
-    from av.video.frame import VideoFrame, VideoStream
-    from numpy import ndarray
+logger = get_logger(__name__)
 
 
 @final
-class HLSFrameSource(TensorSource[int]):
+class HlsFrameSource(TensorSource[int]):
+    @validate_call
     def __init__(
         self,
-        source: FilePath | str,
-        dimension_order: Literal["NCHW", "NHWC"] = "NCHW",
-        filesystem: str = "s3",
-        fps: int = 30,
+        *,
+        path: Annotated[InstanceOf[S3Path], BeforeValidator(S3Path.from_s3_uri)],
+        fps: int,
     ) -> None:
         super().__init__()
-        self.source: FilePath | str = source
-        self.dimension_order: Literal["NCHW", "NHWC"] = dimension_order
-        self.fs = fsspec.filesystem(filesystem)
-        self.fps: int = fps
-        self.segments = self._load_segments()
-        self.frame_index_table = self._build_frame_index_table()
-        self.num_frames = len(self.frame_index_table)
 
-    def _load_segments(self) -> m3u8.model.SegmentList:  # pyright: ignore[reportUnknownMemberType]
-        with self.fs.open(self.source, "r") as f:
-            playlist = m3u8.loads(f.read())
-        return playlist.segments
+        self._path = path
+        self._fps = fps
 
-    def _build_frame_index_table(self) -> pl.DataFrame:
-        frame_data: list = []
+    @cached_property
+    def _frame_index(self) -> pl.DataFrame:
+        with self._path.open("r") as f:  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+            playlist = m3u8.loads(f.read())  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
+
+        frame_data: list[tuple[int, str | None, int]] = []
         total_frames: int = 0
 
-        for segment in self.segments:
-            num_frames = round(segment.duration * self.fps)
+        for segment in playlist.segments:
+            if segment.uri is None or segment.duration is None:
+                logger.error(msg := "invalid segment", segment=segment)
+                raise RuntimeError(msg)
+
+            num_frames = round(segment.duration * self._fps)
             frame_data.extend(
                 (frame_idx, segment.uri, total_frames)
                 for frame_idx in range(total_frames, total_frames + num_frames)
@@ -53,60 +51,61 @@ class HLSFrameSource(TensorSource[int]):
             total_frames += num_frames
 
         return pl.DataFrame(
-            frame_data, schema=["frame_idx", "uri", "past_frames"], orient="row"
+            frame_data,
+            schema=["frame_idx", "segment_uri", "total_frames"],
+            orient="row",
         )
-
-    def _get_uri_path(self, chunk: str) -> S3Path:
-        parent = S3Path(self.source).parent
-        return parent.joinpath(chunk).uri
-
-    def _get_container(self, uri: str) -> InputContainer:
-        fileobj = self.fs.open(uri, mode="rb")
-        return av.open(fileobj)
 
     @override
-    def __getitem__(self, indexes: int | Sequence[int]) -> torch.Tensor:
-        if isinstance(indexes, int):
-            indexes = [indexes]
+    def __getitem__(self, indexes: int | Sequence[int]) -> Tensor:
+        match indexes:
+            case int():
+                return self._get([indexes])[0]
 
-        outputs: list[torch.Tensor] = []
-        rows = self.frame_index_table.filter(pl.col("frame_idx").is_in(indexes))
+            case _:
+                return torch.stack(self._get(indexes))
 
-        for row in rows.iter_rows(named=True):
-            frame_idx: int = row["frame_idx"]
-            uri: str = row["uri"]
-            past_frames: int = row["past_frames"]
+    def _get(self, indexes: Sequence[int]) -> list[Tensor]:
+        outputs: list[Tensor] = []
+        rows = self._frame_index.filter(pl.col("frame_idx").is_in(indexes))
 
-            container: InputContainer = self._get_container(self._get_uri_path(uri))
-            stream: VideoStream = container.streams.video[0]
+        for frame_idx, segment_uri, total_frames in rows.iter_rows():
+            with (
+                (self._path.parent / segment_uri).open("rb") as segment,
+                av.open(segment) as container,
+            ):
+                stream = container.streams.video[0]
 
-            # Calculate key frame and seek position
-            avg_rate: int = int(stream.average_rate)
-            key_frame_offset: int = (frame_idx - past_frames) // avg_rate * avg_rate
-            seek_pts: int = int(
-                stream.start_time + (key_frame_offset / avg_rate) / stream.time_base
-            )
+                if (
+                    stream.start_time is None
+                    or stream.time_base is None
+                    or stream.average_rate is None
+                ):
+                    logger.debug(msg := "invalid stream", stream=stream)
+                    raise RuntimeError(msg)
 
-            # Number of frames to skip after seeking
-            frames_to_skip: int = frame_idx - past_frames - key_frame_offset
+                # Calculate key frame and seek position
+                avg_rate = int(stream.average_rate)
+                key_frame_offset = (frame_idx - total_frames) // avg_rate * avg_rate
+                seek_pts = int(
+                    stream.start_time + (key_frame_offset / avg_rate) / stream.time_base
+                )
+                # Number of frames to skip after seeking
+                frames_to_skip = frame_idx - total_frames - key_frame_offset
 
-            # https://pyav.org/docs/stable/api/container.html#av.container.InputContainer.seek
-            container.seek(seek_pts, any_frame=False, backward=True, stream=stream)
+                container.seek(  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportUnusedCallResult]
+                    seek_pts, any_frame=False, backward=True, stream=stream
+                )
 
-            for _ in range(frames_to_skip):
-                next(container.decode(stream))
+                for _ in range(frames_to_skip):
+                    next(container.decode(stream))  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportUnusedCallResult, reportUnknownArgumentType]
 
-            frame: VideoFrame = next(container.decode(stream))
-            img: ndarray = frame.to_ndarray(format="rgb24")  # pyright: ignore[reportMissingTypeArgument]
-            outputs.append(torch.tensor(img, dtype=torch.uint8))
+                frame = next(container.decode(stream))  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportUnknownArgumentType]
 
-            container.close()
+                outputs.append(torch.from_numpy(frame.to_ndarray(format="rgb24")))  # pyright: ignore[reportUnknownMemberType]
 
-        stacked = torch.stack(outputs)
-        return (
-            stacked.permute(0, 3, 1, 2) if self.dimension_order == "NCHW" else stacked
-        )
+        return outputs
 
     @override
     def __len__(self) -> int:
-        return self.num_frames
+        return len(self._frame_index)
