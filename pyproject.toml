@@ -19,10 +19,6 @@ dependencies = [
   "tqdm>=4.67.1",
   "pipefunc[autodoc]>=0.68.0",
   "xxhash>=3.5.0",
-  "av>=14.3.0",
-  "m3u8>=6.0.0",
-  "fsspec>=2025.3.2",
-  "s3pathlib>=2.3.2",
 ]
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
@@ -47,7 +43,13 @@ visualize = ["rerun-sdk[notebook]>=0.23.0"]
 mcap = ["mcap>=1.2.2", "mcap-protobuf-support>=0.5.3", "protobuf"]
 yaak = ["ptars>=0.0.5", "protobuf"]
 jpeg = ["simplejpeg>=1.8.2"]
-video = ["torchcodec>=0.3.0"]
+video = [
+  "torchcodec>=0.3.0",
+  "av>=14.3.0",
+  "m3u8>=6.0.0",
+  "s3fs>=2025.3.2",
+  "s3pathlib>=2.3.2",
+]
 hdf5 = ["h5py>=3.13.0"]
 geo = ["polars-st==0.1.0a27"]
 

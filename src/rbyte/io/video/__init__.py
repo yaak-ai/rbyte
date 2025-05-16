@@ -1,5 +1,5 @@
 from .dataframe_builder import VideoDataFrameBuilder
-from .hls_source import HLSFrameSource
+from .hls_source import HlsFrameSource
 from .torchcodec_source import TorchCodecFrameSource
 
-__all__ = ["HLSFrameSource", "TorchCodecFrameSource", "VideoDataFrameBuilder"]
+__all__ = ["HlsFrameSource", "TorchCodecFrameSource", "VideoDataFrameBuilder"]
