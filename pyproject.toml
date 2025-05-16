@@ -19,6 +19,10 @@ dependencies = [
   "tqdm>=4.67.1",
   "pipefunc[autodoc]>=0.68.0",
   "xxhash>=3.5.0",
+  "av>=14.3.0",
+  "m3u8>=6.0.0",
+  "fsspec>=2025.3.2",
+  "s3pathlib>=2.3.2",
 ]
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
