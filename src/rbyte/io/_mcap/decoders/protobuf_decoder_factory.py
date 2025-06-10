@@ -1,8 +1,6 @@
 from collections.abc import Callable
 from operator import attrgetter
-from typing import (
-    override,  # pyright: ignore[reportAttributeAccessIssue, reportUnknownVariableType]
-)
+from typing import override
 
 import more_itertools as mit
 import polars as pl
@@ -26,8 +24,8 @@ class ProtobufMcapDecoderFactory(McapDecoderFactory):
         self._handler_pool: HandlerPool = HandlerPool()
         self._message_type_cache: LRUCache[bytes, type[Message]] = LRUCache(maxsize=32)
 
-    @override  # pyright: ignore[reportUntypedFunctionDecorator]
-    def decoder_for(  # pyright: ignore[reportImplicitOverride]
+    @override
+    def decoder_for(
         self, message_encoding: str, schema: Schema | None
     ) -> Callable[[bytes], pl.DataFrame] | None:
         if (
