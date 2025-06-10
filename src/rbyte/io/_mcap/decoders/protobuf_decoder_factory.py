@@ -34,7 +34,7 @@ class ProtobufMcapDecoderFactory(McapDecoderFactory):
             and schema.encoding == SchemaEncoding.Protobuf
         ):
             message_type = self._get_message_type(schema)
-            handler = self._handler_pool.get_for_message(message_type.DESCRIPTOR)  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+            handler = self._handler_pool.get_for_message(message_type.DESCRIPTOR)  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType, reportArgumentType]
 
             def decoder(data: bytes) -> pl.DataFrame:
                 record_batch = handler.list_to_record_batch([data])  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]

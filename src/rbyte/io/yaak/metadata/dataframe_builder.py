@@ -65,7 +65,7 @@ class YaakMetadataDataFrameBuilder:
                 msg.obj.__name__: cast(
                     pl.DataFrame,
                     pl.from_arrow(  # pyright: ignore[reportUnknownMemberType]
-                        data=handler_pool.get_for_message(msg.obj.DESCRIPTOR)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+                        data=handler_pool.get_for_message(msg.obj.DESCRIPTOR)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportArgumentType]
                         .list_to_record_batch([
                             msg_data
                             for (_, msg_data) in tqdm(
