@@ -1,6 +1,8 @@
 from collections.abc import Callable
 from operator import attrgetter
-from typing import override
+from typing import (
+    override,  # pyright: ignore[reportAttributeAccessIssue, reportUnknownVariableType]
+)
 
 import more_itertools as mit
 import polars as pl
@@ -24,8 +26,8 @@ class ProtobufMcapDecoderFactory(McapDecoderFactory):
         self._handler_pool: HandlerPool = HandlerPool()
         self._message_type_cache: LRUCache[bytes, type[Message]] = LRUCache(maxsize=32)
 
-    @override
-    def decoder_for(
+    @override  # pyright: ignore[reportUntypedFunctionDecorator]
+    def decoder_for(  # pyright: ignore[reportImplicitOverride]
         self, message_encoding: str, schema: Schema | None
     ) -> Callable[[bytes], pl.DataFrame] | None:
         if (
@@ -34,7 +36,7 @@ class ProtobufMcapDecoderFactory(McapDecoderFactory):
             and schema.encoding == SchemaEncoding.Protobuf
         ):
             message_type = self._get_message_type(schema)
-            handler = self._handler_pool.get_for_message(message_type.DESCRIPTOR)  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+            handler = self._handler_pool.get_for_message(message_type.DESCRIPTOR)  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType, reportArgumentType]
 
             def decoder(data: bytes) -> pl.DataFrame:
                 record_batch = handler.list_to_record_batch([data])  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
