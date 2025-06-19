@@ -136,7 +136,7 @@ samples:
             SET TimeZone = 'UTC';
             SELECT TO_TIMESTAMP(timestamp)::TIMESTAMP as timestamp,
                    heading,
-                   ST_AsWKB(ST_Transform(geom, 'EPSG:4326', 'EPSG:3857', always_xy := true)) AS geometry
+                   ST_AsWKB(ST_UtmFromLatLon(ST_AsWKB(geom))) AS geometry
             FROM ST_Read('{path}')
 
       - _target_: pipefunc.PipeFunc
@@ -243,13 +243,11 @@ samples:
             SELECT
               *,
               ST_AsWKB(
-                ST_Transform(
-                  ST_Point("meta/Gnss/longitude", "meta/Gnss/latitude"),
-                  'EPSG:4326',
-                  'EPSG:3857',
-                  always_xy := true
-                )
-              ) as "meta/Gnss/longitude_latitude"
+                ST_UtmFromLatLon(
+                  ST_AsWKB(
+                    ST_Point("meta/Gnss/latitude", "meta/Gnss/longitude")
+                  )
+              ) as "meta/Gnss/xy"
             FROM aligned
               SEMI JOIN cam_front_left_meta
                 ON aligned."meta/ImageMetadata.cam_front_left/frame_idx" = cam_front_left_meta.frame_idx
@@ -268,7 +266,7 @@ samples:
         func:
           _target_: rbyte.io.WaypointNormalizer
           columns:
-            ego: meta/Gnss/longitude_latitude
+            ego: meta/Gnss/xy
             waypoints: waypoints/waypoints
             heading: waypoints/heading
             output: waypoints/waypoints_normalized

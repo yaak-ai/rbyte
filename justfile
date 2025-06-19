@@ -61,7 +61,7 @@ visualize *ARGS: generate-config
 
 [group('visualize')]
 visualize-yaak *ARGS:
-    just visualize dataset=yaak logger=rerun/yaak ++data_dir={{ justfile_directory() }}/tests/data/yaak {{ ARGS }}
+    just visualize dataset=yaak logger=console ++data_dir={{ justfile_directory() }}/tests/data/yaak {{ ARGS }}
 
 [group('visualize')]
 visualize-carla-garage *ARGS:

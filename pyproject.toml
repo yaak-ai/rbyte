@@ -45,7 +45,11 @@ yaak = ["ptars>=0.0.5", "protobuf"]
 jpeg = ["simplejpeg>=1.8.2"]
 video = ["torchcodec>=0.3.0"]
 hdf5 = ["h5py>=3.13.0"]
-geo = ["polars-st==0.1.0a27"]
+geo = [
+  "polars-st==0.1.0a27",
+  "utm>=0.8.1",
+  "shapely>=2.1.1",
+]
 
 [tool.uv.sources]
 torchcodec = [
