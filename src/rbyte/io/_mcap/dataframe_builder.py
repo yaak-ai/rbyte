@@ -141,7 +141,7 @@ class McapDataFrameBuilder:
                 return (
                     message.lazy()
                     .select(unnest_all(message.collect_schema()))
-                    .select(fields)
+                    .select(fields.keys())
                     .cast(df_schema)  # pyright: ignore[reportArgumentType]
                 ).collect()
 
