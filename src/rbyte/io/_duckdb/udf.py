@@ -1,8 +1,8 @@
-
-from typing import TYPE_CHECKING
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 import utm
-from duckdb.typing import BLOB
 from shapely import wkb
 from shapely.geometry import Point
 
@@ -10,20 +10,29 @@ if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
 
 
-__all__ = ["functions_to_register"]
+__all__ = ["DuckDbUdf", "udf_list"]
 
-def st_transform_utm_from_latlon(point_wkb: bytes) -> bytes:
+
+@dataclass
+class DuckDbUdf:
+    name: str
+    function: Callable[..., Any]
+    parameters: list[str] | None = None
+    return_type: str | None = None
+
+
+def st_transform_utm_from_wgs84(point_wkb: bytes) -> bytes:
     point: BaseGeometry = wkb.loads(point_wkb)
     lat, lon = point.representative_point().y, point.representative_point().x
-    x, y, _, _ = utm.from_latlon(lat, lon)  # pyright: ignore[reportUnknownMemberType]
-    return wkb.dumps(Point(x, y))  # pyright: ignore[reportUnknownMemberType]
+    x, y, _, _ = utm.from_latlon(lat, lon)  # type: ignore[reportUnknownMemberType]
+    return wkb.dumps(Point(x, y))  # type: ignore[reportUnknownMemberType]
 
 
-functions_to_register = [
-    {
-        "name": "ST_TransformUtmFromLatLon",
-        "function": st_transform_utm_from_latlon,
-        "parameters": [BLOB],
-        "return_type": BLOB,
-    }
+udf_list: list[DuckDbUdf] = [
+    DuckDbUdf(
+        name="ST_UtmFromWgs84",
+        function=st_transform_utm_from_wgs84,
+        parameters=["BLOB"],
+        return_type="BLOB",
+    )
 ]

@@ -134,9 +134,9 @@ samples:
           query: |
             LOAD spatial;
             SET TimeZone = 'UTC';
-            SELECT TO_TIMESTAMP(timestamp)::TIMESTAMP as timestamp,
+            SELECT TO_TIMESTAMP(timestamp)::TIMESTAMP AS timestamp,
                    heading,
-                   ST_AsWKB(ST_UtmFromLatLon(ST_AsWKB(geom))) AS geometry
+                   ST_UtmFromWgs84(ST_AsWKB(geom)) AS geometry
             FROM ST_Read('{path}')
 
       - _target_: pipefunc.PipeFunc
@@ -242,12 +242,11 @@ samples:
             LOAD spatial;
             SELECT
               *,
-              ST_AsWKB(
-                ST_UtmFromLatLon(
-                  ST_AsWKB(
-                    ST_Point("meta/Gnss/latitude", "meta/Gnss/longitude")
-                  )
-              ) as "meta/Gnss/xy"
+              ST_UtmFromWgs84(
+                ST_AsWKB(
+                  ST_Point("meta/Gnss/longitude", "meta/Gnss/latitude")
+                )
+              ) AS "meta/Gnss/xy"
             FROM aligned
               SEMI JOIN cam_front_left_meta
                 ON aligned."meta/ImageMetadata.cam_front_left/frame_idx" = cam_front_left_meta.frame_idx
