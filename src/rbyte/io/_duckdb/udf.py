@@ -3,8 +3,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import utm
-from shapely import wkb
-from shapely.geometry import Point
+from shapely import Point, wkb
 
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
