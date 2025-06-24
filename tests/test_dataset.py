@@ -233,7 +233,7 @@ FROM ST_Read('{path}')
                     renames={"context": "query_context"},
                     output_name="filtered",
                     mapspec="query_context[i] -> filtered[i]",
-                    func=DataFrameDuckDbQuery(udfs=[Wgs84ToUtm]),
+                    func=DataFrameDuckDbQuery(),
                     bound={
                         "query": """
 LOAD spatial;

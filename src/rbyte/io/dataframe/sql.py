@@ -5,7 +5,7 @@ import duckdb
 import polars as pl
 from pydantic import ImportString, InstanceOf, validate_call
 
-from rbyte.io._duckdb.udfs.base import DuckDbUdfKwargs, register_duckdb_udf
+from rbyte.io._duckdb.udfs.base import DuckDbUdfKwargs
 
 
 @final
@@ -16,10 +16,16 @@ class DataFrameDuckDbQuery:
     def __init__(
         self,
         *,
-        udfs: Sequence[ImportString[type[DuckDbUdfKwargs]] | DuckDbUdfKwargs]
+        udfs: Sequence[ImportString[DuckDbUdfKwargs]]
+        | Sequence[DuckDbUdfKwargs]
         | None = None,
     ) -> None:
-        register_duckdb_udf(udfs)
+        for udf in udfs or []:
+            try:
+                _ = duckdb.create_function(**udf)  # pyright: ignore[reportArgumentType]
+            except duckdb.NotImplementedException:
+                _ = duckdb.remove_function(udf["name"])
+                _ = duckdb.create_function(**udf)  # pyright: ignore[reportArgumentType]
 
     @validate_call
     def __call__(

@@ -2,8 +2,7 @@ from typing import TYPE_CHECKING
 
 import utm
 from duckdb.typing import BLOB
-from shapely import wkb
-from shapely.geometry import Point
+from shapely import Point, wkb
 
 from .base import DuckDbUdfKwargs
 

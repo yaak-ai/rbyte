@@ -130,9 +130,7 @@ samples:
         mapspec: "waypoints_path[i] -> waypoints_raw[i]"
         func:
           _target_: rbyte.io.DuckDbDataFrameBuilder
-          udfs:
-            - _target_: hydra.utils.get_object
-              path: rbyte.io._duckdb.udfs.Wgs84ToUtm
+          udfs: [rbyte.io._duckdb.udfs.Wgs84ToUtm]
         bound:
           query: |
             LOAD spatial;
@@ -240,9 +238,6 @@ samples:
         mapspec: "query_context[i] -> filtered[i]"
         func:
           _target_: rbyte.io.DataFrameDuckDbQuery
-          udfs:
-            - _target_: hydra.utils.get_object
-              path: rbyte.io._duckdb.udfs.Wgs84ToUtm
         bound:
           query: |
             LOAD spatial;
