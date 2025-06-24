@@ -13,8 +13,7 @@ if TYPE_CHECKING:
 
 def wgs84_to_utm(point_wkb: bytes) -> bytes:
     point: BaseGeometry = wkb.loads(point_wkb)
-    lat, lon = point.representative_point().y, point.representative_point().x
-    x, y, _, _ = utm.from_latlon(lat, lon)  # type: ignore[reportUnknownMemberType]
+    x, y, _, _ = utm.from_latlon(point.y, point.x)  # type: ignore[reportUnknownMemberType]
     return wkb.dumps(Point(x, y))  # type: ignore[reportUnknownMemberType]
 
 
