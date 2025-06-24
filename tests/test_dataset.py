@@ -26,6 +26,7 @@ from rbyte.io import (
     VideoDataFrameBuilder,
     WaypointBuilder,
     WaypointNormalizer,
+    Wgs84ToUtm,
     YaakMetadataDataFrameBuilder,
 )
 from rbyte.io.dataframe.aligner import (
@@ -123,13 +124,13 @@ def yaak_pydantic() -> Dataset:
                     renames={"path": "waypoints_path"},
                     output_name="waypoints_raw",
                     mapspec="waypoints_path[i] -> waypoints_raw[i]",
-                    func=DuckDbDataFrameBuilder(),
+                    func=DuckDbDataFrameBuilder(udfs=[Wgs84ToUtm]),
                     bound={
                         "query": """
 LOAD spatial;
 SELECT TO_TIMESTAMP(timestamp)::TIMESTAMP as timestamp,
    heading,
-   ST_UtmFromWgs84(ST_AsWKB(geom)) AS geometry
+   ST_Wgs84ToUtm(ST_AsWKB(geom)) AS geometry
 FROM ST_Read('{path}')
 """
                     },
@@ -232,13 +233,13 @@ FROM ST_Read('{path}')
                     renames={"context": "query_context"},
                     output_name="filtered",
                     mapspec="query_context[i] -> filtered[i]",
-                    func=DataFrameDuckDbQuery(),
+                    func=DataFrameDuckDbQuery(udfs=[Wgs84ToUtm]),
                     bound={
                         "query": """
 LOAD spatial;
 SELECT
     *,
-    ST_UtmFromWgs84(
+    ST_Wgs84ToUtm(
         ST_AsWKB(
             ST_POINT("meta/Gnss/longitude", "meta/Gnss/latitude")
         )

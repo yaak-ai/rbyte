@@ -1,15 +1,12 @@
-from dataclasses import asdict
+from collections.abc import Sequence
 from os import PathLike
 from typing import final
 
 import duckdb
 import polars as pl
-from pydantic import validate_call
-from structlog import get_logger
+from pydantic import ImportString, validate_call
 
-from .udf import udf_list
-
-logger = get_logger(__name__)
+from .udfs.base import DuckDbUdfKwargs, register_duckdb_udf
 
 
 @final
@@ -17,12 +14,14 @@ class DuckDbDataFrameBuilder:
     __name__ = __qualname__
 
     @validate_call
-    def __call__(self, *, query: str, path: PathLike[str]) -> pl.DataFrame:
-        for udf in udf_list:
-            try:
-                _ = duckdb.create_function(**asdict(udf))
-            except duckdb.NotImplementedException:
-                msg = f"UDF {udf.name} was already registered"
-                logger.info(msg)
+    def __init__(
+        self,
+        *,
+        udfs: Sequence[ImportString[type[DuckDbUdfKwargs]] | DuckDbUdfKwargs]
+        | None = None,
+    ) -> None:
+        register_duckdb_udf(udfs)
 
+    @validate_call
+    def __call__(self, *, query: str, path: PathLike[str]) -> pl.DataFrame:
         return duckdb.sql(query=query.format(path=path)).pl()

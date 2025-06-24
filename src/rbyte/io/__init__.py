@@ -1,4 +1,4 @@
-from ._duckdb import DuckDbDataFrameBuilder
+from ._duckdb import DuckDbDataFrameBuilder, Wgs84ToUtm
 from ._numpy import NumpyTensorSource
 from .dataframe import (
     DataFrameAligner,
@@ -19,6 +19,7 @@ __all__: list[str] = [
     "NumpyTensorSource",
     "PathDataFrameBuilder",
     "PathTensorSource",
+    "Wgs84ToUtm",
 ]
 
 
