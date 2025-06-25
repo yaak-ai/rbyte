@@ -130,13 +130,14 @@ samples:
         mapspec: "waypoints_path[i] -> waypoints_raw[i]"
         func:
           _target_: rbyte.io.DuckDbDataFrameBuilder
+          udfs: [rbyte.io._duckdb.udfs.Wgs84ToUtm]
         bound:
           query: |
             LOAD spatial;
             SET TimeZone = 'UTC';
-            SELECT TO_TIMESTAMP(timestamp)::TIMESTAMP as timestamp,
+            SELECT TO_TIMESTAMP(timestamp)::TIMESTAMP AS timestamp,
                    heading,
-                   ST_AsWKB(ST_Transform(geom, 'EPSG:4326', 'EPSG:3857', always_xy := true)) AS geometry
+                   ST_Wgs84ToUtm(ST_AsWKB(geom)) AS geometry
             FROM ST_Read('{path}')
 
       - _target_: pipefunc.PipeFunc
@@ -242,14 +243,11 @@ samples:
             LOAD spatial;
             SELECT
               *,
-              ST_AsWKB(
-                ST_Transform(
-                  ST_Point("meta/Gnss/longitude", "meta/Gnss/latitude"),
-                  'EPSG:4326',
-                  'EPSG:3857',
-                  always_xy := true
+              ST_Wgs84ToUtm(
+                ST_AsWKB(
+                  ST_Point("meta/Gnss/longitude", "meta/Gnss/latitude")
                 )
-              ) as "meta/Gnss/longitude_latitude"
+              ) AS "meta/Gnss/xy"
             FROM aligned
               SEMI JOIN cam_front_left_meta
                 ON aligned."meta/ImageMetadata.cam_front_left/frame_idx" = cam_front_left_meta.frame_idx
@@ -268,7 +266,7 @@ samples:
         func:
           _target_: rbyte.io.WaypointNormalizer
           columns:
-            ego: meta/Gnss/longitude_latitude
+            ego: meta/Gnss/xy
             waypoints: waypoints/waypoints
             heading: waypoints/heading
             output: waypoints/waypoints_normalized

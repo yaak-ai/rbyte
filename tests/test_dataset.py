@@ -26,6 +26,7 @@ from rbyte.io import (
     VideoDataFrameBuilder,
     WaypointBuilder,
     WaypointNormalizer,
+    Wgs84ToUtm,
     YaakMetadataDataFrameBuilder,
 )
 from rbyte.io.dataframe.aligner import (
@@ -123,13 +124,13 @@ def yaak_pydantic() -> Dataset:
                     renames={"path": "waypoints_path"},
                     output_name="waypoints_raw",
                     mapspec="waypoints_path[i] -> waypoints_raw[i]",
-                    func=DuckDbDataFrameBuilder(),
+                    func=DuckDbDataFrameBuilder(udfs=[Wgs84ToUtm]),
                     bound={
                         "query": """
 LOAD spatial;
 SELECT TO_TIMESTAMP(timestamp)::TIMESTAMP as timestamp,
    heading,
-   ST_AsWKB(ST_Transform(geom, 'EPSG:4326', 'EPSG:3857')) AS geometry
+   ST_Wgs84ToUtm(ST_AsWKB(geom)) AS geometry
 FROM ST_Read('{path}')
 """
                     },
@@ -238,13 +239,11 @@ FROM ST_Read('{path}')
 LOAD spatial;
 SELECT
     *,
-    ST_ASWKB(
-        ST_TRANSFORM(
-            ST_POINT("meta/Gnss/longitude", "meta/Gnss/latitude"),
-            'EPSG:4326',
-            'EPSG:3857'
+    ST_Wgs84ToUtm(
+        ST_AsWKB(
+            ST_POINT("meta/Gnss/longitude", "meta/Gnss/latitude")
         )
-    ) AS "meta/Gnss/longitude_latitude"
+    ) AS "meta/Gnss/xy"
 FROM aligned
 
 SEMI JOIN cam_front_left_meta
@@ -269,7 +268,7 @@ WHERE COLUMNS (*) IS NOT NULL AND "meta/VehicleMotion/speed" > 44
                     mapspec="filtered[i] -> with_waypoints_normalized[i]",
                     func=WaypointNormalizer(
                         columns=WaypointNormalizer.Columns(
-                            ego="meta/Gnss/longitude_latitude",
+                            ego="meta/Gnss/xy",
                             waypoints="waypoints/waypoints",
                             heading="waypoints/heading",
                             output="waypoints/waypoints_normalized",

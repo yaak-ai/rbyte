@@ -1,6 +1,6 @@
 [project]
 name = "rbyte"
-version = "0.27.0"
+version = "0.28.0"
 description = "Multimodal PyTorch dataset library"
 authors = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 maintainers = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
@@ -8,7 +8,7 @@ dependencies = [
   "tensordict>=0.8.2",
   "torch",
   "numpy",
-  "polars[pyarrow]>=1.29.0",
+  "polars[pyarrow]==1.29.0",
   "duckdb>=1.2.2",
   "pydantic>=2.11.4",
   "more-itertools>=10.6.0",
@@ -45,7 +45,11 @@ yaak = ["ptars>=0.0.5", "protobuf"]
 jpeg = ["simplejpeg>=1.8.2"]
 video = ["torchcodec>=0.3.0"]
 hdf5 = ["h5py>=3.13.0"]
-geo = ["polars-st==0.1.0a27"]
+geo = [
+  "polars-st==0.1.0a27",
+  "utm>=0.8.1",
+  "shapely>=2.1.1",
+]
 
 [tool.uv.sources]
 torchcodec = [
