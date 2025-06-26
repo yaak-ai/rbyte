@@ -1,23 +1,23 @@
 [project]
 name = "rbyte"
-version = "0.28.0"
+version = "0.28.1"
 description = "Multimodal PyTorch dataset library"
 authors = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 maintainers = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 dependencies = [
-  "tensordict>=0.8.2",
+  "tensordict>=0.8.3",
   "torch",
   "numpy",
-  "polars[pyarrow]==1.29.0",
-  "duckdb>=1.2.2",
-  "pydantic>=2.11.4",
-  "more-itertools>=10.6.0",
+  "polars[pyarrow]>=1.31.0",
+  "duckdb>=1.3.1",
+  "pydantic>=2.11.7",
+  "more-itertools>=10.7.0",
   "hydra-core>=1.3.2",
-  "optree>=0.15.0",
-  "cachetools>=5.5.2",
-  "structlog>=25.2.0",
+  "optree>=0.16.0",
+  "cachetools>=6.1.0",
+  "structlog>=25.4.0",
   "tqdm>=4.67.1",
-  "pipefunc[autodoc]>=0.76.0",
+  "pipefunc[autodoc]>=0.83.0",
   "xxhash>=3.5.0",
 ]
 readme = "README.md"
@@ -38,15 +38,15 @@ repo = "https://github.com/yaak-ai/rbyte"
 
 [project.optional-dependencies]
 build = ["hatchling>=1.27.0"]
-protos = ["grpcio-tools>=1.70.0", "protoletariat>=3.3.10"]
-visualize = ["rerun-sdk[notebook]>=0.23.0"]
-mcap = ["mcap>=1.2.2", "mcap-protobuf-support>=0.5.3", "protobuf"]
+protos = ["grpcio-tools==1.71.0", "protoletariat>=3.3.10"]
+visualize = ["rerun-sdk[notebook]>=0.23.3"]
+mcap = ["mcap>=1.3.0", "mcap-protobuf-support>=0.5.3", "protobuf"]
 yaak = ["ptars>=0.0.5", "protobuf"]
 jpeg = ["simplejpeg>=1.8.2"]
-video = ["torchcodec>=0.3.0"]
-hdf5 = ["h5py>=3.13.0"]
+video = ["torchcodec>=0.4.0"]
+hdf5 = ["h5py>=3.14.0"]
 geo = [
-  "polars-st==0.1.0a27",
+  "polars-st==0.1.2",
   "utm>=0.8.1",
   "shapely>=2.1.1",
 ]
@@ -82,15 +82,15 @@ build-backend = "hatchling.build"
 dev = [
   "wat-inspector>=0.4.3",
   "lovely-tensors>=0.1.18",
-  "pudb>=2024.1.2",
-  "ipython>=8.32.0",
-  "ipython-autoimport>=0.5",
+  "pudb>=2025.1",
+  "ipython>=9.3.0",
+  "ipython-autoimport>=0.5.1",
   "ipykernel>=6.29.5",
   "pipefunc[plotting]",
 ]
 test = [
-  "pytest>=8.3.5",
-  "pytest-lazy-fixtures>=1.1.2",
+  "pytest>=8.4.1",
+  "pytest-lazy-fixtures>=1.1.4",
   "testbook>=0.4.2",
 ]
 

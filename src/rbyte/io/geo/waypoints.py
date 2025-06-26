@@ -74,17 +74,21 @@ class WaypointNormalizer:
             st.geom(self._columns.waypoints).alias(self._columns.output)
         )
 
-        lf = lf.with_columns(
-            st.geom(self._columns.output)
-            .st.translate(
-                x=-st.geom(self._columns.ego).st.x(),
-                y=-st.geom(self._columns.ego).st.y(),
+        lf = (
+            lf.filter(pl.col(self._columns.waypoints).is_not_null())
+            .with_columns(
+                st.geom(self._columns.output)
+                .st.translate(
+                    x=-st.geom(self._columns.ego).st.x(),
+                    y=-st.geom(self._columns.ego).st.y(),
+                )
+                .st.rotate(angle=pl.col(self._columns.heading), origin=(0.0, 0.0))
             )
-            .st.rotate(angle=pl.col(self._columns.heading), origin=(0.0, 0.0))
-        ).with_columns(
-            st.geom(self._columns.waypoints, self._columns.output)
-            .st.parts()
-            .list.eval(pl.concat_arr(st.element().st.x(), st.element().st.y()))
+            .with_columns(
+                st.geom(self._columns.waypoints, self._columns.output)
+                .st.parts()
+                .list.eval(pl.concat_arr(st.element().st.x(), st.element().st.y()))
+            )
         )
 
         return lf.collect()

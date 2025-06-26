@@ -90,7 +90,7 @@ class PathDataFrameBuilder:
             )
             .unnest("groups")
             .drop_nulls()
-            .select(self._config.fields)
+            .select(self._config.fields.keys())
             .cast(self._schema, strict=True)  # pyright: ignore[reportArgumentType]
             .collect()
         )
