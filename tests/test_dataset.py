@@ -1,9 +1,11 @@
 from collections import OrderedDict
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING, Any
 
 import polars as pl
 import pytest
+import torch
 from hydra import compose, initialize
 from hydra.utils import instantiate
 from pipefunc import PipeFunc, Pipeline
@@ -35,10 +37,17 @@ from rbyte.io.dataframe.aligner import (
     InterpColumnAlignConfig,
 )
 
+if TYPE_CHECKING:
+    from rbyte.batch import Batch
+
 logger = get_logger(__name__)
 
 CONFIG_PATH = "../config"
 DATA_DIR = Path(__file__).resolve().parent / "data"
+
+
+def norm(x: Tensor, **kwargs: Any) -> Tensor:  # noqa: ANN401
+    return torch.linalg.norm(x, **kwargs)  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
 
 
 @pytest.fixture
@@ -128,6 +137,7 @@ def yaak_pydantic() -> Dataset:
                     bound={
                         "query": """
 LOAD spatial;
+SET TimeZone = 'UTC';
 SELECT TO_TIMESTAMP(timestamp)::TIMESTAMP as timestamp,
    heading,
    ST_Wgs84ToUtm(ST_AsWKB(geom)) AS geometry
@@ -423,4 +433,90 @@ def test_yaak(dataset: Dataset) -> None:
         case _:
             logger.error(msg := "invalid batch structure", batch=batch)
 
+            raise AssertionError(msg)
+
+
+@pytest.mark.parametrize("dataset", [lf("yaak_hydra"), lf("yaak_pydantic")])
+def test_waypoints_yaak(dataset: Dataset) -> None:
+    index = [0, 2]
+    c = SimpleNamespace(B=len(index))
+    batch: Batch = dataset.get_batch(index)
+    if batch.data is None:
+        msg = "Batch data is None"
+        raise AssertionError(msg)
+
+    waypoints_normalized: Tensor = batch.data["waypoints/waypoints_normalized"]
+
+    match waypoints_normalized.shape:
+        case (c.B, _, 10, 2):
+            pass
+        case _:
+            logger.error(
+                msg := "invalid waypoints shape", shape=waypoints_normalized.shape
+            )
+            raise AssertionError(msg)
+
+    match (waypoints_normalized == 0.0).sum().item():
+        case 0:
+            pass
+        case _:
+            logger.error(
+                msg := "waypoints are all zero", shape=waypoints_normalized.shape
+            )
+            raise AssertionError(msg)
+
+    atol_relative = 1
+    relative_distances = norm(torch.diff(waypoints_normalized, dim=2), dim=3, ord=2)
+
+    # since we duplicate waypoints at the end of the ride
+    relative_distances = torch.where(
+        relative_distances != 0.0, relative_distances, 10.0
+    )
+
+    match torch.allclose(
+        relative_distances,
+        torch.full_like(relative_distances, 10.0),
+        atol=atol_relative,
+    ):
+        case True:
+            pass
+        case _:
+            logger.error(
+                msg := (
+                    f"Expected relative distances to be 10 +- {atol_relative}, "
+                    f"but max distance is {relative_distances.max().item()} "
+                    f"and min distance is {relative_distances.min().item()}"
+                )
+            )
+            raise AssertionError(msg)
+
+    waypoints_radius = norm(waypoints_normalized, dim=3, ord=2)
+    max_radius = 150.0
+    match torch.all(waypoints_radius <= max_radius).item():
+        case True:
+            pass
+        case _:
+            logger.error(
+                msg := (
+                    f"Expected all waypoints to be within radius {max_radius}, "
+                    f"but max radius is {waypoints_radius.max().item()}"
+                )
+            )
+            raise AssertionError(msg)
+
+    atol_origin = 10
+    first_waypoints = waypoints_radius[..., 0]
+    match torch.allclose(
+        first_waypoints, torch.zeros_like(first_waypoints), atol=atol_origin
+    ):
+        case True:
+            pass
+        case _:
+            logger.error(
+                msg := (
+                    "Expected first waypoint to be near origin (0,0) "
+                    f"with tolerance {atol_origin}, "
+                    f"but found at least one waypoint at {first_waypoints.max().item()}"
+                )
+            )
             raise AssertionError(msg)
