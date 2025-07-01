@@ -1,7 +1,6 @@
 from collections import OrderedDict
 from pathlib import Path
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any
 
 import polars as pl
 import pytest
@@ -37,17 +36,10 @@ from rbyte.io.dataframe.aligner import (
     InterpColumnAlignConfig,
 )
 
-if TYPE_CHECKING:
-    from rbyte.batch import Batch
-
 logger = get_logger(__name__)
 
 CONFIG_PATH = "../config"
 DATA_DIR = Path(__file__).resolve().parent / "data"
-
-
-def norm(x: Tensor, **kwargs: Any) -> Tensor:  # noqa: ANN401
-    return torch.linalg.norm(x, **kwargs)  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
 
 
 @pytest.fixture
@@ -386,7 +378,54 @@ def test_yaak(dataset: Dataset) -> None:
             "meta": {"input_id": [*_], "sample_idx": Tensor(shape=[c.B]), **meta_rest},
             **batch_rest,
         } if not any((batch_rest, data_rest, meta_rest)):
-            pass
+            waypoints_normalized: Tensor = batch.data["waypoints/waypoints_normalized"]  # pyright: ignore[reportUnknownVariableType, reportOptionalSubscript]
+
+            assert waypoints_normalized.shape[2:] == (10, 2), "invalid waypoints shape"  # noqa: S101 # pyright: ignore[reportUnknownMemberType] # pyright: ignore[reportUnknownArgumentType]
+
+            assert not (waypoints_normalized == 0.0).all(), "waypoints are all zero"  # noqa: S101 # pyright: ignore[reportUnknownMemberType]
+
+            atol_relative = 1
+            relative_distances = torch.linalg.norm(  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+                torch.diff(waypoints_normalized, dim=2),  # pyright: ignore[reportUnknownArgumentType]
+                dim=3,
+                ord=2,
+            )
+
+            # since we duplicate waypoints at the end of the ride
+            relative_distances = torch.where(
+                relative_distances != 0.0,  # pyright: ignore[reportUnknownArgumentType]
+                relative_distances,  # pyright: ignore[reportUnknownArgumentType]
+                10.0,
+            )
+
+            assert torch.allclose(  # noqa: S101
+                relative_distances,
+                torch.full_like(relative_distances, 10.0),
+                atol=atol_relative,
+            ), (
+                f"Expected relative distances to be 10 +- {atol_relative}, "
+                f"but max distance is {relative_distances.max().item()} "
+                f"and min distance is {relative_distances.min().item()}"
+            )
+
+            waypoints_radius = torch.linalg.norm(waypoints_normalized, dim=3, ord=2)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+            max_radius = 150.0
+            assert torch.all(waypoints_radius <= max_radius).item(), (  # noqa: S101 # pyright: ignore[reportUnknownArgumentType]
+                f"Expected all waypoints to be within radius {max_radius}, "
+                f"but max radius is {waypoints_radius.max().item()}"  # pyright: ignore[reportUnknownMemberType]
+            )
+
+            atol_origin = 10
+            first_waypoints = waypoints_radius[..., 0]  # pyright: ignore[reportUnknownVariableType]
+            assert torch.allclose(  # noqa: S101
+                first_waypoints,  # pyright: ignore[reportUnknownArgumentType]
+                torch.zeros_like(first_waypoints),  # pyright: ignore[reportUnknownArgumentType]
+                atol=atol_origin,
+            ), (
+                f"Expected first waypoint to be near origin (0,0) "
+                f"with tolerance {atol_origin}, "
+                f"but found at least one waypoint at {first_waypoints.max().item()}"  # pyright: ignore[reportUnknownMemberType]
+            )
 
         case _:
             logger.error(msg := "invalid batch structure", batch=batch)
@@ -433,90 +472,4 @@ def test_yaak(dataset: Dataset) -> None:
         case _:
             logger.error(msg := "invalid batch structure", batch=batch)
 
-            raise AssertionError(msg)
-
-
-@pytest.mark.parametrize("dataset", [lf("yaak_hydra"), lf("yaak_pydantic")])
-def test_waypoints_yaak(dataset: Dataset) -> None:
-    index = [0, 2]
-    c = SimpleNamespace(B=len(index))
-    batch: Batch = dataset.get_batch(index)
-    if batch.data is None:
-        msg = "Batch data is None"
-        raise AssertionError(msg)
-
-    waypoints_normalized: Tensor = batch.data["waypoints/waypoints_normalized"]
-
-    match waypoints_normalized.shape:
-        case (c.B, _, 10, 2):
-            pass
-        case _:
-            logger.error(
-                msg := "invalid waypoints shape", shape=waypoints_normalized.shape
-            )
-            raise AssertionError(msg)
-
-    match (waypoints_normalized == 0.0).sum().item():
-        case 0:
-            pass
-        case _:
-            logger.error(
-                msg := "waypoints are all zero", shape=waypoints_normalized.shape
-            )
-            raise AssertionError(msg)
-
-    atol_relative = 1
-    relative_distances = norm(torch.diff(waypoints_normalized, dim=2), dim=3, ord=2)
-
-    # since we duplicate waypoints at the end of the ride
-    relative_distances = torch.where(
-        relative_distances != 0.0, relative_distances, 10.0
-    )
-
-    match torch.allclose(
-        relative_distances,
-        torch.full_like(relative_distances, 10.0),
-        atol=atol_relative,
-    ):
-        case True:
-            pass
-        case _:
-            logger.error(
-                msg := (
-                    f"Expected relative distances to be 10 +- {atol_relative}, "
-                    f"but max distance is {relative_distances.max().item()} "
-                    f"and min distance is {relative_distances.min().item()}"
-                )
-            )
-            raise AssertionError(msg)
-
-    waypoints_radius = norm(waypoints_normalized, dim=3, ord=2)
-    max_radius = 150.0
-    match torch.all(waypoints_radius <= max_radius).item():
-        case True:
-            pass
-        case _:
-            logger.error(
-                msg := (
-                    f"Expected all waypoints to be within radius {max_radius}, "
-                    f"but max radius is {waypoints_radius.max().item()}"
-                )
-            )
-            raise AssertionError(msg)
-
-    atol_origin = 10
-    first_waypoints = waypoints_radius[..., 0]
-    match torch.allclose(
-        first_waypoints, torch.zeros_like(first_waypoints), atol=atol_origin
-    ):
-        case True:
-            pass
-        case _:
-            logger.error(
-                msg := (
-                    "Expected first waypoint to be near origin (0,0) "
-                    f"with tolerance {atol_origin}, "
-                    f"but found at least one waypoint at {first_waypoints.max().item()}"
-                )
-            )
             raise AssertionError(msg)
