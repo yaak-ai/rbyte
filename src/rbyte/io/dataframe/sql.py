@@ -20,12 +20,7 @@ class DataFrameDuckDbQuery:
         | Sequence[DuckDbUdfKwargs]
         | None = None,
     ) -> None:
-        for udf in udfs or []:
-            try:
-                _ = duckdb.create_function(**udf)  # pyright: ignore[reportArgumentType]
-            except duckdb.NotImplementedException:
-                _ = duckdb.remove_function(udf["name"])
-                _ = duckdb.create_function(**udf)  # pyright: ignore[reportArgumentType]
+        self.udfs = udfs or []
 
     @validate_call
     def __call__(
@@ -35,16 +30,18 @@ class DataFrameDuckDbQuery:
         df: InstanceOf[pl.DataFrame] | None = None,
         context: dict[str, InstanceOf[pl.DataFrame]] | None = None,
     ) -> pl.DataFrame:
-        match df, context:
-            case [_, None]:
-                duckdb.register("df", df)  # pyright: ignore[reportUnusedCallResult]
+        with duckdb.connect() as con:  # pyright: ignore[reportUnknownMemberType]
+            match df, context:
+                case [_, None]:
+                    con.register("df", df)  # pyright: ignore[reportUnusedCallResult]
 
-            case [None, _]:
-                for k, v in context.items():
-                    duckdb.register(k, v)  # pyright: ignore[reportUnusedCallResult]
+                case [None, _]:
+                    for k, v in context.items():
+                        con.register(k, v)  # pyright: ignore[reportUnusedCallResult]
 
-            case _:
-                msg = "either `df` or `context` must be specified"
-                raise ValueError(msg)
-
-        return duckdb.sql(query).pl()
+                case _:
+                    msg = "either `df` or `context` must be specified"
+                    raise ValueError(msg)
+            for udf in self.udfs:
+                con.create_function(**udf)  # pyright: ignore[reportUnknownArgumentType, reportUnusedCallResult, reportArgumentType]
+            return con.sql(query).pl()

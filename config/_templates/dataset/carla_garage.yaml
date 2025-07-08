@@ -132,32 +132,63 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         renames:
-          input: aligned
-        output_name: with_waypoints_normalized
-        mapspec: "aligned[i] -> with_waypoints_normalized[i]"
-        func:
-          _target_: rbyte.io.WaypointNormalizer
-          columns:
-            ego: measurements/pos_global
-            waypoints: waypoints/waypoints
-            heading: waypoints/heading
-            output: waypoints/waypoints_normalized
-
-      - _target_: pipefunc.PipeFunc
-        renames:
-          df: with_waypoints_normalized
-        output_name: samples
-        mapspec: "with_waypoints_normalized[i] -> samples[i]"
+          df: aligned
+        output_name: filtered
+        mapspec: "aligned[i] -> filtered[i]"
         func:
           _target_: rbyte.io.DataFrameDuckDbQuery
         bound:
           query: |
-            SELECT "measurements/_idx_",
-                   "measurements/speed",
-                   "measurements/steer",
-                   "measurements/throttle",
-                   "measurements/brake",
-                   "waypoints/heading",
-                   "waypoints/waypoints_normalized"::FLOAT[2][10] AS "waypoints/waypoints_normalized",
-            FROM df
-            WHERE COLUMNS(*) IS NOT NULL AND "measurements/_idx_" BETWEEN 115 and 135
+            LOAD spatial;
+            WITH normalized_data AS (
+              WITH
+                normalized_geometries AS (
+                  SELECT
+                    *,
+                    ST_Rotate(
+                      ST_Translate(
+                        ST_GeomFromWKB("waypoints/waypoints"),
+                        -ST_X(ST_GeomFromWKB("measurements/pos_global")),
+                        -ST_Y(ST_GeomFromWKB("measurements/pos_global"))
+                      ),
+                      radians("waypoints/heading")
+                    ) AS normalized_waypoints_geom
+                  FROM
+                    df
+                  WHERE
+                    "waypoints/waypoints" IS NOT NULL AND "measurements/pos_global" IS NOT NULL
+              )
+              SELECT
+                * EXCLUDE (normalized_waypoints_geom),
+                (
+                  SELECT
+                    list(
+                      [ST_X(p.point_struct.geom), ST_Y(p.point_struct.geom)]
+                      ORDER BY
+                        p.point_struct.path
+                    )
+                  FROM
+                    UNNEST(ST_Dump(normalized_waypoints_geom)) AS p(point_struct)
+                ) AS "waypoints/waypoints_normalized"
+              FROM
+                normalized_geometries
+              WHERE
+                ST_Contains(
+                  ST_MakeEnvelope(-150, -150, 150, 150),
+                  normalized_waypoints_geom
+                )
+            )
+            SELECT
+              "measurements/_idx_",
+              "measurements/speed",
+              "measurements/steer",
+              "measurements/throttle",
+              "measurements/brake",
+              "waypoints/heading",
+              "waypoints/waypoints_normalized"::FLOAT[2][10] AS "waypoints/waypoints_normalized"
+            FROM
+              normalized_data
+            WHERE
+              "measurements/_idx_" BETWEEN 115 AND 135
+            ORDER BY
+              "measurements/_idx_";

@@ -63,8 +63,8 @@ else:
 
 
 try:
-    from .geo import WaypointBuilder, WaypointNormalizer
+    from .geo import WaypointBuilder
 except ImportError:
     pass
 else:
-    __all__ += ["WaypointBuilder", "WaypointNormalizer"]
+    __all__ += ["WaypointBuilder"]

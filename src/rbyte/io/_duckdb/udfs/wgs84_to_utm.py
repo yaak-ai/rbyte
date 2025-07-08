@@ -1,7 +1,6 @@
 from typing import TYPE_CHECKING
 
 import utm
-from duckdb.typing import BLOB
 from shapely import Point, wkb
 
 from .base import DuckDbUdfKwargs
@@ -17,5 +16,5 @@ def wgs84_to_utm(point_wkb: bytes) -> bytes:
 
 
 Wgs84ToUtm = DuckDbUdfKwargs(
-    name="ST_Wgs84ToUtm", function=wgs84_to_utm, parameters=[BLOB], return_type=BLOB
+    name="ST_Wgs84ToUtm", function=wgs84_to_utm, parameters=["BLOB"], return_type="BLOB"
 )

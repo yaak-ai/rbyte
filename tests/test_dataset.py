@@ -26,7 +26,6 @@ from rbyte.io import (
     TorchCodecFrameSource,
     VideoDataFrameBuilder,
     WaypointBuilder,
-    WaypointNormalizer,
     Wgs84ToUtm,
     YaakMetadataDataFrameBuilder,
 )
@@ -235,52 +234,85 @@ FROM ST_Read('{path}')
                     renames={"context": "query_context"},
                     output_name="filtered",
                     mapspec="query_context[i] -> filtered[i]",
-                    func=DataFrameDuckDbQuery(),
+                    func=DataFrameDuckDbQuery(udfs=[Wgs84ToUtm]),
                     bound={
                         "query": """
 LOAD spatial;
-SELECT
-    *,
-    ST_Wgs84ToUtm(
-        ST_AsWKB(
-            ST_POINT("meta/Gnss/longitude", "meta/Gnss/latitude")
+WITH
+  base_data AS (
+    SELECT
+      *,
+      ST_GeomFromWKB(
+        ST_Wgs84ToUtm(
+          ST_AsWKB(
+            ST_Point(
+              "meta/Gnss/longitude",
+              "meta/Gnss/latitude"
+            )
+          )
         )
-    ) AS "meta/Gnss/xy"
-FROM aligned
-
-SEMI JOIN cam_front_left_meta
-ON aligned."meta/ImageMetadata.cam_front_left/frame_idx" =
-    cam_front_left_meta.frame_idx
-
-SEMI JOIN cam_left_backward_meta
-ON aligned."meta/ImageMetadata.cam_left_backward/frame_idx" =
-    cam_left_backward_meta.frame_idx
-
-SEMI JOIN cam_right_backward_meta
-ON aligned."meta/ImageMetadata.cam_right_backward/frame_idx" =
-    cam_right_backward_meta.frame_idx
-
-WHERE COLUMNS (*) IS NOT NULL AND "meta/VehicleMotion/speed" > 44
+      ) AS ego_geom,
+      ST_GeomFromWKB("waypoints/waypoints") AS waypoints_geom
+    FROM
+      aligned
+      SEMI JOIN cam_front_left_meta
+        ON aligned."meta/ImageMetadata.cam_front_left/frame_idx"
+        = cam_front_left_meta.frame_idx
+      SEMI JOIN cam_left_backward_meta
+        ON aligned."meta/ImageMetadata.cam_left_backward/frame_idx"
+        = cam_left_backward_meta.frame_idx
+      SEMI JOIN cam_right_backward_meta
+        ON aligned."meta/ImageMetadata.cam_right_backward/frame_idx"
+        = cam_right_backward_meta.frame_idx
+    WHERE
+      COLUMNS (*) IS NOT NULL
+      AND "meta/VehicleMotion/speed" > 44
+  ),
+  normalized_geometries AS (
+    SELECT
+      *,
+      ST_Rotate(
+        ST_Translate(
+          waypoints_geom,
+          -ST_X(ego_geom),
+          -ST_Y(ego_geom)
+        ),
+        radians("waypoints/heading")
+      ) AS normalized_waypoints_geom
+    FROM
+      base_data
+  )
+SELECT
+  * EXCLUDE (
+    waypoints_geom,
+    normalized_waypoints_geom
+  ),
+  (
+    SELECT
+      list(
+        [ST_X(p.point_struct.geom), ST_Y(p.point_struct.geom)]
+        ORDER BY
+          p.point_struct.path
+      )
+    FROM
+      UNNEST(ST_Dump(normalized_waypoints_geom)) AS p(point_struct)
+  ) AS "waypoints/waypoints_normalized"
+FROM
+  normalized_geometries
+WHERE
+  ST_Contains(
+    ST_MakeEnvelope(-150, -150, 150, 150),
+    normalized_waypoints_geom
+  )
+ORDER BY
+  "meta/ImageMetadata.cam_front_left/time_stamp";
 """
                     },
                 ),
                 PipeFunc(
                     renames={"input": "filtered"},
-                    output_name="with_waypoints_normalized",
-                    mapspec="filtered[i] -> with_waypoints_normalized[i]",
-                    func=WaypointNormalizer(
-                        columns=WaypointNormalizer.Columns(
-                            ego="meta/Gnss/xy",
-                            waypoints="waypoints/waypoints",
-                            heading="waypoints/heading",
-                            output="waypoints/waypoints_normalized",
-                        )
-                    ),
-                ),
-                PipeFunc(
-                    renames={"input": "with_waypoints_normalized"},
                     output_name="samples",
-                    mapspec="with_waypoints_normalized[i] -> samples[i]",
+                    mapspec="filtered[i] -> samples[i]",
                     func=DataFrameGroupByDynamic(
                         index_column=f"meta/ImageMetadata.{cameras[0]}/frame_idx",
                         every="6i",
