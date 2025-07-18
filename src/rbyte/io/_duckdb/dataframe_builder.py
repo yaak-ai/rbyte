@@ -21,13 +21,12 @@ class DuckDbDataFrameBuilder:
         | Sequence[DuckDbUdfKwargs]
         | None = None,
     ) -> None:
-        for udf in udfs or []:
-            try:
-                _ = duckdb.create_function(**udf)  # pyright: ignore[reportArgumentType]
-            except duckdb.NotImplementedException:
-                _ = duckdb.remove_function(udf["name"])
-                _ = duckdb.create_function(**udf)  # pyright: ignore[reportArgumentType]
+        self.udfs = udfs or []
 
     @validate_call
     def __call__(self, *, query: str, path: PathLike[str]) -> pl.DataFrame:
-        return duckdb.sql(query=query.format(path=path)).pl()
+        with duckdb.connect() as con:  # pyright: ignore[reportUnknownMemberType]
+            for udf in self.udfs:
+                con.create_function(**udf)  # pyright: ignore[reportUnknownArgumentType, reportUnusedCallResult, reportArgumentType]
+
+            return con.sql(query.format(path=path)).pl()

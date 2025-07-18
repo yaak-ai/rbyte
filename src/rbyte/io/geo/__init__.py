@@ -1,3 +1,3 @@
-from .waypoints import WaypointBuilder, WaypointNormalizer
+from .waypoints import WaypointBuilder
 
-__all__ = ["WaypointBuilder", "WaypointNormalizer"]
+__all__ = ["WaypointBuilder"]
