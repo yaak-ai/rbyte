@@ -33,7 +33,7 @@ sources:
 samples:
   inputs:
     #@ for input_id in drives:
-    (@=input_id@):
+    - input_id: (@=input_id@)
       measurements_path: ${data_dir}/(@=input_id@)/measurements.json
       waypoints_path: ${data_dir}/(@=input_id@)/waypoints.json
     #@ end
@@ -90,53 +90,47 @@ samples:
             output: waypoints
 
       - _target_: pipefunc.PipeFunc
-        output_name: data
-        mapspec: "measurements[i], waypoints[i] -> data[i]"
-        func:
-          _target_: pipefunc.helpers.collect_kwargs
-          parameters: [measurements, waypoints]
-          function_name: aggregate
-
-      - _target_: pipefunc.PipeFunc
-        renames:
-          input: data
         output_name: aligned
-        mapspec: "data[i] -> aligned[i]"
+        mapspec: "measurements[i], waypoints[i] -> aligned[i]"
         func:
-          _target_: rbyte.io.DataFrameAligner
-          separator: /
-          fields:
-            measurements:
-              key: _idx_
-              columns:
-                speed:
-                  method: interp
-                steer:
-                  method: interp
-                throttle:
-                  method: interp
-                brake:
-                  method: interp
-                pos_global:
-                  method: asof
-                  strategy: nearest
+          _target_: makefun.create_function
+          func_signature: "align(*, measurements, waypoints)"
+          func_impl:
+            _target_: rbyte.io.DataFrameAligner
+            separator: /
+            fields:
+              measurements:
+                key: _idx_
+                columns:
+                  speed:
+                    method: interp
+                  steer:
+                    method: interp
+                  throttle:
+                    method: interp
+                  brake:
+                    method: interp
+                  pos_global:
+                    method: asof
+                    strategy: nearest
 
-            waypoints:
-              key: timestamp
-              columns:
-                heading:
-                  method: asof
-                  strategy: nearest
-                waypoints:
-                  method: asof
+              waypoints:
+                key: timestamp
+                columns:
+                  heading:
+                    method: asof
+                    strategy: nearest
+                  waypoints:
+                    method: asof
 
       - _target_: pipefunc.PipeFunc
-        renames:
-          df: aligned
         output_name: filtered
         mapspec: "aligned[i] -> filtered[i]"
         func:
-          _target_: rbyte.io.DataFrameDuckDbQuery
+          _target_: makefun.create_function
+          func_signature: "df_query(*, query, aligned)"
+          func_impl:
+            _target_: rbyte.io.DataFrameDuckDbQuery
         bound:
           query: |
             LOAD spatial;
@@ -154,7 +148,7 @@ samples:
                       radians("waypoints/heading")
                     ) AS normalized_waypoints_geom
                   FROM
-                    df
+                    aligned
                   WHERE
                     "waypoints/waypoints" IS NOT NULL AND "measurements/pos_global" IS NOT NULL
               )
@@ -192,3 +186,12 @@ samples:
               "measurements/_idx_" BETWEEN 115 AND 135
             ORDER BY
               "measurements/_idx_";
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          keys: input_id
+          values: filtered
+        output_name: samples_aggregated
+        func:
+          _target_: rbyte.io.DataFrameConcater
+          key_column: __input_id

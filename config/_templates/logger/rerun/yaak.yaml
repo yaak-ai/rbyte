@@ -9,20 +9,23 @@
 _target_: rbyte.viz.loggers.RerunLogger
 _convert_: all
 _recursive_: false
-application_id: [meta, input_id]
+application_id: yaak
+recording_name: [meta, input_id]
 schema:
   (@=cameras[0]@)/time_stamp:
-    _target_: rerun.TimeNanosColumn
-    times: [data, "meta/ImageMetadata.(@=cameras[0]@)/time_stamp"]
+    _target_: rerun.TimeColumn
+    timestamp: [data, "meta/ImageMetadata.(@=cameras[0]@)/time_stamp"]
+    dtype: datetime64[us]
 
   safety_score/time_stamp:
-    _target_: rerun.TimeNanosColumn
-    times: [data, mcap//ai/safety_score/clip.end_timestamp]
+    _target_: rerun.TimeColumn
+    timestamp: [data, mcap//ai/safety_score/clip.end_timestamp]
+    dtype: datetime64[us]
 
   #@ for camera in cameras:
   (@=camera@)/frame_idx:
-    _target_: rerun.TimeSequenceColumn
-    times: [data, "meta/ImageMetadata.(@=camera@)/frame_idx"]
+    _target_: rerun.TimeColumn
+    sequence: [data, "meta/ImageMetadata.(@=camera@)/frame_idx"]
 
   (@=camera@):
     - _target_: rerun.Image.columns
@@ -40,12 +43,12 @@ schema:
   #@ end
 
   speed:
-    _target_: rerun.Scalar.columns
-    scalar: [data, meta/VehicleMotion/speed]
+    _target_: rerun.Scalars.columns
+    scalars: [data, meta/VehicleMotion/speed]
 
   safety_score/score:
-    _target_: rerun.Scalar.columns
-    scalar: [data, mcap//ai/safety_score/score]
+    _target_: rerun.Scalars.columns
+    scalars: [data, mcap//ai/safety_score/score]
 
   waypoints:
     _target_: rerun.Points2D.columns

@@ -2,19 +2,23 @@
 _target_: rbyte.viz.loggers.RerunLogger
 _convert_: all
 _recursive_: false
-application_id: [meta, input_id]
+application_id: zod
+recording_name: [meta, input_id]
 schema:
   camera_front_blur_meta/timestamp:
-    _target_: rerun.TimeNanosColumn
-    times: [data, camera_front_blur_meta/timestamp]
+    _target_: rerun.TimeColumn
+    timestamp: [data, camera_front_blur_meta/timestamp]
+    dtype: datetime64[ns]
 
   lidar_velodyne_meta/timestamp:
-    _target_: rerun.TimeNanosColumn
-    times: [data, lidar_velodyne_meta/timestamp]
+    _target_: rerun.TimeColumn
+    timestamp: [data, lidar_velodyne_meta/timestamp]
+    dtype: datetime64[ns]
 
   vehicle_data/ego_vehicle_controls/timestamp:
-    _target_: rerun.TimeNanosColumn
-    times: [data, vehicle_data/ego_vehicle_controls/timestamp/nanoseconds/value]
+    _target_: rerun.TimeColumn
+    timestamp: [data, vehicle_data/ego_vehicle_controls/timestamp/nanoseconds/value]
+    dtype: datetime64[ns]
 
   camera_front_blur:
     - _target_: rerun.Image.columns
@@ -35,13 +39,13 @@ schema:
     positions: [data, lidar_velodyne]
 
   acceleration_pedal:
-    _target_: rerun.Scalar.columns
-    scalar: [data, vehicle_data/ego_vehicle_controls/acceleration_pedal/ratio/unitless/value]
+    _target_: rerun.Scalars.columns
+    scalars: [data, vehicle_data/ego_vehicle_controls/acceleration_pedal/ratio/unitless/value]
 
   steering_wheel_angle:
-    _target_: rerun.Scalar.columns
-    scalar: [data, vehicle_data/ego_vehicle_controls/steering_wheel_angle/angle/radians/value]
+    _target_: rerun.Scalars.columns
+    scalars: [data, vehicle_data/ego_vehicle_controls/steering_wheel_angle/angle/radians/value]
 
   speed:
-    _target_: rerun.Scalar.columns
-    scalar: [data, vehicle_data/satellite/speed/meters_per_second/value]
+    _target_: rerun.Scalars.columns
+    scalars: [data, vehicle_data/satellite/speed/meters_per_second/value]

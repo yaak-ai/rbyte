@@ -165,12 +165,13 @@ def test_nuscenes() -> None:
     batch_logger.log(batch)
 
 
-def test_yaak() -> None:
+def test_yaak(tmp_path: Path) -> None:
     with initialize(version_base=None, config_path=CONFIG_PATH):
         cfg = compose(
             "visualize",
             overrides=[
                 "dataset=yaak",
+                f"dataset.samples.run_folder={tmp_path}",
                 "logger=rerun/yaak",
                 f"+data_dir={DATA_DIR}/yaak",
             ],

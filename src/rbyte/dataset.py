@@ -2,6 +2,7 @@ from collections.abc import Callable, Sequence
 from concurrent.futures import Executor
 from enum import StrEnum, unique
 from functools import cache
+from pathlib import Path
 from typing import Annotated, Any, ClassVar, Literal, Self, override
 
 import more_itertools as mit
@@ -10,11 +11,13 @@ import torch
 from optree import tree_map, tree_structure, tree_transpose
 from pipefunc import Pipeline
 from pipefunc._pipeline._types import OUTPUT_TYPE
+from pipefunc.map import load_outputs
 from pydantic import (
     ConfigDict,
     InstanceOf,
     RootModel,
     StringConstraints,
+    field_validator,
     model_validator,
     validate_call,
 )
@@ -71,8 +74,28 @@ class SourcesConfig(RootModel[dict[Id, dict[Id, SourceConfig]]]):
 
 class BasePipelineConfig(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow")
-    inputs: dict[str, Any]
-    return_results: Literal[True] = True
+    inputs: Sequence[dict[str, Any]]
+    run_folder: str | Path | None = None
+    return_results: bool = True
+
+    @field_validator("inputs", mode="after")
+    @classmethod
+    def _validate_inputs(
+        cls, value: Sequence[dict[str, Any]]
+    ) -> Sequence[dict[str, Any]]:
+        if not mit.all_equal(map(tree_structure, value)):  # pyright: ignore[reportArgumentType]
+            msg = "inputs have different structures"
+            raise ValueError(msg)
+
+        return value
+
+    @model_validator(mode="after")
+    def _validate(self) -> Self:
+        if not self.return_results and self.run_folder is None:
+            msg = "`run_folder` must be set when `return_results` is False"
+            raise ValueError(msg)
+
+        return self
 
 
 class PipelineInstanceConfig(BasePipelineConfig):
@@ -120,7 +143,11 @@ class Dataset(TorchDataset[Batch]):
         logger.debug("initializing dataset")
 
         self._samples: pl.DataFrame = self._build_samples(samples)
-        logger.debug("built samples", length=len(self._samples))
+        logger.debug(
+            "built samples",
+            height=self._samples.height,
+            size=f"{self._samples.estimated_size(unit := 'gb'):.3f} {unit}",
+        )
 
         self._sources: pl.DataFrame | None = (
             self._build_sources(sources) if sources is not None else None
@@ -272,35 +299,35 @@ class Dataset(TorchDataset[Batch]):
                 )
 
         pipeline.print_documentation()
-
-        input_ids, input_values = zip(*samples.inputs.items(), strict=False)
-        outer = tree_structure(list(range(len(input_values))))  # pyright: ignore[reportArgumentType]
-        inner = tree_structure(input_values[0])
-        inputs = tree_transpose(outer, inner, input_values)  # pyright: ignore[reportUnknownVariableType, reportArgumentType]
+        inputs = tree_transpose(  # pyright: ignore[reportUnknownVariableType]
+            tree_structure(list(range(len(samples.inputs)))),  # pyright: ignore[reportArgumentType]
+            tree_structure(samples.inputs[0]),  # pyright: ignore[reportArgumentType]
+            samples.inputs,  # pyright: ignore[reportArgumentType]
+        )
 
         results = pipeline.map(
             inputs=inputs,  # pyright: ignore[reportArgumentType]
             executor=executor,
             **samples.model_dump(exclude={"pipeline", "inputs", "executor"}),
         )
-        output_name = pipeline.unique_leaf_node.output_name  # pyright: ignore[reportUnknownMemberType]
-        output: Sequence[pl.DataFrame] = results[output_name].output  # pyright: ignore[reportArgumentType]
 
-        input_id_enum = pl.Enum(input_ids)
+        if pipeline.profile:
+            pipeline.print_profiling_stats()
+
+        output_name: str = pipeline.unique_leaf_node.output_name  # pyright: ignore[reportUnknownMemberType, reportAssignmentType]
+
+        result: pl.DataFrame = (
+            results[output_name].output
+            if results
+            else load_outputs(output_name, run_folder=samples.run_folder)  # pyright: ignore[reportArgumentType]
+        )
 
         return (
-            pl.concat(
-                [
-                    df.select(
-                        pl.lit(input_id).cast(input_id_enum).alias(Column.input_id),
-                        pl.col(sorted(df.collect_schema().names())),
-                    )
-                    for input_id, df in zip(input_ids, output, strict=True)
-                ],
-                how="vertical",
-            )
+            result.lazy()
+            .cast({Column.input_id: pl.Enum(sorted(result[Column.input_id].unique()))})
             .sort(Column.input_id)
             .with_row_index(Column.sample_idx)
+            .collect()
             .rechunk()
         )
 
@@ -308,7 +335,7 @@ class Dataset(TorchDataset[Batch]):
     def _build_sources(cls, sources: SourcesConfig) -> pl.DataFrame:
         logger.debug("building sources")
 
-        input_id_enum = pl.Enum(categories=sources.root.keys())
+        input_id_enum = pl.Enum(sorted(sources.root.keys()))
 
         return (
             pl.DataFrame(
