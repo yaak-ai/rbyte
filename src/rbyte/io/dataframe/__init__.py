@@ -2,6 +2,7 @@ from .aligner import DataFrameAligner
 from .concater import DataFrameConcater
 from .groupby import DataFrameGroupByDynamic
 from .indexer import DataFrameIndexer
+from .samples import SampleAggregator
 from .sql import DataFrameDuckDbQuery
 
 __all__ = [
@@ -10,4 +11,5 @@ __all__ = [
     "DataFrameDuckDbQuery",
     "DataFrameGroupByDynamic",
     "DataFrameIndexer",
+    "SampleAggregator",
 ]

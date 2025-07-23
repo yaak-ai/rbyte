@@ -29,7 +29,7 @@ sources:
 samples:
   inputs:
     #@ for input_id in drives:
-    (@=input_id@):
+    - input_id: (@=input_id@)
       meta_path: ${data_dir}/(@=input_id@)/metadata.log
       mcap_path: ${data_dir}/(@=input_id@)/ai.mcap
       waypoints_path: ${data_dir}/(@=input_id@)/waypoints.json
@@ -340,3 +340,12 @@ samples:
                    "waypoints/waypoints_normalized"::FLOAT[2][10][6] AS "waypoints/waypoints_normalized",
             FROM df
             WHERE len("meta/ImageMetadata.cam_front_left/frame_idx") == 6
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input_ids: input_id
+          samples: samples_cast
+        output_name: samples_aggregated
+        func:
+          _target_: rbyte.io.SampleAggregator
+          input_id_column: __input_id

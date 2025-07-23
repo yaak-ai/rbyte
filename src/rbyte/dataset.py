@@ -7,6 +7,7 @@ from typing import Annotated, Any, ClassVar, Literal, Self, override
 import more_itertools as mit
 import polars as pl
 import torch
+from humanize import naturalsize
 from optree import tree_map, tree_structure, tree_transpose
 from pipefunc import Pipeline
 from pipefunc._pipeline._types import OUTPUT_TYPE
@@ -15,6 +16,7 @@ from pydantic import (
     InstanceOf,
     RootModel,
     StringConstraints,
+    field_validator,
     model_validator,
     validate_call,
 )
@@ -71,8 +73,19 @@ class SourcesConfig(RootModel[dict[Id, dict[Id, SourceConfig]]]):
 
 class BasePipelineConfig(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow")
-    inputs: dict[str, Any]
+    inputs: Sequence[dict[str, Any]]
     return_results: Literal[True] = True
+
+    @field_validator("inputs", mode="after")
+    @classmethod
+    def validate_inputs(
+        cls, value: Sequence[dict[str, Any]]
+    ) -> Sequence[dict[str, Any]]:
+        if not mit.all_equal(map(tree_structure, value)):  # pyright: ignore[reportArgumentType]
+            msg = "inputs have different structures"
+            raise ValueError(msg)
+
+        return value
 
 
 class PipelineInstanceConfig(BasePipelineConfig):
@@ -120,7 +133,11 @@ class Dataset(TorchDataset[Batch]):
         logger.debug("initializing dataset")
 
         self._samples: pl.DataFrame = self._build_samples(samples)
-        logger.debug("built samples", length=len(self._samples))
+        logger.debug(
+            "built samples",
+            height=self._samples.height,
+            size=naturalsize(self._samples.estimated_size()),
+        )
 
         self._sources: pl.DataFrame | None = (
             self._build_sources(sources) if sources is not None else None
@@ -272,34 +289,25 @@ class Dataset(TorchDataset[Batch]):
                 )
 
         pipeline.print_documentation()
-
-        input_ids, input_values = zip(*samples.inputs.items(), strict=False)
-        outer = tree_structure(list(range(len(input_values))))  # pyright: ignore[reportArgumentType]
-        inner = tree_structure(input_values[0])
-        inputs = tree_transpose(outer, inner, input_values)  # pyright: ignore[reportUnknownVariableType, reportArgumentType]
+        inputs = tree_transpose(  # pyright: ignore[reportUnknownVariableType]
+            tree_structure(list(range(len(samples.inputs)))),  # pyright: ignore[reportArgumentType]
+            tree_structure(samples.inputs[0]),  # pyright: ignore[reportArgumentType]
+            samples.inputs,  # pyright: ignore[reportArgumentType]
+        )
 
         results = pipeline.map(
             inputs=inputs,  # pyright: ignore[reportArgumentType]
             executor=executor,
             **samples.model_dump(exclude={"pipeline", "inputs", "executor"}),
         )
+
+        if pipeline.profile:
+            pipeline.print_profiling_stats()
+
         output_name = pipeline.unique_leaf_node.output_name  # pyright: ignore[reportUnknownMemberType]
-        output: Sequence[pl.DataFrame] = results[output_name].output  # pyright: ignore[reportArgumentType]
-
-        input_id_enum = pl.Enum(input_ids)
-
         return (
-            pl.concat(
-                [
-                    df.select(
-                        pl.lit(input_id).cast(input_id_enum).alias(Column.input_id),
-                        pl.col(sorted(df.collect_schema().names())),
-                    )
-                    for input_id, df in zip(input_ids, output, strict=True)
-                ],
-                how="vertical",
-            )
-            .sort(Column.input_id)
+            results[output_name]  # pyright: ignore[reportArgumentType]
+            .output.sort(Column.input_id)
             .with_row_index(Column.sample_idx)
             .rechunk()
         )

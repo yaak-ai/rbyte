@@ -26,7 +26,7 @@ sources:
 
 samples:
   inputs:
-    000002_short:
+    - input_id: 000002_short
       camera_front_blur_path: ${data_dir}/sequences/000002_short/camera_front_blur
       lidar_velodyne_path: ${data_dir}/sequences/000002_short/lidar_velodyne
       vehicle_data_path: ${data_dir}/sequences/000002_short/vehicle_data.hdf5
@@ -152,3 +152,12 @@ samples:
         bound:
           query: |
             SELECT * FROM self WHERE COLUMNS(*) IS NOT NULL
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input_ids: input_id
+          samples: filtered
+        output_name: samples_aggregated
+        func:
+          _target_: rbyte.io.SampleAggregator
+          input_id_column: __input_id
