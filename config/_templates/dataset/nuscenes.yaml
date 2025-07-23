@@ -36,7 +36,7 @@ sources:
 samples:
   inputs:
     #@ for input_id in inputs:
-    (@=input_id@):
+    - input_id: (@=input_id@)
       path: "${data_dir}/(@=input_id@).mcap"
     #@ end
 
@@ -119,3 +119,12 @@ samples:
         bound:
           query: |
             SELECT * FROM self WHERE COLUMNS(*) IS NOT NULL AND `/odom/vel.x` >= 8
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input_ids: input_id
+          samples: samples
+        output_name: samples_aggregated
+        func:
+          _target_: rbyte.io.SampleAggregator
+          input_id_column: __input_id

@@ -82,6 +82,14 @@ visualize-nuscenes *ARGS:
 [group('visualize')]
 visualize-all: visualize-yaak visualize-zod visualize-mimicgen visualize-nuscenes
 
+profile-memory *ARGS: generate-config
+    uv run profile-memory \
+        --config-path {{ justfile_directory() }}/config \
+        --config-name profile_memory.yaml \
+        hydra/hydra_logging=disabled \
+        hydra/job_logging=disabled \
+        {{ ARGS }}
+
 # rerun server and viewer
 rerun bind="0.0.0.0" port="9876" web-viewer-port="9090":
     RUST_LOG=debug uv run rerun \

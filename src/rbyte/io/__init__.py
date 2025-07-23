@@ -6,6 +6,7 @@ from .dataframe import (
     DataFrameDuckDbQuery,
     DataFrameGroupByDynamic,
     DataFrameIndexer,
+    SampleAggregator,
 )
 from .path import PathDataFrameBuilder, PathTensorSource
 
@@ -19,6 +20,7 @@ __all__: list[str] = [
     "NumpyTensorSource",
     "PathDataFrameBuilder",
     "PathTensorSource",
+    "SampleAggregator",
     "Wgs84ToUtm",
 ]
 

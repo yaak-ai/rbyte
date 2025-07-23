@@ -33,7 +33,7 @@ sources:
 samples:
   inputs:
     #@ for input_id in drives:
-    (@=input_id@):
+    - input_id: (@=input_id@)
       measurements_path: ${data_dir}/(@=input_id@)/measurements.json
       waypoints_path: ${data_dir}/(@=input_id@)/waypoints.json
     #@ end
@@ -192,3 +192,12 @@ samples:
               "measurements/_idx_" BETWEEN 115 AND 135
             ORDER BY
               "measurements/_idx_";
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input_ids: input_id
+          samples: filtered
+        output_name: samples_aggregated
+        func:
+          _target_: rbyte.io.SampleAggregator
+          input_id_column: __input_id

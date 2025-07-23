@@ -23,6 +23,7 @@ from rbyte.io import (
     DuckDbDataFrameBuilder,
     McapDataFrameBuilder,
     ProtobufMcapDecoderFactory,
+    SampleAggregator,
     TorchCodecFrameSource,
     VideoDataFrameBuilder,
     WaypointBuilder,
@@ -44,12 +45,13 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 @pytest.fixture
 def yaak_pydantic() -> Dataset:
     data_dir = DATA_DIR / "yaak"
-    drive_ids = ["Niro098-HQ/2024-06-18--13-39-54"]
+    input_ids = ["Niro098-HQ/2024-06-18--13-39-54"]
     cameras = ["cam_front_left", "cam_left_backward", "cam_right_backward"]
 
     samples = PipelineInstanceConfig(
-        inputs={
-            input_id: {
+        inputs=[
+            {
+                "input_id": input_id,
                 "meta_path": data_dir / input_id / "metadata.log",
                 "mcap_path": data_dir / input_id / "ai.mcap",
                 "waypoints_path": data_dir / input_id / "waypoints.json",
@@ -58,8 +60,8 @@ def yaak_pydantic() -> Dataset:
                 f"{camera}_path": data_dir / input_id / f"{camera}.pii.mp4"
                 for camera in cameras
             }
-            for input_id in drive_ids
-        },
+            for input_id in input_ids
+        ],
         parallel=False,  # pyright: ignore[reportCallIssue]
         storage="dict",  # pyright: ignore[reportCallIssue]
         pipeline=Pipeline(
@@ -227,7 +229,8 @@ FROM ST_Read('{path}')
                         + " -> query_context[i]"
                     ),
                     func=collect_kwargs(
-                        parameters=("aligned", *map("{}_meta".format, cameras))
+                        parameters=("aligned", *map("{}_meta".format, cameras)),
+                        function_name="build_query_context",
                     ),
                 ),
                 PipeFunc(
@@ -350,6 +353,11 @@ WHERE len("meta/ImageMetadata.cam_front_left/frame_idx") == 6
 """
                     },
                 ),
+                PipeFunc(
+                    renames={"input_ids": "input_id", "samples": "samples_cast"},
+                    output_name="samples_aggregated",
+                    func=SampleAggregator(input_id_column="__input_id"),
+                ),
             ],
         ),
     )
@@ -365,17 +373,22 @@ WHERE len("meta/ImageMetadata.cam_front_left/frame_idx") == 6
             )
             for camera in cameras
         }
-        for drive_id in drive_ids
+        for drive_id in input_ids
     })
 
     return Dataset(samples=samples, sources=sources)
 
 
 @pytest.fixture
-def yaak_hydra() -> Dataset:
+def yaak_hydra(tmp_path: Path) -> Dataset:
     with initialize(version_base=None, config_path=CONFIG_PATH):
         cfg = compose(
-            "visualize", overrides=["dataset=yaak", f"+data_dir={DATA_DIR}/yaak"]
+            "visualize",
+            overrides=[
+                "dataset=yaak",
+                f"dataset.samples.run_folder={tmp_path}",
+                f"+data_dir={DATA_DIR}/yaak",
+            ],
         )
 
     return instantiate(cfg.dataset)
