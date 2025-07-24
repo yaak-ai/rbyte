@@ -1,0 +1,11 @@
+---
+defaults:
+  - /dataset: !!null
+  - _self_
+
+tracker:
+  _target_: memray.Tracker
+  file_name: '${hydra:run.dir}/memory.bin'
+  native_traces: true
+  follow_fork: true
+

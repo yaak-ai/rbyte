@@ -1,0 +1,1005 @@
+#@yaml/text-templated-strings
+
+
+#@ drives = [
+#@    'Niro096-HQ/2023-01-11--13-47-36',
+#@    'Niro101-HQ/2022-12-25--09-58-33',
+#@    'Niro101-HQ/2022-12-30--09-23-51',
+#@    'Niro101-HQ/2022-12-31--09-57-24',
+#@    'Niro101-HQ/2023-01-01--09-31-43',
+#@    'Niro101-HQ/2023-01-01--12-01-47',
+#@    'Niro101-HQ/2023-03-27--14-58-37',
+#@    'Niro101-HQ/2023-04-02--10-08-57',
+#@    'Niro101-HQ/2023-04-02--13-27-47',
+#@    'Niro101-HQ/2023-04-06--14-43-08',
+#@    'Niro101-HQ/2023-04-15--06-37-57',
+#!    'Niro101-HQ/2023-05-02--15-35-34',
+#!    'Niro101-HQ/2023-05-04--05-36-51',
+#!    'Niro101-HQ/2023-05-05--16-24-38',
+#!    'Niro101-HQ/2023-05-09--10-43-12',
+#!    'Niro101-HQ/2023-05-09--12-24-00',
+#!    'Niro101-HQ/2023-05-09--14-03-54',
+#!    'Niro101-HQ/2023-05-11--05-39-54',
+#!    'Niro101-HQ/2023-05-15--10-41-31',
+#!    'Niro101-HQ/2023-05-16--10-32-07',
+#!    'Niro101-HQ/2023-05-17--05-14-41',
+#!    'Niro102-HQ/2022-11-23--11-02-49',
+#!    'Niro102-HQ/2022-11-24--09-09-39',
+#!    'Niro102-HQ/2022-11-24--13-04-51',
+#!    'Niro102-HQ/2022-11-25--11-53-38',
+#!    'Niro102-HQ/2022-11-29--09-31-54',
+#!    'Niro102-HQ/2022-11-30--13-36-15',
+#!    'Niro102-HQ/2022-12-01--12-39-20',
+#!    'Niro102-HQ/2022-12-02--11-39-37',
+#!    'Niro102-HQ/2022-12-05--12-08-39',
+#!    'Niro102-HQ/2022-12-06--09-40-56',
+#!    'Niro102-HQ/2022-12-06--11-44-12',
+#!    'Niro102-HQ/2022-12-07--09-34-36',
+#!    'Niro102-HQ/2022-12-08--09-43-11',
+#!    'Niro102-HQ/2022-12-10--13-34-05',
+#!    'Niro102-HQ/2022-12-14--13-03-15',
+#!    'Niro102-HQ/2022-12-20--09-30-06',
+#!    'Niro102-HQ/2022-12-22--11-48-53',
+#!    'Niro102-HQ/2022-12-22--13-30-14',
+#!    'Niro102-HQ/2023-01-13--11-34-35',
+#!    'Niro102-HQ/2023-01-21--10-02-00',
+#!    'Niro102-HQ/2023-01-21--13-09-48',
+#!    'Niro102-HQ/2023-01-23--13-13-49',
+#!    'Niro102-HQ/2023-01-24--11-38-59',
+#!    'Niro102-HQ/2023-03-17--10-35-24',
+#!    'Niro102-HQ/2023-03-20--08-11-11',
+#!    'Niro102-HQ/2023-03-25--10-04-49',
+#!    'Niro102-HQ/2023-03-29--14-00-10',
+#!    'Niro102-HQ/2023-04-01--07-42-28',
+#!    'Niro102-HQ/2023-04-20--09-14-13',
+#!    'Niro102-HQ/2023-04-21--10-07-51',
+#!    'Niro102-HQ/2023-04-21--16-20-28',
+#!    'Niro102-HQ/2023-04-27--07-39-01',
+#!    'Niro102-HQ/2023-04-29--06-33-12',
+#!    'Niro102-HQ/2023-04-29--10-02-20',
+#!    'Niro102-HQ/2023-05-02--07-05-06',
+#!    'Niro102-HQ/2023-05-02--10-20-12',
+#!    'Niro102-HQ/2023-05-03--06-40-23',
+#!    'Niro102-HQ/2023-05-03--11-36-27',
+#!    'Niro102-HQ/2023-05-04--08-48-38',
+#!    'Niro102-HQ/2023-05-04--13-27-51',
+#!    'Niro102-HQ/2023-05-08--13-59-22',
+#!    'Niro102-HQ/2023-05-10--14-02-20',
+#!    'Niro102-HQ/2023-05-10--15-22-33',
+#!    'Niro102-HQ/2023-05-11--09-40-08',
+#!    'Niro102-HQ/2023-05-11--13-05-01',
+#!    'Niro102-HQ/2023-05-12--10-24-24',
+#!    'Niro102-HQ/2023-05-13--06-37-10',
+#!    'Niro102-HQ/2023-05-15--06-48-53',
+#!    'Niro102-HQ/2023-05-17--10-41-47',
+#!    'Niro102-HQ/2023-05-17--14-13-50',
+#!    'Niro103-HQ/2023-03-18--11-43-16',
+#!    'Niro103-HQ/2023-03-23--15-24-19',
+#!    'Niro103-HQ/2023-03-28--08-36-23',
+#!    'Niro103-HQ/2023-03-28--09-40-21',
+#!    'Niro103-HQ/2023-03-28--14-53-58',
+#!    'Niro103-HQ/2023-03-29--14-34-38',
+#!    'Niro104-HQ/2022-12-16--10-25-17',
+#!    'Niro104-HQ/2022-12-16--12-16-53',
+#!    'Niro104-HQ/2022-12-17--09-51-15',
+#!    'Niro104-HQ/2022-12-17--10-08-26',
+#!    'Niro104-HQ/2022-12-19--13-05-56',
+#!    'Niro104-HQ/2022-12-19--14-02-48',
+#!    'Niro104-HQ/2022-12-23--10-41-24',
+#!    'Niro104-HQ/2022-12-23--11-18-58',
+#!    'Niro104-HQ/2022-12-24--10-50-30',
+#!    'Niro104-HQ/2022-12-24--11-52-25',
+#!    'Niro104-HQ/2022-12-25--10-23-53',
+#!    'Niro104-HQ/2022-12-27--09-59-29',
+#!    'Niro104-HQ/2022-12-27--10-14-27',
+#!    'Niro104-HQ/2022-12-27--11-08-08',
+#!    'Niro104-HQ/2022-12-28--09-32-59',
+#!    'Niro104-HQ/2022-12-28--11-18-47',
+#!    'Niro104-HQ/2022-12-28--12-44-12',
+#!    'Niro104-HQ/2022-12-28--14-40-53',
+#!    'Niro104-HQ/2022-12-29--10-36-55',
+#!    'Niro104-HQ/2022-12-29--11-25-04',
+#!    'Niro104-HQ/2022-12-29--12-24-30',
+#!    'Niro104-HQ/2022-12-29--12-41-02',
+#!    'Niro104-HQ/2022-12-30--10-36-29',
+#!    'Niro104-HQ/2022-12-30--13-16-22',
+#!    'Niro104-HQ/2022-12-30--13-44-00',
+#!    'Niro104-HQ/2022-12-31--09-45-39',
+#!    'Niro104-HQ/2023-01-01--13-37-38',
+#!    'Niro104-HQ/2023-01-02--08-57-26',
+#!    'Niro104-HQ/2023-01-04--11-18-31',
+#!    'Niro104-HQ/2023-01-05--13-45-13',
+#!    'Niro104-HQ/2023-01-13--11-58-52',
+#!    'Niro104-HQ/2023-03-15--10-02-09',
+#!    'Niro104-HQ/2023-03-17--09-01-51',
+#!    'Niro104-HQ/2023-03-18--14-01-55',
+#!    'Niro104-HQ/2023-03-20--07-49-46',
+#!    'Niro104-HQ/2023-03-20--15-54-53',
+#!    'Niro104-HQ/2023-03-25--12-41-40',
+#!    'Niro104-HQ/2023-03-28--13-49-10',
+#!    'Niro104-HQ/2023-03-29--08-17-33',
+#!    'Niro104-HQ/2023-03-29--08-41-47',
+#!    'Niro104-HQ/2023-03-29--10-21-25',
+#!    'Niro104-HQ/2023-03-29--14-55-29',
+#!    'Niro104-HQ/2023-03-30--14-19-30',
+#!    'Niro104-HQ/2023-04-01--11-31-55',
+#!    'Niro104-HQ/2023-04-01--12-43-53',
+#!    'Niro104-HQ/2023-04-03--10-06-11',
+#!    'Niro104-HQ/2023-04-04--11-21-33',
+#!    'Niro104-HQ/2023-04-04--11-53-52',
+#!    'Niro104-HQ/2023-04-05--09-09-21',
+#!    'Niro104-HQ/2023-04-06--08-38-02',
+#!    'Niro104-HQ/2023-04-09--13-48-18',
+#!    'Niro104-HQ/2023-04-09--14-55-33',
+#!    'Niro104-HQ/2023-04-09--15-42-15',
+#!    'Niro104-HQ/2023-04-10--14-54-23',
+#!    'Niro104-HQ/2023-04-10--16-43-17',
+#!    'Niro104-HQ/2023-04-11--10-24-44',
+#!    'Niro104-HQ/2023-04-12--06-31-27',
+#!    'Niro104-HQ/2023-04-17--07-39-45',
+#!    'Niro104-HQ/2023-04-19--06-13-04',
+#!    'Niro104-HQ/2023-04-21--07-14-13',
+#!    'Niro104-HQ/2023-04-22--13-13-47',
+#!    'Niro104-HQ/2023-04-27--09-05-58',
+#!    'Niro104-HQ/2023-04-29--12-55-33',
+#!    'Niro104-HQ/2023-05-03--17-08-06',
+#!    'Niro104-HQ/2023-05-04--07-17-47',
+#!    'Niro104-HQ/2023-05-04--07-35-19',
+#!    'Niro104-HQ/2023-05-06--13-47-48',
+#!    'Niro104-HQ/2023-05-08--05-53-39',
+#!    'Niro104-HQ/2023-05-09--06-02-58',
+#!    'Niro104-HQ/2023-05-11--07-53-00',
+#!    'Niro104-HQ/2023-05-16--05-46-30',
+#!    'Niro105-HQ/2023-05-17--09-48-01',
+#!    'Niro106-HQ/2023-03-18--12-32-49',
+#!    'Niro106-HQ/2023-05-11--10-46-03',
+#!    'Niro106-HQ/2023-05-11--11-07-13',
+#!    'Niro106-HQ/2023-05-11--11-21-31',
+#!    'Niro106-HQ/2023-05-11--11-26-14',
+#!    'Niro107-HQ/2023-01-19--12-38-20',
+#!    'Niro107-HQ/2023-01-19--14-12-55',
+#!    'Niro107-HQ/2023-05-11--12-08-09',
+#!    'Niro107-HQ/2023-05-12--13-34-52',
+#!    'Niro107-HQ/2023-05-17--09-11-52',
+#!    'Niro108-HQ/2023-05-11--05-59-39',
+#!    'Niro108-HQ/2023-05-14--07-13-33',
+#!    'Niro108-HQ/2023-05-14--10-41-37',
+#!    'Niro108-HQ/2023-05-14--15-28-33',
+#!    'Niro108-HQ/2023-05-15--09-18-30',
+#!    'Niro108-HQ/2023-05-17--07-52-17',
+#!    'Niro109-HQ/2023-03-27--10-45-06',
+#!    'Niro109-HQ/2023-03-27--10-55-19',
+#!    'Niro110-HQ/2023-03-14--15-08-22',
+#!    'Niro110-HQ/2023-03-20--11-51-38',
+#!    'Niro110-HQ/2023-03-27--10-31-22',
+#!    'Niro110-HQ/2023-03-27--10-45-58',
+#!    'Niro111-HQ/2023-03-14--13-48-56',
+#!    'Niro111-HQ/2023-03-16--09-06-06',
+#!    'Niro111-HQ/2023-03-16--10-55-01',
+#!    'Niro111-HQ/2023-03-16--15-38-55',
+#!    'Niro111-HQ/2023-03-18--12-58-22',
+#!    'Niro111-HQ/2023-03-18--15-40-01',
+#!    'Niro111-HQ/2023-03-20--10-09-31',
+#!    'Niro111-HQ/2023-03-20--10-49-39',
+#!    'Niro111-HQ/2023-03-20--16-06-47',
+#!    'Niro111-HQ/2023-03-21--10-56-42',
+#!    'Niro111-HQ/2023-03-21--11-10-37',
+#!    'Niro111-HQ/2023-03-23--07-17-19',
+#!    'Niro111-HQ/2023-03-23--10-15-45',
+#!    'Niro111-HQ/2023-03-27--09-41-10',
+#!    'Niro111-HQ/2023-03-27--10-41-06',
+#!    'Niro111-HQ/2023-03-28--10-09-18',
+#!    'Niro111-HQ/2023-04-10--08-51-38',
+#!    'Niro111-HQ/2023-04-10--10-42-54',
+#!    'Niro111-HQ/2023-04-12--10-22-14',
+#!    'Niro111-HQ/2023-04-12--12-36-40',
+#!    'Niro111-HQ/2023-04-13--10-30-49',
+#!    'Niro111-HQ/2023-04-13--11-47-04',
+#!    'Niro111-HQ/2023-04-15--14-40-05',
+#!    'Niro111-HQ/2023-04-16--13-12-12',
+#!    'Niro111-HQ/2023-04-17--13-20-08',
+#!    'Niro111-HQ/2023-04-18--13-17-16',
+#!    'Niro111-HQ/2023-04-18--14-55-51',
+#!    'Niro111-HQ/2023-04-20--16-01-03',
+#!    'Niro111-HQ/2023-04-22--10-01-32',
+#!    'Niro111-HQ/2023-04-22--11-09-08',
+#!    'Niro111-HQ/2023-04-24--10-54-42',
+#!    'Niro111-HQ/2023-04-24--12-15-35',
+#!    'Niro111-HQ/2023-04-26--07-01-08',
+#!    'Niro111-HQ/2023-04-26--10-46-46',
+#!    'Niro111-HQ/2023-04-26--12-05-10',
+#!    'Niro111-HQ/2023-04-26--12-15-14',
+#!    'Niro111-HQ/2023-04-26--16-28-33',
+#!    'Niro111-HQ/2023-04-30--06-35-19',
+#!    'Niro111-HQ/2023-05-02--12-47-16',
+#!    'Niro111-HQ/2023-05-03--11-47-28',
+#!    'Niro111-HQ/2023-05-03--13-09-57',
+#!    'Niro111-HQ/2023-05-11--09-53-29',
+#!    'Niro111-HQ/2023-05-11--10-09-15',
+#!    'Niro111-HQ/2023-05-11--10-35-16',
+#!    'Niro111-HQ/2023-05-11--11-05-28',
+#!    'Niro111-HQ/2023-05-14--06-02-12',
+#!    'Niro111-HQ/2023-05-14--15-24-04',
+#!    'Niro111-HQ/2023-05-16--05-37-55',
+#!    'Niro111-HQ/2023-05-16--10-05-43',
+#!    'Niro111-HQ/2023-05-16--10-19-12',
+#!    'Niro111-HQ/2023-05-17--07-28-15',
+#!    'Niro111-HQ/2023-05-17--08-27-14',
+#!    'Niro111-HQ/2023-05-17--09-17-33',
+#!    'Niro111-HQ/2023-05-17--10-30-33',
+#!    'Niro111-HQ/2023-05-17--11-05-28',
+#!    'Niro112-HQ/2023-03-15--14-15-19',
+#!    'Niro112-HQ/2023-03-27--08-55-50',
+#!    'Niro112-HQ/2023-04-20--16-11-41',
+#!    'Niro112-HQ/2023-04-24--10-03-06',
+#!    'Niro112-HQ/2023-05-05--08-55-43',
+#!    'Niro112-HQ/2023-05-05--10-28-34',
+#!    'Niro113-HQ/2023-04-02--09-02-43',
+#!    'Niro115-HQ/2023-03-27--14-54-27',
+#!    'Niro115-HQ/2023-04-07--11-38-52',
+#!    'Niro115-HQ/2023-04-09--10-58-53',
+#!    'Niro115-HQ/2023-04-09--11-38-06',
+#!    'Niro115-HQ/2023-04-10--08-16-23',
+#!    'Niro115-HQ/2023-04-10--08-43-17',
+#!    'Niro115-HQ/2023-04-15--11-17-35',
+#!    'Niro115-HQ/2023-04-22--14-19-01',
+#!    'Niro115-HQ/2023-05-14--07-53-26',
+#!    'Niro115-HQ/2023-05-17--06-25-32',
+#!    'Niro115-HQ/2023-05-17--13-34-53',
+#!    'Niro116-HQ/2023-04-25--07-39-43',
+#!    'Niro116-HQ/2023-04-25--07-50-19',
+#!    'Niro116-HQ/2023-04-25--09-01-38',
+#!    'Niro116-HQ/2023-04-25--09-08-02',
+#!    'Niro116-HQ/2023-04-25--09-24-03',
+#!    'Niro116-HQ/2023-04-25--16-40-59',
+#!    'Niro116-HQ/2023-04-26--06-37-03',
+#!    'Niro116-HQ/2023-04-26--06-37-41',
+#!    'Niro116-HQ/2023-04-26--06-50-41',
+#!    'Niro116-HQ/2023-04-26--12-12-54',
+#!    'Niro116-HQ/2023-04-26--14-38-26',
+#!    'Niro120-HQ/2023-04-27--12-38-41',
+#!    'Niro120-HQ/2023-05-04--15-28-12',
+#!    'Niro120-HQ/2023-05-12--11-21-09',
+#!    'Niro121-HQ/2023-04-22--08-21-48',
+#!    'Niro121-HQ/2023-04-22--08-48-41',
+#!    'Niro121-HQ/2023-04-24--07-48-32',
+#!    'Niro121-HQ/2023-04-24--09-31-57',
+#!    'Niro121-HQ/2023-04-24--11-14-04',
+#!    'Niro121-HQ/2023-04-25--09-09-56',
+#!    'Niro121-HQ/2023-04-25--11-20-26',
+#!    'Niro121-HQ/2023-05-02--06-30-16',
+#!    'Niro121-HQ/2023-05-02--09-50-39',
+#!    'Niro121-HQ/2023-05-02--16-11-43',
+#!    'Niro121-HQ/2023-05-04--16-47-16',
+#!    'Niro122-HQ/2023-03-26--08-53-19',
+#!    'Niro122-HQ/2023-03-27--10-21-10',
+#!    'Niro122-HQ/2023-03-27--10-46-50',
+#!    'Niro122-HQ/2023-03-29--12-55-47',
+#!    'Niro122-HQ/2023-03-31--13-38-13',
+#!    'Niro122-HQ/2023-04-17--10-35-13',
+#!    'Niro122-HQ/2023-04-17--13-29-22',
+#!    'Niro124-HQ/2023-03-24--10-53-40',
+#!    'Niro124-HQ/2023-03-24--11-09-27',
+#!    'Niro124-HQ/2023-03-24--11-22-57',
+#!    'Niro127-HQ/2023-04-14--17-29-21',
+#!    'Niro127-HQ/2023-04-15--09-01-20',
+#!    'Niro127-HQ/2023-04-15--09-42-02',
+#!    'Niro127-HQ/2023-04-26--14-58-28',
+#!    'Niro127-HQ/2023-04-27--11-33-40',
+#!    'Niro127-HQ/2023-05-05--05-19-47',
+#!    'Niro127-HQ/2023-05-06--06-27-24',
+#!    'Niro127-HQ/2023-05-09--05-45-47',
+#!    'Niro127-HQ/2023-05-10--12-54-22',
+#!    'Niro128-HQ/2023-03-29--11-42-27',
+#!    'Niro128-HQ/2023-04-12--12-02-10',
+#!    'Niro128-HQ/2023-04-12--12-12-16',
+#!    'Niro128-HQ/2023-04-12--12-21-31',
+#!    'Niro128-HQ/2023-05-17--13-40-34',
+#!    'Niro128-HQ/2023-05-17--14-56-01',
+#!    'Niro129-HQ/2023-04-13--11-35-26',
+#!    'Niro129-HQ/2023-04-13--11-45-36',
+#!    'Niro129-HQ/2023-04-13--11-57-08',
+#!    'Niro130-HQ/2023-05-16--06-58-29',
+#!    'Niro130-HQ/2023-05-17--13-45-58',
+#!    'Niro130-HQ/2023-05-17--13-58-03',
+#!    'Niro130-HQ/2023-05-17--14-38-46',
+#!    'Niro130-HQ/2023-05-17--15-26-52',
+#!    'Niro131-HQ/2023-05-10--06-33-33',
+#!    'Niro131-HQ/2023-05-11--10-49-57',
+#!    'Niro131-HQ/2023-05-12--08-32-39',
+#!    'Niro131-HQ/2023-05-12--09-43-27',
+#!    'Niro131-HQ/2023-05-12--10-28-05',
+#!    'Niro131-HQ/2023-05-13--15-25-50',
+#!    'Niro131-HQ/2023-05-16--06-10-58',
+#!    'Niro131-HQ/2023-05-16--08-03-03',
+#!    'Niro131-HQ/2023-05-16--08-44-52',
+#!    'Niro131-HQ/2023-05-17--06-20-42',
+#!    'Niro131-HQ/2023-05-17--10-17-54',
+#!    'Niro131-HQ/2023-05-17--10-34-21',
+#!    'Niro132-HQ/2023-05-05--09-45-35',
+#!    'Niro132-HQ/2023-05-05--13-14-19',
+#!    'Niro132-HQ/2023-05-05--13-22-10',
+#!    'Niro132-HQ/2023-05-05--16-37-11',
+#!    'Niro132-HQ/2023-05-06--12-23-31',
+#!    'Niro132-HQ/2023-05-12--09-30-17',
+#!    'Niro132-HQ/2023-05-13--16-03-56',
+#!    'Niro111-HQ/2023-05-18--07-35-50',
+#!    'Niro115-HQ/2023-05-19--05-50-22',
+#!    'Niro115-HQ/2023-05-19--07-08-01',
+#!    'Niro130-HQ/2023-05-19--09-25-01',
+#!    'Niro130-HQ/2023-05-19--09-31-53',
+#!    'Niro131-HQ/2023-05-19--11-02-26',
+#!    'Niro107-HQ/2023-05-19--11-21-39',
+#!    'Niro101-HQ/2023-05-19--11-22-52',
+#!    'Niro131-HQ/2023-05-19--12-04-15',
+#!    'Niro102-HQ/2023-05-19--12-31-08',
+#!    'Niro131-HQ/2023-05-19--12-44-53',
+#!    'Niro111-HQ/2023-05-19--12-50-12',
+#!    'Niro130-HQ/2023-05-19--12-59-47',
+#!    'Niro130-HQ/2023-05-19--13-12-46',
+#!    'Niro131-HQ/2023-05-19--13-32-39',
+#!    'Niro111-HQ/2023-05-19--14-13-00',
+#!    'Niro102-HQ/2023-05-19--15-31-45',
+#!    'Niro107-HQ/2023-05-19--15-52-01',
+#!    'Niro108-HQ/2023-05-19--16-21-08',
+#!    'Niro111-HQ/2023-05-19--16-47-04',
+#!    'Niro130-HQ/2023-05-19--16-51-39',
+#!    'Niro104-HQ/2023-05-20--06-13-08',
+#!    'Niro108-HQ/2023-05-20--06-29-56',
+#!    'Niro108-HQ/2023-05-20--09-33-40',
+#!    'Niro111-HQ/2023-05-20--16-37-01',
+#!    'Niro111-HQ/2023-05-21--05-38-07',
+#!    'Niro111-HQ/2023-05-21--05-54-25',
+#!    'Niro131-HQ/2023-05-21--08-31-35',
+#!    'Niro131-HQ/2023-05-21--10-33-01',
+#!    'Niro111-HQ/2023-05-21--13-13-04',
+#!    'Niro115-HQ/2023-05-22--04-56-38',
+#!    'Niro111-HQ/2023-05-22--05-57-47',
+#!    'Niro104-HQ/2023-05-22--05-58-46',
+#!    'Niro111-HQ/2023-05-22--06-17-35',
+#!    'Niro111-HQ/2023-05-22--08-48-46',
+#!    'Niro111-HQ/2023-05-22--10-01-36',
+#!    'Niro131-HQ/2023-05-22--10-01-39',
+#!    'Niro107-HQ/2023-05-22--10-16-59',
+#!    'Niro106-HQ/2023-05-22--10-34-27',
+#!    'Niro106-HQ/2023-05-22--10-49-24',
+#!    'Niro111-HQ/2023-05-22--10-56-49',
+#!    'Niro131-HQ/2023-05-22--11-49-35',
+#!    'Niro111-HQ/2023-05-22--12-04-42',
+#!    'Niro107-HQ/2023-05-22--13-09-46',
+#!    'Niro111-HQ/2023-05-22--14-44-29',
+#!    'Niro130-HQ/2023-05-22--16-25-01',
+#!    'Niro104-HQ/2023-05-22--18-12-27',
+#!    'Niro115-HQ/2023-05-23--04-10-14',
+#!    'Niro111-HQ/2023-05-23--05-04-00',
+#!    'Niro101-HQ/2023-05-23--05-26-27',
+#!    'Niro128-HQ/2023-05-23--05-26-51',
+#!    'Niro128-HQ/2023-05-23--05-40-48',
+#!    'Niro104-HQ/2023-05-23--05-42-54',
+#!    'Niro102-HQ/2023-05-23--07-16-38',
+#!    'Niro128-HQ/2023-05-23--12-13-59',
+#!    'Niro128-HQ/2023-05-23--12-46-21',
+#!    'Niro107-HQ/2023-05-23--12-47-53',
+#!    'Niro128-HQ/2023-05-23--12-58-10',
+#!    'Niro128-HQ/2023-05-23--13-18-54',
+#!    'Niro128-HQ/2023-05-23--13-37-38',
+#!    'Niro128-HQ/2023-05-23--15-38-00',
+#!    'Niro102-HQ/2023-05-23--15-40-39',
+#!    'Niro131-HQ/2023-05-23--16-02-25',
+#!    'Niro128-HQ/2023-05-23--16-14-17',
+#!    'Niro115-HQ/2023-05-24--04-28-24',
+#!    'Niro128-HQ/2023-05-24--05-26-08',
+#!    'Niro130-HQ/2023-05-24--05-34-38',
+#!    'Niro128-HQ/2023-05-24--05-42-32',
+#!    'Niro130-HQ/2023-05-24--06-18-39',
+#!    'Niro104-HQ/2023-05-24--07-02-58',
+#!    'Niro111-HQ/2023-05-24--08-24-21',
+#!    'Niro111-HQ/2023-05-24--10-41-40',
+#!    'Niro115-HQ/2023-05-24--10-41-44',
+#!    'Niro115-HQ/2023-05-24--11-20-46',
+#!    'Niro111-HQ/2023-05-24--12-27-33',
+#!    'Niro107-HQ/2023-05-24--12-31-05',
+#!    'Niro115-HQ/2023-05-24--13-05-07',
+#!    'Niro111-HQ/2023-05-24--13-14-33',
+#!    'Niro107-HQ/2023-05-24--13-19-50',
+#!    'Niro115-HQ/2023-05-24--13-23-34',
+#!    'Niro131-HQ/2023-05-24--13-33-34',
+#!    'Niro111-HQ/2023-05-24--13-50-35',
+#!    'Niro102-HQ/2023-05-24--14-13-52',
+#!    'Niro111-HQ/2023-05-24--15-34-53',
+#!    'Niro131-HQ/2023-05-24--16-31-12',
+#!    'Niro111-HQ/2023-05-24--16-52-10',
+#!    'Niro104-HQ/2023-05-24--18-04-27',
+#!    'Niro115-HQ/2023-05-25--05-08-41',
+#!    'Niro111-HQ/2023-05-25--05-20-59',
+#!    'Niro126-HQ/2023-05-25--05-28-07',
+#!    'Niro102-HQ/2023-05-25--05-30-08',
+#!    'Niro101-HQ/2023-05-25--05-38-21',
+#!    'Niro104-HQ/2023-05-25--05-55-29',
+#!    'Niro131-HQ/2023-05-25--06-06-30',
+#!    'Niro107-HQ/2023-05-25--06-40-24',
+#!    'Niro101-HQ/2023-05-25--07-34-43',
+#!    'Niro122-HQ/2023-05-25--07-46-43',
+#!    'Niro104-HQ/2023-05-25--08-52-48',
+#!    'Niro122-HQ/2023-05-25--09-34-14',
+#!    'Niro110-HQ/2023-05-25--10-12-18',
+#!    'Niro110-HQ/2023-05-25--10-22-36',
+#!    'Niro110-HQ/2023-05-25--10-28-25',
+#!    'Niro111-HQ/2023-05-25--10-30-00',
+#!    'Niro110-HQ/2023-05-25--10-37-07',
+#!    'Niro130-HQ/2023-05-25--11-07-59',
+#!    'Niro111-HQ/2023-05-25--11-35-32',
+#!    'Niro128-HQ/2023-05-25--11-59-39',
+#!    'Niro111-HQ/2023-05-25--13-54-42',
+#!    'Niro122-HQ/2023-05-25--14-01-50',
+#!    'Niro122-HQ/2023-05-25--14-11-51',
+#!    'Niro102-HQ/2023-05-25--14-27-20',
+#!    'Niro111-HQ/2023-05-25--15-00-19',
+#!    'Niro101-HQ/2023-05-25--15-00-40',
+#!    'Niro111-HQ/2023-05-25--15-11-58',
+#!    'Niro111-HQ/2023-05-25--15-50-09',
+#!    'Niro111-HQ/2023-05-25--16-28-25',
+#!    'Niro122-HQ/2023-05-25--18-05-31',
+#!    'Niro115-HQ/2023-05-26--04-47-30',
+#!    'Niro109-HQ/2023-05-26--05-10-37',
+#!    'Niro111-HQ/2023-05-26--05-22-55',
+#!    'Niro128-HQ/2023-05-26--05-27-40',
+#!    'Niro111-HQ/2023-05-26--05-32-02',
+#!    'Niro128-HQ/2023-05-26--05-38-07',
+#!    'Niro104-HQ/2023-05-26--06-16-53',
+#!    'Niro111-HQ/2023-05-26--06-20-18',
+#!    'Niro131-HQ/2023-05-26--06-37-39',
+#!    'Niro111-HQ/2023-05-26--07-06-55',
+#!    'Niro111-HQ/2023-05-26--07-46-20',
+#!    'Niro115-HQ/2023-05-26--08-00-47',
+#!    'Niro111-HQ/2023-05-26--08-27-58',
+#!    'Niro107-HQ/2023-05-26--08-35-31',
+#!    'Niro102-HQ/2023-05-26--08-50-27',
+#!    'Niro111-HQ/2023-05-26--08-52-20',
+#!    'Niro111-HQ/2023-05-26--09-00-56',
+#!    'Niro111-HQ/2023-05-26--09-27-56',
+#!    'Niro104-HQ/2023-05-26--09-51-58',
+#!    'Niro107-HQ/2023-05-26--10-19-16',
+#!    'Niro111-HQ/2023-05-26--10-22-56',
+#!    'Niro107-HQ/2023-05-26--10-42-58',
+#!    'Niro115-HQ/2023-05-26--11-04-30',
+#!    'Niro109-HQ/2023-05-26--11-08-28',
+#!    'Niro107-HQ/2023-05-26--11-19-35',
+#!    'Niro128-HQ/2023-05-26--11-43-40',
+#!    'Niro128-HQ/2023-05-26--13-24-20',
+#!    'Niro107-HQ/2023-05-26--13-33-47',
+#!    'Niro109-HQ/2023-05-26--15-29-56',
+#!    'Niro102-HQ/2023-05-26--15-30-27',
+#!    'Niro109-HQ/2023-05-26--16-28-20',
+#!    'Niro104-HQ/2023-05-27--06-20-21',
+#!    'Niro109-HQ/2023-05-27--06-40-07',
+#!    'Niro101-HQ/2023-05-27--07-28-19',
+#!    'Niro101-HQ/2023-05-27--07-54-00',
+#!    'Niro101-HQ/2023-05-27--08-33-39',
+#!    'Niro104-HQ/2023-05-27--08-46-28',
+#!    'Niro107-HQ/2023-05-27--09-00-10',
+#!    'Niro107-HQ/2023-05-27--10-11-58',
+#!    'Niro102-HQ/2023-05-27--11-08-55',
+#!    'Niro107-HQ/2023-05-27--12-25-56',
+#!    'Niro107-HQ/2023-05-27--13-37-25',
+#!    'Niro107-HQ/2023-05-27--14-36-00',
+#!    'Niro109-HQ/2023-05-28--08-26-40',
+#!    'Niro104-HQ/2023-05-28--10-28-05',
+#!    'Niro115-HQ/2023-05-28--11-03-03',
+#!    'Niro104-HQ/2023-05-28--12-51-50',
+#!    'Niro104-HQ/2023-05-28--14-55-50',
+#!    'Niro109-HQ/2023-05-28--15-00-29',
+#!    'Niro104-HQ/2023-05-28--15-18-11',
+#!    'Niro115-HQ/2023-05-29--05-45-26',
+#!    'Niro115-HQ/2023-05-29--08-42-28',
+#!    'Niro107-HQ/2023-05-29--12-28-24',
+#!    'Niro107-HQ/2023-05-29--17-24-10',
+#!    'Niro115-HQ/2023-05-30--04-27-40',
+#!    'Niro111-HQ/2023-05-30--05-10-02',
+#!    'Niro111-HQ/2023-05-30--05-16-28',
+#!    'Niro111-HQ/2023-05-30--05-31-39',
+#!    'Niro115-HQ/2023-05-30--05-35-00',
+#!    'Niro102-HQ/2023-05-30--06-30-43',
+#!    'Niro109-HQ/2023-05-30--07-21-03',
+#!    'Niro104-HQ/2023-05-30--07-42-02',
+#!    'Niro115-HQ/2023-05-30--08-14-30',
+#!    'Niro107-HQ/2023-05-30--09-49-07',
+#!    'Niro109-HQ/2023-05-30--10-10-13',
+#!    'Niro102-HQ/2023-05-30--13-48-23',
+#!    'Niro109-HQ/2023-05-30--13-57-54',
+#!    'Niro132-HQ/2023-05-30--14-01-34',
+#!    'Niro107-HQ/2023-05-30--16-39-55',
+#!    'Niro132-HQ/2023-05-30--16-56-08',
+#!    'Niro107-HQ/2023-05-30--18-09-29',
+#!    'Niro111-HQ/2023-05-31--05-14-23',
+#!    'Niro111-HQ/2023-05-31--05-20-58',
+#!    'Niro122-HQ/2023-05-31--05-46-04',
+#!    'Niro104-HQ/2023-05-31--06-00-30',
+#!    'Niro115-HQ/2023-05-31--06-33-21',
+#!    'Niro102-HQ/2023-05-31--06-37-08',
+#!    'Niro128-HQ/2023-05-31--06-46-19',
+#!    'Niro132-HQ/2023-05-31--06-54-44',
+#!    'Niro128-HQ/2023-05-31--06-58-08',
+#!    'Niro109-HQ/2023-05-31--07-46-31',
+#!    'Niro115-HQ/2023-05-31--07-53-49',
+#!    'Niro104-HQ/2023-05-31--07-59-03',
+#!    'Niro115-HQ/2023-05-31--09-32-46',
+#!    'Niro132-HQ/2023-05-31--09-36-03',
+#!    'Niro112-HQ/2023-05-31--09-37-50',
+#!    'Niro128-HQ/2023-05-31--09-49-56',
+#!    'Niro107-HQ/2023-05-31--10-51-37',
+#!    'Niro109-HQ/2023-05-31--11-49-48',
+#!    'Niro107-HQ/2023-05-31--11-51-31',
+#!    'Niro109-HQ/2023-05-31--13-32-39',
+#!    'Niro107-HQ/2023-05-31--13-52-37',
+#!    'Niro107-HQ/2023-05-31--13-55-31',
+#!    'Niro122-HQ/2023-05-31--13-58-30',
+#!    'Niro122-HQ/2023-05-31--14-21-03',
+#!    'Niro102-HQ/2023-05-31--14-41-41',
+#!    'Niro129-HQ/2023-05-31--15-07-03',
+#!    'Niro111-HQ/2023-05-31--15-09-01',
+#!    'Niro111-HQ/2023-05-31--16-01-51',
+#!    'Niro115-HQ/2023-05-31--16-43-43',
+#!    'Niro102-HQ/2023-05-31--17-13-04',
+#!    'Niro109-HQ/2023-05-31--17-52-51',
+#!    'Niro104-HQ/2023-05-31--18-18-28',
+#!    'Niro128-HQ/2023-05-31--18-26-11',
+#!    'Niro122-HQ/2023-06-01--05-05-26',
+#!    'Niro111-HQ/2023-06-01--05-17-24',
+#!    'Niro111-HQ/2023-06-01--05-25-09',
+#!    'Niro109-HQ/2023-06-01--06-39-52',
+#!    'Niro115-HQ/2023-06-01--07-01-01',
+#!    'Niro104-HQ/2023-06-01--08-24-56',
+#!    'Niro112-HQ/2023-06-01--08-51-57',
+#!    'Niro122-HQ/2023-06-01--09-20-20',
+#!    'Niro103-HQ/2023-06-01--10-22-54',
+#!    'Niro103-HQ/2023-06-01--10-33-02',
+#!    'Niro103-HQ/2023-06-01--10-43-45',
+#!    'Niro122-HQ/2023-06-01--11-05-10',
+#!    'Niro111-HQ/2023-06-01--14-02-29',
+#!    'Niro111-HQ/2023-06-01--14-39-23',
+#!    'Niro111-HQ/2023-06-01--16-17-06',
+#!    'Niro115-HQ/2023-06-01--18-38-05',
+#!    'Niro109-HQ/2023-06-02--05-05-45',
+#!    'Niro111-HQ/2023-06-02--05-29-48',
+#!    'Niro111-HQ/2023-06-02--05-38-01',
+#!    'Niro102-HQ/2023-06-02--05-41-59',
+#!    'Niro104-HQ/2023-06-02--06-16-33',
+#!    'Niro115-HQ/2023-06-02--08-30-16',
+#!    'Niro113-HQ/2023-06-02--08-45-59',
+#!    'Niro113-HQ/2023-06-02--08-54-30',
+#!    'Niro115-HQ/2023-06-02--09-23-33',
+#!    'Niro128-HQ/2023-06-02--10-46-43',
+#!    'Niro111-HQ/2023-06-02--11-06-57',
+#!    'Niro115-HQ/2023-06-02--11-08-58',
+#!    'Niro109-HQ/2023-06-02--12-13-54',
+#!    'Niro109-HQ/2023-06-02--12-40-13',
+#!    'Niro109-HQ/2023-06-02--13-45-16',
+#!    'Niro111-HQ/2023-06-02--14-10-46',
+#!    'Niro110-HQ/2023-06-02--14-24-36',
+#!    'Niro110-HQ/2023-06-02--19-01-31',
+#!    'Niro109-HQ/2023-06-03--05-47-33',
+#!    'Niro115-HQ/2023-06-03--05-51-55',
+#!    'Niro115-HQ/2023-06-03--06-39-49',
+#!    'Niro126-HQ/2023-06-03--06-52-22',
+#!    'Niro115-HQ/2023-06-03--07-40-08',
+#!    'Niro111-HQ/2023-06-03--07-59-10',
+#!    'Niro115-HQ/2023-06-03--08-03-04',
+#!    'Niro111-HQ/2023-06-03--08-06-49',
+#!    'Niro109-HQ/2023-06-03--09-37-43',
+#!    'Niro110-HQ/2023-06-03--10-30-58',
+#!    'Niro126-HQ/2023-06-03--10-47-06',
+#!    'Niro115-HQ/2023-06-03--11-17-08',
+#!    'Niro126-HQ/2023-06-03--11-51-28',
+#!    'Niro104-HQ/2023-06-03--12-58-22',
+#!    'Niro113-HQ/2023-06-03--13-05-58',
+#!    'Niro109-HQ/2023-06-03--13-47-56',
+#!    'Niro126-HQ/2023-06-03--14-18-28',
+#!    'Niro109-HQ/2023-06-03--14-21-19',
+#!    'Niro110-HQ/2023-06-03--15-33-43',
+#!    'Niro126-HQ/2023-06-03--15-53-59',
+#!    'Niro113-HQ/2023-06-03--16-20-21',
+#!    'Niro110-HQ/2023-06-03--16-31-14',
+#!    'Niro113-HQ/2023-06-03--16-58-19',
+#!    'Niro104-HQ/2023-06-03--17-11-50',
+#!    'Niro113-HQ/2023-06-03--17-35-33',
+#!    'Niro115-HQ/2023-06-04--05-36-57',
+#!    'Niro115-HQ/2023-06-04--08-17-41',
+#!    'Niro110-HQ/2023-06-04--08-25-24',
+#!    'Niro113-HQ/2023-06-04--11-33-25',
+#!    'Niro110-HQ/2023-06-04--14-23-46',
+#!    'Niro104-HQ/2023-06-04--15-13-08',
+#!    'Niro110-HQ/2023-06-04--15-46-21',
+#!    'Niro104-HQ/2023-06-04--17-01-26',
+#!    'Niro104-HQ/2023-06-04--17-03-24',
+#!    'Niro113-HQ/2023-06-04--17-29-23',
+#!    'Niro104-HQ/2023-06-05--06-08-27',
+#!    'Niro102-HQ/2023-06-05--06-14-24',
+#!    'Niro109-HQ/2023-06-05--07-22-54',
+#!    'Niro104-HQ/2023-06-05--08-07-18',
+#!    'Niro104-HQ/2023-06-05--09-51-41',
+#!    'Niro102-HQ/2023-06-05--10-13-54',
+#!    'Niro129-HQ/2023-06-05--10-32-00',
+#!    'Niro110-HQ/2023-06-05--12-08-56',
+#!    'Niro102-HQ/2023-06-05--13-59-42',
+#!    'Niro110-HQ/2023-06-05--15-25-43',
+#!    'Niro110-HQ/2023-06-05--16-48-04',
+#!    'Niro109-HQ/2023-06-05--18-09-54',
+#!    'Niro109-HQ/2023-06-06--04-50-30',
+#!    'Niro104-HQ/2023-06-06--05-50-32',
+#!    'Niro115-HQ/2023-06-06--07-32-50',
+#!    'Niro115-HQ/2023-06-06--08-05-47',
+#!    'Niro132-HQ/2023-06-06--09-17-39',
+#!    'Niro115-HQ/2023-06-06--09-48-27',
+#!    'Niro102-HQ/2023-06-06--10-08-14',
+#!    'Niro115-HQ/2023-06-06--10-39-36',
+#!    'Niro132-HQ/2023-06-06--10-45-47',
+#!    'Niro110-HQ/2023-06-06--10-51-12',
+#!    'Niro110-HQ/2023-06-06--11-16-30',
+#!    'Niro109-HQ/2023-06-06--07-22-55',
+#!    'Niro109-HQ/2023-06-06--13-53-30',
+#!    'Niro109-HQ/2023-06-06--14-45-36',
+#!    'Niro102-HQ/2023-06-06--15-01-19',
+#!    'Niro132-HQ/2023-06-06--15-21-37',
+#!    'Niro132-HQ/2023-06-06--17-56-35',
+#!    'Niro102-HQ/2023-06-06--19-06-53',
+#!    'Niro101-HQ/2023-06-07--05-44-34',
+#!    'Niro128-HQ/2023-06-07--06-54-50',
+#!    'Niro101-HQ/2023-06-07--07-52-20',
+#!    'Niro101-HQ/2023-06-07--08-07-57',
+#!    'Niro101-HQ/2023-06-07--09-41-55',
+#!    'Niro127-HQ/2023-06-07--12-19-14',
+#!    'Niro102-HQ/2023-06-07--12-47-20',
+#!    'Niro102-HQ/2023-06-07--13-47-01',
+#!    'Niro132-HQ/2023-06-07--14-44-28',
+#!    'Niro102-HQ/2023-06-07--15-18-22',
+#!    'Niro110-HQ/2023-06-07--16-16-13',
+#!    'Niro110-HQ/2023-06-07--17-45-40',
+#!    'Niro110-HQ/2023-06-08--07-53-00',
+#!    'Niro113-HQ/2023-06-08--10-39-29',
+#@ ]
+
+#@ cameras = [
+#@     'cam_front_left',
+#@ ]
+---
+_target_: rbyte.Dataset
+_recursive_: false
+_convert_: all
+
+samples:
+  inputs:
+    #@ for input_id in drives:
+    - input_id: (@=input_id@)
+      yaak_metadata_path: ${data_dir}/(@=input_id@)/metadata.log
+      waypoints_path: ${data_dir}/(@=input_id@)/waypoints.json
+      #@ for camera in cameras:
+      (@=camera@)_path: ${data_dir}/(@=input_id@)/frames/(@=camera@).pii.mp4/576x324
+      #@ end
+    #@ end
+
+  executor:
+    _target_: concurrent.futures.ThreadPoolExecutor
+    # mp_context:
+    #   _target_: multiprocessing.get_context
+    #   method: forkserver
+
+  storage: dict
+  scheduling_strategy: eager
+  persist_memory: false
+
+  pipeline:
+    _target_: pipefunc.Pipeline
+    validate_type_annotations: false
+    # profile: true
+    functions:
+      - _target_: pipefunc.PipeFunc
+        renames:
+          path: yaak_metadata_path
+        output_name: meta
+        mapspec: "yaak_metadata_path[i] -> meta[i]"
+        func:
+          _target_: rbyte.io.YaakMetadataDataFrameBuilder
+          fields:
+            rbyte.io.yaak.proto.sensor_pb2.ImageMetadata:
+              time_stamp:
+                _target_: polars.Datetime
+                time_unit: us
+              frame_idx:
+                _target_: polars.Int32
+              camera_name:
+                _target_: polars.Enum
+                categories:
+                  - cam_front_center
+                  - cam_front_left
+                  - cam_front_right
+                  - cam_left_forward
+                  - cam_right_forward
+                  - cam_left_backward
+                  - cam_right_backward
+                  - cam_rear
+
+            rbyte.io.yaak.proto.can_pb2.VehicleState:
+              time_stamp:
+                _target_: polars.Datetime
+                time_unit: us
+              turn_signal:
+                _target_: polars.Int8
+
+            rbyte.io.yaak.proto.can_pb2.VehicleMotion:
+              time_stamp:
+                _target_: polars.Datetime
+                time_unit: us
+              speed:
+                _target_: polars.Float32
+              gas_pedal_normalized:
+                _target_: polars.Float32
+              brake_pedal_normalized:
+                _target_: polars.Float32
+              steering_angle_normalized:
+                _target_: polars.Float32
+              gear:
+                _target_: polars.Enum
+                categories: ["0", "1", "2", "3"]
+
+            rbyte.io.yaak.proto.sensor_pb2.Gnss:
+              time_stamp:
+                _target_: polars.Datetime
+                time_unit: us
+              latitude:
+                _target_: polars.Float32
+              longitude:
+                _target_: polars.Float32
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          path: waypoints_path
+        output_name: waypoints_raw
+        mapspec: "waypoints_path[i] -> waypoints_raw[i]"
+        func:
+          _target_: rbyte.io.DuckDbDataFrameBuilder
+          udfs: [rbyte.io._duckdb.udfs.Wgs84ToUtm]
+        bound:
+          query: |
+            LOAD spatial;
+            SET TimeZone = 'UTC';
+            SELECT TO_TIMESTAMP(timestamp)::TIMESTAMP AS timestamp,
+                   heading,
+                   ST_Wgs84ToUtm(ST_AsWKB(geom)) AS geometry
+            FROM ST_Read('{path}')
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input: waypoints_raw
+        output_name: waypoints
+        mapspec: "waypoints_raw[i] -> waypoints[i]"
+        func:
+          _target_: rbyte.io.WaypointBuilder
+          length: 10
+          columns:
+            points: geometry
+            output: waypoints
+
+      - _target_: pipefunc.PipeFunc
+        output_name: data
+        mapspec: "meta[i], waypoints[i] -> data[i]"
+        func:
+          _target_: pipefunc.helpers.collect_kwargs
+          parameters: [meta, waypoints]
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input: data
+        output_name: aligned
+        mapspec: "data[i] -> aligned[i]"
+        func:
+          _target_: rbyte.io.DataFrameAligner
+          separator: /
+          fields:
+            meta:
+              ImageMetadata.(@=cameras[0]@):
+                key: time_stamp
+              #@ for camera in cameras[1:]:
+              ImageMetadata.(@=camera@):
+                key: time_stamp
+                columns:
+                  frame_idx:
+                    method: asof
+                    tolerance: 10ms
+                    strategy: nearest
+              #@ end
+              VehicleState:
+                key: time_stamp
+                columns:
+                  turn_signal:
+                    method: asof
+                    tolerance: 100ms
+              VehicleMotion:
+                key: time_stamp
+                columns:
+                  speed:
+                    method: interp
+                  gas_pedal_normalized:
+                    method: interp
+                  brake_pedal_normalized:
+                    method: interp
+                  steering_angle_normalized:
+                    method: interp
+                  gear:
+                    method: asof
+                    tolerance: 100ms
+                    strategy: nearest
+              Gnss:
+                key: time_stamp
+                columns:
+                  latitude:
+                    method: asof
+                    tolerance: 500ms
+                    strategy: nearest
+                  longitude:
+                    method: asof
+                    tolerance: 500ms
+                    strategy: nearest
+
+            waypoints:
+              key: timestamp
+              columns:
+                heading:
+                  method: asof
+                  strategy: nearest
+                waypoints:
+                  method: asof
+                  strategy: nearest
+
+      #@ for camera in cameras:
+      - _target_: pipefunc.PipeFunc
+        renames:
+          path: (@=camera@)_path
+        output_name: (@=camera@)_meta
+        mapspec: "(@=camera@)_path[i] -> (@=camera@)_meta[i]"
+        func:
+          _target_: rbyte.io.PathDataFrameBuilder
+          pattern: (?<frame_idx>\d+).jpg
+          fields:
+            frame_idx:
+              _target_: polars.Int32
+      #@ end
+
+      - _target_: pipefunc.PipeFunc
+        output_name: query_context
+        mapspec: #@ ", ".join(["aligned[i]"] + ["{}_meta[i]".format(camera) for camera in cameras]) + " -> query_context[i]"
+        func:
+          _target_: pipefunc.helpers.collect_kwargs
+          parameters: #@ ["aligned"] + ["{}_meta".format(camera) for camera in cameras]
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          context: query_context
+        output_name: filtered
+        mapspec: "query_context[i] -> filtered[i]"
+        func:
+          _target_: rbyte.io.DataFrameDuckDbQuery
+          udfs: [rbyte.io._duckdb.udfs.Wgs84ToUtm]
+        bound:
+          query: |
+            LOAD spatial;
+            WITH
+              base_data AS (
+                SELECT
+                  *,
+                  ST_GeomFromWKB(ST_Wgs84ToUtm(
+                    ST_AsWKB(
+                      ST_Point(
+                        "meta/Gnss/longitude",
+                        "meta/Gnss/latitude"
+                      )
+                    )
+                  )) AS ego_geom,
+                  ST_GeomFromWKB("waypoints/waypoints") AS waypoints_geom
+                FROM
+                  aligned
+                  SEMI JOIN cam_front_left_meta
+                  ON aligned."meta/ImageMetadata.cam_front_left/frame_idx"
+                  = cam_front_left_meta.frame_idx
+                WHERE
+                  aligned."meta/VehicleMotion/gear" == '3'
+                  AND aligned."meta/VehicleMotion/speed" BETWEEN 0.0 AND 130.0
+                  AND aligned."meta/VehicleMotion/gas_pedal_normalized" BETWEEN 0.0 AND 1.0
+                  AND aligned."meta/VehicleMotion/brake_pedal_normalized" BETWEEN 0.0 AND 1.0
+                  AND aligned."meta/VehicleMotion/steering_angle_normalized" BETWEEN -1.0 AND 1.0
+                  AND COLUMNS(*) IS NOT NULL
+              ),
+              normalized_geometries AS (
+                SELECT
+                  *,
+                  ST_Rotate(
+                    ST_Translate(
+                      waypoints_geom,
+                      - ST_X(ego_geom),
+                      - ST_Y(ego_geom)
+                    ),
+                    radians("waypoints/heading")
+                  ) AS normalized_waypoints_geom
+                FROM
+                  base_data
+              )
+            SELECT
+              * EXCLUDE (
+                "meta/VehicleMotion/gear",
+                waypoints_geom,
+                normalized_waypoints_geom
+              ),
+              (
+                SELECT
+                  list(
+                    [ST_X(p.point_struct.geom), ST_Y(p.point_struct.geom)]
+                    ORDER BY
+                      p.point_struct.path
+                  )
+                FROM
+                  UNNEST(ST_Dump(normalized_waypoints_geom)) AS p(point_struct)
+              ) AS "waypoints/waypoints_normalized"
+            FROM
+              normalized_geometries
+            WHERE
+              ST_Contains(
+                ST_MakeEnvelope(-150, -150, 150, 150),
+                normalized_waypoints_geom
+              )
+            ORDER BY
+              "meta/ImageMetadata.cam_front_left/time_stamp";
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input: filtered
+        output_name: samples
+        mapspec: "filtered[i] -> samples[i]"
+        func:
+          _target_: rbyte.io.DataFrameGroupByDynamic
+          index_column: meta/ImageMetadata.(@=cameras[0]@)/frame_idx
+          every: 10i
+          period: 101i
+          closed: left
+          gather_every: 1
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          df: samples
+        output_name: samples_cast
+        mapspec: "samples[i] -> samples_cast[i]"
+        func:
+          _target_: rbyte.io.DataFrameDuckDbQuery
+        bound:
+          query: |
+            SELECT
+                list_slice("meta/ImageMetadata.cam_front_left/time_stamp"::TIMESTAMP[101], 1, 60, 10) AS "meta/ImageMetadata.cam_front_left/time_stamp",
+                list_slice("meta/ImageMetadata.cam_front_left/frame_idx"::INT32[101], 1, 60, 10) AS "meta/ImageMetadata.cam_front_left/frame_idx",
+                list_slice("meta/VehicleMotion/speed"::FLOAT[101], 1, 60, 10) AS "observation.state.vehicle",
+                list_slice("meta/VehicleMotion/gas_pedal_normalized"::FLOAT[101],  52, 101, 1) AS "meta/VehicleMotion/gas_pedal_normalized",
+                list_slice("meta/VehicleMotion/brake_pedal_normalized"::FLOAT[101],  52, 101, 1) AS "meta/VehicleMotion/brake_pedal_normalized",
+                list_slice("meta/VehicleMotion/steering_angle_normalized"::FLOAT[101],  52, 101, 1) AS "meta/VehicleMotion/steering_angle_normalized",
+                list_cat(
+                    flatten(("waypoints/waypoints_normalized"::FLOAT[2][10][101])[51]),
+                    [sin(radians(("waypoints/heading"::FLOAT[101])[51])), cos(radians(("waypoints/heading"::FLOAT[101])[51]))]
+                ) AS "observation.state.waypoints",
+                'Given the waypoints and current vehicle heading and speed, follow the waypoints while adhering to traffic rules and regulations' as "task"
+            FROM
+                df
+            WHERE
+                len("meta/ImageMetadata.cam_front_left/frame_idx") = 101
+                AND list_last("meta/ImageMetadata.cam_front_left/frame_idx") - list_first("meta/ImageMetadata.cam_front_left/frame_idx") == 100
+                AND NOT (
+                    list_max(list_slice("meta/VehicleMotion/gas_pedal_normalized", 1, 60, 10)) <= (1.0 / 255 + 0.001)
+                    AND list_max(list_slice("meta/VehicleMotion/brake_pedal_normalized", 1, 60, 10)) <= (1.0 / 164 + 0.001)
+                    AND list_max(list_slice("meta/VehicleMotion/speed", 1, 60, 10)) >= 25.0
+                    AND ("meta/VehicleMotion/speed")[51] - ("meta/VehicleMotion/speed")[1] >= -0.05 * list_avg(list_slice("meta/VehicleMotion/speed", 1, 60, 10))
+                )  
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input_ids: input_id
+          samples: samples_cast
+        output_name: samples_aggregated
+        func:
+          _target_: rbyte.io.SampleAggregator
+          input_id_column: __input_id
