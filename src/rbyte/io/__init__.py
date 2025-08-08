@@ -1,4 +1,4 @@
-from ._duckdb import DuckDbDataFrameBuilder, Wgs84ToUtm
+from ._duckdb import DuckDbDataFrameBuilder
 from ._numpy import NumpyTensorSource
 from .dataframe import (
     DataFrameAligner,
@@ -19,7 +19,6 @@ __all__: list[str] = [
     "NumpyTensorSource",
     "PathDataFrameBuilder",
     "PathTensorSource",
-    "Wgs84ToUtm",
 ]
 
 
@@ -49,7 +48,7 @@ else:
 
 try:
     from .video import TorchCodecFrameSource, VideoDataFrameBuilder
-except ImportError:
+except (ImportError, RuntimeError):
     pass
 else:
     __all__ += ["TorchCodecFrameSource", "VideoDataFrameBuilder"]

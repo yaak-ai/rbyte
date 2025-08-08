@@ -36,7 +36,7 @@ sources:
 samples:
   inputs:
     #@ for input_id in inputs:
-    (@=input_id@):
+    - input_id: (@=input_id@)
       path: "${data_dir}/(@=input_id@).mcap"
     #@ end
 
@@ -85,28 +85,31 @@ samples:
         output_name: aligned
         mapspec: "indexed[i] -> aligned[i]"
         func:
-          _target_: rbyte.io.DataFrameAligner
-          separator: /
-          fields:
-            #@ topic = camera_topics.values()[0]
-            (@=topic@):
-              key: log_time
+          _target_: makefun.create_function
+          func_signature: "align(input)"
+          func_impl:
+            _target_: rbyte.io.DataFrameAligner
+            separator: /
+            fields:
+              #@ topic = camera_topics.values()[0]
+              (@=topic@):
+                key: log_time
 
-            #@ for topic in camera_topics.values()[1:]:
-            (@=topic@):
-              key: log_time
-              columns:
-                _idx_:
-                  method: asof
-                  tolerance: 40ms
-                  strategy: nearest
-            #@ end
+              #@ for topic in camera_topics.values()[1:]:
+              (@=topic@):
+                key: log_time
+                columns:
+                  _idx_:
+                    method: asof
+                    tolerance: 40ms
+                    strategy: nearest
+              #@ end
 
-            /odom:
-              key: log_time
-              columns:
-                vel.x:
-                  method: interp
+              /odom:
+                key: log_time
+                columns:
+                  vel.x:
+                    method: interp
 
       - _target_: pipefunc.PipeFunc
         renames:
@@ -119,3 +122,12 @@ samples:
         bound:
           query: |
             SELECT * FROM self WHERE COLUMNS(*) IS NOT NULL AND `/odom/vel.x` >= 8
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          keys: input_id
+          values: samples
+        output_name: samples_aggregated
+        func:
+          _target_: rbyte.io.DataFrameConcater
+          key_column: __input_id

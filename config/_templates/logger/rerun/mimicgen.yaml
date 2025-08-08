@@ -2,11 +2,12 @@
 _target_: rbyte.viz.loggers.RerunLogger
 _convert_: all
 _recursive_: false
-application_id: [meta, input_id]
+application_id: mimicgen
+recording_name: [meta, input_id]
 schema:
   idx:
-    _target_: rerun.TimeSequenceColumn
-    times: [data, _idx_]
+    _target_: rerun.TimeColumn
+    sequence: [data, _idx_]
 
   obs/agentview_image:
     - _target_: rerun.Image.columns

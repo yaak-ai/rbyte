@@ -33,7 +33,7 @@ samples:
   inputs:
     #@ for input_id, input_keys in inputs.items():
     #@ for input_key in input_keys:
-    (@=input_id@)(@=input_key@):
+    - input_id: (@=input_id@)(@=input_key@)
       path: "${data_dir}/(@=input_id@).hdf5"
       prefix: (@=input_key@)
     #@ end
@@ -66,9 +66,9 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         renames:
-          input: indexed
-        output_name: concated
-        mapspec: "indexed[i] -> concated[i]"
+          keys: input_id
+          values: indexed
+        output_name: samples_aggregated
         func:
           _target_: rbyte.io.DataFrameConcater
-          method: vertical
+          key_column: __input_id

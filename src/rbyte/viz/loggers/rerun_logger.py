@@ -2,23 +2,13 @@ from collections import defaultdict
 from collections.abc import Callable, Sequence
 from functools import cache, cached_property
 from math import prod
-from typing import (
-    Annotated,
-    Any,
-    ClassVar,
-    Literal,
-    Protocol,
-    cast,
-    override,
-    runtime_checkable,
-)
+from typing import Annotated, Any, ClassVar, Literal, cast, override
 
 import more_itertools as mit
 import rerun as rr
 import torch
 from hydra.utils import get_method, instantiate
 from pydantic import BeforeValidator, ConfigDict, Field, RootModel, validate_call
-from rerun._send_columns import TimeColumnLike as _TimeColumnLike  # noqa: PLC2701
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from tensordict import TensorClass, TensorDict
@@ -30,14 +20,10 @@ from .base import Logger
 logger = get_logger(__name__)
 
 
-@runtime_checkable
-class TimeColumnLike(_TimeColumnLike, Protocol): ...
+class IndexSchemaItem(HydraConfig[rr.TimeColumn]):
+    __pydantic_extra__: dict[str, str | tuple[str, ...]] = Field()  # pyright: ignore[reportIncompatibleVariableOverride]
 
-
-class IndexSchemaItem(HydraConfig[TimeColumnLike]):
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
-
-    times: str | tuple[str, ...]
+    dtype: str | None = Field(default=None, exclude=True)
 
 
 class MethodHydraConfig[T](BaseModel):
@@ -120,23 +106,27 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
     def __init__(
         self,
         *,
-        application_id: str | tuple[str, ...],
+        application_id: str,
+        recording_name: str | tuple[str, ...],
         schema: Schema,
         spawn: bool = True,
         port: int = 9876,
     ) -> None:
         super().__init__()
 
-        self._application_id: str | tuple[str, ...] = application_id
+        self._application_id: str = application_id
+        self._recording_name: str | tuple[str, ...] = recording_name
         self._schema: Schema = schema
         self._spawn: bool = spawn
         self._port: int = port
 
     @cache  # noqa: B019
-    def _get_recording(self, application_id: str) -> rr.RecordingStream:
-        recording = rr.RecordingStream(application_id, make_default=True)
+    def _get_recording(self, name: str) -> rr.RecordingStream:
+        recording = rr.RecordingStream(self._application_id)
         if self._spawn:
             recording.spawn(port=self._port)
+
+        rr.send_recording_name(name, recording)
 
         for path, items in self._schema.static.items():
             rr.log(
@@ -219,26 +209,27 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
     def log(self, data: TensorDict | TensorClass) -> None:
         data = data.to_tensordict()
 
-        match application_id := self._application_id:
+        match recording_name := self._recording_name:
             case str():
-                with self._get_recording(application_id):
+                with self._get_recording(recording_name):
                     self._log(data)
 
             case tuple():
-                for application_id_elem, data_elem in zip(  # pyright: ignore[reportUnknownVariableType]
-                    map(str, data[application_id]), data, strict=True
+                for recording_name_elem, data_elem in zip(  # pyright: ignore[reportUnknownVariableType]
+                    map(str, data[recording_name]), data, strict=True
                 ):
-                    with self._get_recording(application_id_elem):
+                    with self._get_recording(recording_name_elem):
                         self._log(data_elem)  # pyright: ignore[reportUnknownArgumentType]
 
     def _log(self, data: TensorDict) -> None:
-        indexes = [
-            config.instantiate(
-                timeline=timeline,
-                times=torch.atleast_1d(data[config.times].flatten()).cpu().numpy(),  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
-            )
-            for timeline, config in self._schema.indexes.items()
-        ]
+        indexes: list[rr.TimeColumn] = []
+        for timeline, config in self._schema.indexes.items():
+            kwargs: dict[str, Any] = {}
+            for k, k_data in config.model_extra.items():  # pyright: ignore[reportOptionalMemberAccess]
+                v = torch.atleast_1d(data[k_data].flatten()).cpu().numpy()  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+                kwargs[k] = v if config.dtype is None else v.astype(config.dtype)  # pyright: ignore[reportUnknownMemberType]
+
+            indexes.append(config.instantiate(timeline=timeline, **kwargs))
 
         for entity_path, configs in self._schema.columns.items():
             with bound_contextvars(entity_path=entity_path):

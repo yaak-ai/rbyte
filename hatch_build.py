@@ -78,4 +78,4 @@ class BuildYaakIdlProtosHook(BuildHookInterface):  # pyright: ignore[reportMissi
     @staticmethod
     def _overwrite_callback(file: Path, text: str) -> None:
         logger.warning("overwriting %s", file)
-        _ = file.write_text(text)
+        _ = file.write_text(text, encoding="utf-8")

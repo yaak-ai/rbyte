@@ -1,11 +1,11 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import timedelta
 from functools import cached_property
 from typing import final
 from uuid import uuid4
 
 import polars as pl
-from polars._typing import ClosedInterval
+from polars._typing import ClosedInterval, Label, StartBy
 from pydantic import PositiveInt, validate_call
 from structlog import get_logger
 
@@ -21,20 +21,28 @@ class DataFrameGroupByDynamic:
     __name__ = __qualname__
 
     @validate_call
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         *,
         index_column: str,
         every: str | timedelta,
         period: str | timedelta | None = None,
+        include_boundaries: bool = False,
         closed: ClosedInterval = "left",
+        label: Label = "datapoint",
+        start_by: StartBy = "datapoint",
+        group_by: str | Sequence[str] | None = None,
         gather_every: PositiveInt | Mapping[str, PositiveInt] | None = None,
     ) -> None:
         self._index_column_name = index_column
         self._index_column = pl.col(index_column)
         self._every = every
         self._period = period
+        self._include_boundaries = include_boundaries
         self._closed: ClosedInterval = closed
+        self._label: Label = label
+        self._group_by = group_by
+        self._start_by: StartBy = start_by
 
         match gather_every:
             case None:
@@ -52,7 +60,7 @@ class DataFrameGroupByDynamic:
     def __call__(self, input: pl.DataFrame) -> pl.DataFrame:
         result = self._build(input)
         logger.debug(
-            "built samples", index_column=self._index_column_name, length=len(result)
+            "grouped", index_column=self._index_column_name, length=len(result)
         )
 
         return result
@@ -71,8 +79,9 @@ class DataFrameGroupByDynamic:
                 every=self._every,
                 period=self._period,
                 closed=self._closed,
-                label="datapoint",
-                start_by="datapoint",
+                label=self._label,
+                start_by=self._start_by,
+                group_by=self._group_by,
             )
             .agg(self._agg)
             .drop(self._index_column_tmp)

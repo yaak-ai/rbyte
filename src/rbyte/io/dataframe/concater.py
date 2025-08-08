@@ -1,7 +1,8 @@
-from typing import final
+from collections.abc import Iterable
+from functools import partial
+from typing import Any, final
 
 import polars as pl
-from optree import PyTree, tree_leaves, tree_map_with_path
 from polars._typing import ConcatMethod
 from pydantic import validate_call
 
@@ -12,18 +13,29 @@ class DataFrameConcater:
 
     @validate_call
     def __init__(
-        self, method: ConcatMethod = "horizontal", separator: str | None = None
+        self,
+        *,
+        key_column: str | None = None,
+        how: ConcatMethod = "vertical",
+        rechunk: bool = False,
+        parallel: bool = True,
     ) -> None:
-        self._method: ConcatMethod = method
-        self._separator = separator
+        self._key_column = key_column
+        self._fn = partial(pl.concat, how=how, rechunk=rechunk, parallel=parallel)
 
-    def __call__(self, input: PyTree[pl.DataFrame]) -> pl.DataFrame:
-        if (sep := self._separator) is not None:
-            input = tree_map_with_path(
-                lambda path, df: df.rename(  # pyright: ignore[reportUnknownArgumentType,reportUnknownLambdaType, reportUnknownMemberType]
-                    lambda col: f"{sep.join([*path, col])}"  # pyright: ignore[reportUnknownArgumentType,reportUnknownLambdaType]
-                ),
-                input,
-            )
+    def __call__(
+        self, *, keys: Iterable[Any] | None = None, values: Iterable[pl.DataFrame]
+    ) -> pl.DataFrame:
+        match self._key_column, keys:
+            case None, None:
+                return self._fn(values)
 
-        return pl.concat(tree_leaves(input), how=self._method, rechunk=True)
+            case (_, None) | (None, _):
+                msg = "`keys` must be provided when `key_column` is specified"
+                raise ValueError(msg)
+
+            case _:
+                return self._fn([
+                    v.lazy().select(pl.lit(k).alias(self._key_column), pl.all())
+                    for k, v in zip(keys, values, strict=True)
+                ]).collect()

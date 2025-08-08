@@ -7,7 +7,8 @@
 _target_: rbyte.viz.loggers.RerunLogger
 _convert_: all
 _recursive_: false
-application_id: [meta, input_id]
+application_id: carla-garage
+recording_name: [meta, input_id]
 schema:
   #@ for/end camera in cameras:
   (@=camera@):
@@ -24,8 +25,8 @@ schema:
           channel_datatype: u8
 
   _idx_:
-    _target_: rerun.TimeSequenceColumn
-    times: [data, "measurements/_idx_"]
+    _target_: rerun.TimeColumn
+    sequence: [data, "measurements/_idx_"]
 
   #@ for entity, key in {
   #@     "brake": "measurements/brake",
@@ -35,8 +36,8 @@ schema:
   #@     "heading": "waypoints/heading",
   #@ }.items():
   (@=entity@):
-    _target_: rerun.Scalar.columns
-    scalar: [data, "(@=key@)"]
+    _target_: rerun.Scalars.columns
+    scalars: [data, "(@=key@)"]
   #@ end
 
   waypoints:

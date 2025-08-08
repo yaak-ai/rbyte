@@ -7,8 +7,8 @@ import pytest
 import torch
 from hydra import compose, initialize
 from hydra.utils import instantiate
+from makefun import with_signature  # pyright: ignore[reportUnknownVariableType]
 from pipefunc import PipeFunc, Pipeline
-from pipefunc.helpers import collect_kwargs
 from pytest_lazy_fixtures import lf
 from structlog import get_logger
 from torch import Tensor
@@ -26,7 +26,6 @@ from rbyte.io import (
     TorchCodecFrameSource,
     VideoDataFrameBuilder,
     WaypointBuilder,
-    Wgs84ToUtm,
     YaakMetadataDataFrameBuilder,
 )
 from rbyte.io.dataframe.aligner import (
@@ -34,6 +33,7 @@ from rbyte.io.dataframe.aligner import (
     AsofColumnAlignConfig,
     InterpColumnAlignConfig,
 )
+from rbyte.io.dataframe.concater import DataFrameConcater
 
 logger = get_logger(__name__)
 
@@ -44,12 +44,13 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 @pytest.fixture
 def yaak_pydantic() -> Dataset:
     data_dir = DATA_DIR / "yaak"
-    drive_ids = ["Niro098-HQ/2024-06-18--13-39-54"]
+    input_ids = ["Niro098-HQ/2024-06-18--13-39-54"]
     cameras = ["cam_front_left", "cam_left_backward", "cam_right_backward"]
 
     samples = PipelineInstanceConfig(
-        inputs={
-            input_id: {
+        inputs=[
+            {
+                "input_id": input_id,
                 "meta_path": data_dir / input_id / "metadata.log",
                 "mcap_path": data_dir / input_id / "ai.mcap",
                 "waypoints_path": data_dir / input_id / "waypoints.json",
@@ -58,8 +59,8 @@ def yaak_pydantic() -> Dataset:
                 f"{camera}_path": data_dir / input_id / f"{camera}.pii.mp4"
                 for camera in cameras
             }
-            for input_id in drive_ids
-        },
+            for input_id in input_ids
+        ],
         parallel=False,  # pyright: ignore[reportCallIssue]
         storage="dict",  # pyright: ignore[reportCallIssue]
         pipeline=Pipeline(
@@ -124,14 +125,15 @@ def yaak_pydantic() -> Dataset:
                     renames={"path": "waypoints_path"},
                     output_name="waypoints_raw",
                     mapspec="waypoints_path[i] -> waypoints_raw[i]",
-                    func=DuckDbDataFrameBuilder(udfs=[Wgs84ToUtm]),
+                    func=DuckDbDataFrameBuilder(),
                     bound={
                         "query": """
 LOAD spatial;
 SET TimeZone = 'UTC';
 SELECT TO_TIMESTAMP(timestamp)::TIMESTAMP as timestamp,
    heading,
-   ST_Wgs84ToUtm(ST_AsWKB(geom)) AS geometry
+   ST_AsWKB(
+       ST_Transform(geom, 'EPSG:4326', 'EPSG:25832', always_xy := true)) AS geometry
 FROM ST_Read('{path}')
 """
                     },
@@ -148,93 +150,84 @@ FROM ST_Read('{path}')
                     ),
                 ),
                 PipeFunc(
-                    output_name="data",
-                    mapspec="meta[i], mcap[i], waypoints[i] -> data[i]",
-                    func=collect_kwargs(parameters=("meta", "mcap", "waypoints")),
-                ),
-                PipeFunc(
-                    renames={"input": "data"},
                     output_name="aligned",
-                    mapspec="data[i] -> aligned[i]",
-                    func=DataFrameAligner(
-                        separator="/",
-                        fields=OrderedDict({
-                            "meta": OrderedDict({
-                                **{
-                                    f"ImageMetadata.{camera}": AlignConfig(
+                    mapspec="meta[i], mcap[i], waypoints[i] -> aligned[i]",
+                    func=with_signature("align(*, meta, mcap, waypoints)")(  # pyright: ignore[reportUnknownArgumentType]
+                        DataFrameAligner(
+                            separator="/",
+                            fields=OrderedDict({
+                                "meta": OrderedDict({
+                                    **{
+                                        f"ImageMetadata.{camera}": AlignConfig(
+                                            key="time_stamp",
+                                            columns=OrderedDict(
+                                                {}
+                                                if i == 0
+                                                else {
+                                                    "frame_idx": AsofColumnAlignConfig(
+                                                        strategy="nearest",
+                                                        tolerance="20ms",
+                                                    )
+                                                }
+                                            ),
+                                        )
+                                        for i, camera in enumerate(cameras)
+                                    },
+                                    "VehicleMotion": AlignConfig(
                                         key="time_stamp",
                                         columns=OrderedDict(
-                                            {}
-                                            if i == 0
-                                            else {
-                                                "frame_idx": AsofColumnAlignConfig(
-                                                    strategy="nearest", tolerance="20ms"
-                                                )
-                                            }
-                                        ),
-                                    )
-                                    for i, camera in enumerate(cameras)
-                                },
-                                "VehicleMotion": AlignConfig(
-                                    key="time_stamp",
-                                    columns=OrderedDict(
-                                        speed=InterpColumnAlignConfig()
-                                    ),
-                                ),
-                                "Gnss": AlignConfig(
-                                    key="time_stamp",
-                                    columns=OrderedDict(
-                                        latitude=AsofColumnAlignConfig(
-                                            strategy="nearest", tolerance="500ms"
-                                        ),
-                                        longitude=AsofColumnAlignConfig(
-                                            strategy="nearest", tolerance="500ms"
+                                            speed=InterpColumnAlignConfig()
                                         ),
                                     ),
-                                ),
-                            }),
-                            "mcap": OrderedDict({
-                                "/ai/safety_score": AlignConfig(
-                                    key="clip.end_timestamp",
-                                    columns=OrderedDict({
-                                        "clip.end_timestamp": AsofColumnAlignConfig(
-                                            strategy="nearest", tolerance="500ms"
+                                    "Gnss": AlignConfig(
+                                        key="time_stamp",
+                                        columns=OrderedDict(
+                                            latitude=AsofColumnAlignConfig(
+                                                strategy="nearest", tolerance="500ms"
+                                            ),
+                                            longitude=AsofColumnAlignConfig(
+                                                strategy="nearest", tolerance="500ms"
+                                            ),
                                         ),
-                                        "score": AsofColumnAlignConfig(
-                                            strategy="nearest", tolerance="500ms"
-                                        ),
-                                    }),
-                                )
-                            }),
-                            "waypoints": AlignConfig(
-                                key="timestamp",
-                                columns=OrderedDict({
-                                    "heading": AsofColumnAlignConfig(
-                                        strategy="nearest"
-                                    ),
-                                    "waypoints": AsofColumnAlignConfig(
-                                        strategy="nearest"
                                     ),
                                 }),
-                            ),
-                        }),
+                                "mcap": OrderedDict({
+                                    "/ai/safety_score": AlignConfig(
+                                        key="clip.end_timestamp",
+                                        columns=OrderedDict({
+                                            "clip.end_timestamp": AsofColumnAlignConfig(
+                                                strategy="nearest", tolerance="500ms"
+                                            ),
+                                            "score": AsofColumnAlignConfig(
+                                                strategy="nearest", tolerance="500ms"
+                                            ),
+                                        }),
+                                    )
+                                }),
+                                "waypoints": AlignConfig(
+                                    key="timestamp",
+                                    columns=OrderedDict({
+                                        "heading": AsofColumnAlignConfig(
+                                            strategy="nearest"
+                                        ),
+                                        "waypoints": AsofColumnAlignConfig(
+                                            strategy="nearest"
+                                        ),
+                                    }),
+                                ),
+                            }),
+                        )
                     ),
                 ),
                 PipeFunc(
-                    output_name="query_context",
+                    output_name="filtered",
                     mapspec=(
                         ", ".join(["aligned[i]", *map("{}_meta[i]".format, cameras)])
-                        + " -> query_context[i]"
+                        + " -> filtered[i]"
                     ),
-                    func=collect_kwargs(
-                        parameters=("aligned", *map("{}_meta".format, cameras))
-                    ),
-                ),
-                PipeFunc(
-                    renames={"context": "query_context"},
-                    output_name="filtered",
-                    mapspec="query_context[i] -> filtered[i]",
-                    func=DataFrameDuckDbQuery(udfs=[Wgs84ToUtm]),
+                    func=with_signature(  # pyright: ignore[reportUnknownArgumentType]
+                        "df_query(*, query, aligned, cam_front_left_meta, cam_left_backward_meta, cam_right_backward_meta)"  # noqa: E501
+                    )(DataFrameDuckDbQuery()),
                     bound={
                         "query": """
 LOAD spatial;
@@ -242,15 +235,9 @@ WITH
   base_data AS (
     SELECT
       *,
-      ST_GeomFromWKB(
-        ST_Wgs84ToUtm(
-          ST_AsWKB(
-            ST_Point(
-              "meta/Gnss/longitude",
-              "meta/Gnss/latitude"
-            )
-          )
-        )
+      ST_Transform(
+        ST_Point("meta/Gnss/longitude", "meta/Gnss/latitude"),
+        'EPSG:4326', 'EPSG:25832', always_xy := true
       ) AS ego_geom,
       ST_GeomFromWKB("waypoints/waypoints") AS waypoints_geom
     FROM
@@ -320,10 +307,11 @@ ORDER BY
                     ),
                 ),
                 PipeFunc(
-                    renames={"df": "samples"},
                     output_name="samples_cast",
                     mapspec="samples[i] -> samples_cast[i]",
-                    func=DataFrameDuckDbQuery(),
+                    func=with_signature("df_query(*, query, samples)")(  # pyright: ignore[reportUnknownArgumentType]
+                        DataFrameDuckDbQuery()
+                    ),
                     bound={
                         "query": """
 SELECT
@@ -345,10 +333,15 @@ SELECT
         AS "waypoints/heading",
    "waypoints/waypoints_normalized"::FLOAT[2][10][6]
         AS "waypoints/waypoints_normalized"
-FROM df
+FROM samples
 WHERE len("meta/ImageMetadata.cam_front_left/frame_idx") == 6
 """
                     },
+                ),
+                PipeFunc(
+                    renames={"keys": "input_id", "values": "samples_cast"},
+                    output_name="samples_aggregated",
+                    func=DataFrameConcater(key_column="__input_id"),
                 ),
             ],
         ),
@@ -365,17 +358,22 @@ WHERE len("meta/ImageMetadata.cam_front_left/frame_idx") == 6
             )
             for camera in cameras
         }
-        for drive_id in drive_ids
+        for drive_id in input_ids
     })
 
     return Dataset(samples=samples, sources=sources)
 
 
 @pytest.fixture
-def yaak_hydra() -> Dataset:
+def yaak_hydra(tmp_path: Path) -> Dataset:
     with initialize(version_base=None, config_path=CONFIG_PATH):
         cfg = compose(
-            "visualize", overrides=["dataset=yaak", f"+data_dir={DATA_DIR}/yaak"]
+            "visualize",
+            overrides=[
+                "dataset=yaak",
+                f"dataset.samples.run_folder={tmp_path}",
+                f"+data_dir={DATA_DIR}/yaak",
+            ],
         )
 
     return instantiate(cfg.dataset)

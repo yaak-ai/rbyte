@@ -64,11 +64,24 @@ class DataFrameAligner:
 
         return tree_map_with_path(fqn, self._fields)  # pyright: ignore[reportArgumentType]
 
-    def __call__(self, input: PyTree[pl.DataFrame]) -> pl.DataFrame:
-        result = self._build(input)
+    def __call__(
+        self, input: PyTree[pl.DataFrame] | None = None, **kwargs: PyTree[pl.DataFrame]
+    ) -> pl.DataFrame:
+        match input, kwargs:
+            case [None, _]:
+                input = kwargs  # pyright: ignore[reportAssignmentType]
+
+            case [_, {}]:
+                pass
+
+            case _:
+                msg = "either `input` or `kwargs` must be specified"
+                raise ValueError(msg)
+
+        result = self._build(input)  # pyright: ignore[reportArgumentType]
         logger.debug(
             "aligned dataframes",
-            length={"input": tree_map(len, input), "result": len(result)},
+            length={"input": tree_map(len, input), "result": len(result)},  # pyright: ignore[reportArgumentType]
         )
 
         return result

@@ -26,7 +26,7 @@ sources:
 
 samples:
   inputs:
-    000002_short:
+    - input_id: 000002_short
       camera_front_blur_path: ${data_dir}/sequences/000002_short/camera_front_blur
       lidar_velodyne_path: ${data_dir}/sequences/000002_short/lidar_velodyne
       vehicle_data_path: ${data_dir}/sequences/000002_short/vehicle_data.hdf5
@@ -89,57 +89,50 @@ samples:
               speed/meters_per_second/value:
 
       - _target_: pipefunc.PipeFunc
-        output_name: data
-        mapspec: "camera_front_blur_meta[i], lidar_velodyne_meta[i], vehicle_data[i] -> data[i]"
-        func:
-          _target_: pipefunc.helpers.collect_kwargs
-          parameters:
-            [camera_front_blur_meta, lidar_velodyne_meta, vehicle_data]
-
-      - _target_: pipefunc.PipeFunc
-        renames:
-          input: data
         output_name: aligned
-        mapspec: "data[i] -> aligned[i]"
+        mapspec: "camera_front_blur_meta[i], lidar_velodyne_meta[i], vehicle_data[i] -> aligned[i]"
         func:
-          _target_: rbyte.io.DataFrameAligner
-          separator: /
-          fields:
-            camera_front_blur_meta:
-              key: timestamp
+          _target_: makefun.create_function
+          func_signature: "align(*, camera_front_blur_meta, lidar_velodyne_meta, vehicle_data)"
+          func_impl:
+            _target_: rbyte.io.DataFrameAligner
+            separator: /
+            fields:
+              camera_front_blur_meta:
+                key: timestamp
 
-            lidar_velodyne_meta:
-              key: timestamp
-              columns:
-                timestamp:
-                  method: asof
-                  strategy: nearest
-                  tolerance: 100ms
-
-            vehicle_data:
-              ego_vehicle_controls:
-                key: timestamp/nanoseconds/value
+              lidar_velodyne_meta:
+                key: timestamp
                 columns:
-                  timestamp/nanoseconds/value:
+                  timestamp:
                     method: asof
                     strategy: nearest
                     tolerance: 100ms
 
-                  acceleration_pedal/ratio/unitless/value:
-                    method: asof
-                    strategy: nearest
-                    tolerance: 100ms
+              vehicle_data:
+                ego_vehicle_controls:
+                  key: timestamp/nanoseconds/value
+                  columns:
+                    timestamp/nanoseconds/value:
+                      method: asof
+                      strategy: nearest
+                      tolerance: 100ms
 
-                  steering_wheel_angle/angle/radians/value:
-                    method: asof
-                    strategy: nearest
-                    tolerance: 100ms
+                    acceleration_pedal/ratio/unitless/value:
+                      method: asof
+                      strategy: nearest
+                      tolerance: 100ms
 
-              satellite:
-                key: timestamp/nanoseconds/value
-                columns:
-                  speed/meters_per_second/value:
-                    method: interp
+                    steering_wheel_angle/angle/radians/value:
+                      method: asof
+                      strategy: nearest
+                      tolerance: 100ms
+
+                satellite:
+                  key: timestamp/nanoseconds/value
+                  columns:
+                    speed/meters_per_second/value:
+                      method: interp
 
       - _target_: pipefunc.PipeFunc
         renames:
@@ -152,3 +145,12 @@ samples:
         bound:
           query: |
             SELECT * FROM self WHERE COLUMNS(*) IS NOT NULL
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          keys: input_id
+          values: filtered
+        output_name: samples_aggregated
+        func:
+          _target_: rbyte.io.DataFrameConcater
+          key_column: __input_id
