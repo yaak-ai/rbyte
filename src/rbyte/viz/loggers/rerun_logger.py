@@ -41,7 +41,7 @@ class AsComponentsConfig(MethodHydraConfig[rr.AsComponents]): ...
 
 
 class ComponentColumnListConfig(MethodHydraConfig[rr.ComponentColumnList]):
-    __pydantic_extra__: dict[str, str | tuple[str, ...]]  # pyright: ignore[reportIncompatibleVariableOverride]
+    __pydantic_extra__: dict[str, str | tuple[str | int, ...]]  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
 class StaticSchemaItem(BaseModel):
@@ -142,7 +142,13 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
     def _build_columns(  # noqa: C901, PLR0912
         cls, config: ComponentColumnListConfig, data: TensorDict
     ) -> rr.ComponentColumnList:
-        kwargs = TensorDict({k: data[v] for k, v in config.__pydantic_extra__.items()})
+        key, path = next(iter(config.__pydantic_extra__.items()))
+        _split_idx = next(
+            (i for i, v in enumerate(path) if isinstance(v, int)), len(path)
+        )
+        kwargs = TensorDict({
+            key: data.get_at(path[:_split_idx], path[_split_idx:] or None)
+        })
 
         with bound_contextvars(target=config.target):
             match cast(Any, config.target):

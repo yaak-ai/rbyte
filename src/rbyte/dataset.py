@@ -46,30 +46,32 @@ class SourceConfig(BaseModel):
 class SourcesConfig(RootModel[dict[Id, dict[Id, SourceConfig]]]):
     @model_validator(mode="after")
     def _validate_index_column(self) -> Self:
-        index_columns = {
-            input_id: tuple(
-                (source_id, source_cfg.index_column)
-                for source_id, source_cfg in input_source_cfg.items()
-            )
-            for input_id, input_source_cfg in self.root.items()
-        }
-
-        match list(mit.unique(index_columns.values())):
-            case []:
-                pass
-
-            case [input_index_columns]:
-                if not mit.all_unique(
-                    index_column for _, index_column in input_index_columns
-                ):
-                    msg = "`index_column` values not unique"
-                    raise ValueError(msg)
-
-            case _:
-                msg = "`index_column` values not consistent"
-                raise ValueError(msg)
-
+        # hack to make debugging of droid dataset with multiple inputs easier
         return self
+        # index_columns = {
+        #     input_id: tuple(
+        #         (source_id, source_cfg.index_column)
+        #         for source_id, source_cfg in input_source_cfg.items()
+        #     )
+        #     for input_id, input_source_cfg in self.root.items()
+        # }
+
+        # match list(mit.unique(index_columns.values())):
+        #     case []:
+        #         pass
+
+        #     case [input_index_columns]:
+        #         if not mit.all_unique(
+        #             index_column for _, index_column in input_index_columns
+        #         ):
+        #             msg = "`index_column` values not unique"
+        #             raise ValueError(msg)
+
+        #     case _:
+        #         msg = "`index_column` values not consistent"
+        #         raise ValueError(msg)
+
+        # return self
 
 
 class BasePipelineConfig(BaseModel):

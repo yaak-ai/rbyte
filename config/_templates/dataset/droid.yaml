@@ -4,8 +4,13 @@
 #@     'IPRL+edf28ef3+2024-01-02-22h-42m-11s',
 #@ ]
 
-#@ frames = {
-#@     'cam_left': 'observation/camera/image/hand_camera_left_image',
+#@ cameras = {
+#@     'hand_camera_left': 'observation/camera/image/hand_camera_left_image',
+#@     'hand_camera_right': 'observation/camera/image/hand_camera_right_image',
+#@     'varied_camera_1_left': 'observation/camera/image/varied_camera_1_left_image',
+#@     'varied_camera_1_right': 'observation/camera/image/varied_camera_1_right_image',
+#@     'varied_camera_2_left': 'observation/camera/image/varied_camera_2_left_image',
+#@     'varied_camera_2_right': 'observation/camera/image/varied_camera_2_right_image',
 #@ }
 ---
 _target_: rbyte.Dataset
@@ -14,13 +19,13 @@ _convert_: all
 sources:
   #@ for input_id in inputs:
   (@=input_id@):
-    #@ for frame_name, frame_key in frames.items():
-    (@=frame_name@):
-      index_column: (@=frame_name@)_idx
+    #@ for camera_name, camera_key in cameras.items():
+    (@=camera_name@):
+      index_column: hand_camera_left_idx
       source:
         _target_: rbyte.io.Hdf5TensorSource
         path: "${data_dir}/(@=input_id@).h5"
-        key: (@=frame_key@)
+        key: (@=camera_key@)
     #@ end
   #@ end
 
@@ -62,7 +67,7 @@ samples:
         mapspec: "data[i] -> indexed[i]"
         func:
           _target_: rbyte.io.DataFrameIndexer
-          name: cam_left_idx
+          name: hand_camera_left_idx
 
       - _target_: pipefunc.PipeFunc
         renames:
