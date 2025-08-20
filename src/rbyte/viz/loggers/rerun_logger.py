@@ -110,7 +110,7 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
         recording_name: str | tuple[str, ...],
         schema: Schema,
         spawn: bool = True,
-        port: int = 9876,
+        port: int = 9877,
     ) -> None:
         super().__init__()
 

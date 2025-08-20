@@ -1,0 +1,74 @@
+#@yaml/text-templated-strings
+
+#@ inputs = [
+#@     'IPRL+edf28ef3+2024-01-02-22h-42m-11s',
+#@ ]
+
+#@ frames = {
+#@     'cam_left': 'observation/camera/image/hand_camera_left_image',
+#@ }
+---
+_target_: rbyte.Dataset
+_recursive_: false
+_convert_: all
+sources:
+  #@ for input_id in inputs:
+  (@=input_id@):
+    #@ for frame_name, frame_key in frames.items():
+    (@=frame_name@):
+      index_column: (@=frame_name@)_idx
+      source:
+        _target_: rbyte.io.Hdf5TensorSource
+        path: "${data_dir}/(@=input_id@).h5"
+        key: (@=frame_key@)
+    #@ end
+  #@ end
+
+samples:
+  inputs:
+    #@ for input_id in inputs:
+    - input_id: (@=input_id@)
+      path: "${data_dir}/(@=input_id@).h5"
+    #@ end
+
+  executor:
+    _target_: concurrent.futures.ThreadPoolExecutor
+
+  storage: dict
+  pipeline:
+    _target_: pipefunc.Pipeline
+    validate_type_annotations: false
+    functions:
+      - _target_: pipefunc.PipeFunc
+        output_name: data
+        mapspec: "path[i] -> data[i]"
+        func:
+          _target_: rbyte.io.Hdf5DataFrameBuilder
+          fields:
+            observation/robot_state/gripper_position:
+            observation/robot_state/cartesian_position:
+            observation/robot_state/joint_positions:
+            action/cartesian_position:
+            action/cartesian_velocity:
+            action/gripper_position:
+            action/gripper_velocity:
+            action/joint_position:
+            action/joint_velocity:
+      
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input: data
+        output_name: indexed
+        mapspec: "data[i] -> indexed[i]"
+        func:
+          _target_: rbyte.io.DataFrameIndexer
+          name: cam_left_idx
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          keys: input_id
+          values: indexed
+        output_name: samples_aggregated
+        func:
+          _target_: rbyte.io.DataFrameConcater
+          key_column: __input_id

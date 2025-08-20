@@ -73,17 +73,21 @@ visualize-zod *ARGS:
 
 [group('visualize')]
 visualize-mimicgen *ARGS:
-    just visualize dataset=mimicgen logger=rerun/mimicgen ++data_dir={{ justfile_directory() }}/tests/data/mimicgen {{ ARGS }}
+    just visualize dataset=mimicgen logger=console ++data_dir={{ justfile_directory() }}/tests/data/mimicgen {{ ARGS }}
 
 [group('visualize')]
 visualize-nuscenes *ARGS:
     just visualize dataset=nuscenes logger=rerun/nuscenes ++data_dir={{ justfile_directory() }}/tests/data/nuscenes {{ ARGS }}
 
 [group('visualize')]
+visualize-droid *ARGS:
+    just visualize dataset=droid logger=console ++data_dir={{ justfile_directory() }}/tests/data/droid {{ ARGS }}
+
+[group('visualize')]
 visualize-all: visualize-yaak visualize-zod visualize-mimicgen visualize-nuscenes
 
 # rerun server and viewer
-rerun bind="0.0.0.0" port="9876" web-viewer-port="9090":
+rerun bind="0.0.0.0" port="9877" web-viewer-port="9090":
     RUST_LOG=debug uv run rerun \
     	--bind {{ bind }} \
     	--port {{ port }} \
