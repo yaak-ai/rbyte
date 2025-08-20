@@ -1,0 +1,55 @@
+#@yaml/text-templated-strings
+
+#@ cameras = [
+#@     'hand_camera_left',
+#@     'hand_camera_right',
+#@     'varied_camera_1_left',
+#@     'varied_camera_1_right',
+#@     'varied_camera_2_left',
+#@     'varied_camera_2_right',
+#@ ]
+---
+_target_: rbyte.viz.loggers.RerunLogger
+_convert_: all
+_recursive_: false
+application_id: droid
+recording_name: [meta, input_id]
+schema:
+  idx:
+    _target_: rerun.TimeColumn
+    sequence: [data, hand_camera_left_idx]
+
+  #@ for camera in cameras:
+  (@=camera@):
+    - _target_: rerun.Image.columns
+      buffer: [data, (@=camera@)]
+
+    - static: true
+      entity:
+        _target_: rerun.Image.from_fields
+        format:
+          _target_: rerun.components.ImageFormat
+          height: 128
+          width: 128
+          color_model: RGB
+          channel_datatype: u8
+  #@ end
+
+  #@ for scalar in [
+  #@     'observation/robot_state/gripper_position',
+  #@     'action/gripper_position',
+  #@     'action/gripper_velocity',
+  #@ ]:
+  (@=scalar@):
+    - _target_: rerun.Scalars.columns
+      scalars: [data, (@=scalar@)]
+  #@ end
+
+  #@ for i, name in enumerate(['x', 'y', 'z', 'yaw', 'pitch', 'roll']):
+  observation/robot_state/cartesian_position/(@=name@):
+    - _target_: rerun.Scalars.columns
+      scalars:
+        - data
+        - observation/robot_state/cartesian_position
+        -  #@ i
+  #@ end

@@ -81,7 +81,7 @@ visualize-nuscenes *ARGS:
 
 [group('visualize')]
 visualize-droid *ARGS:
-    just visualize dataset=droid logger=console ++data_dir={{ justfile_directory() }}/tests/data/droid {{ ARGS }}
+    just visualize dataset=droid logger=rerun/droid ++data_dir={{ justfile_directory() }}/tests/data/droid {{ ARGS }}
 
 [group('visualize')]
 visualize-all: visualize-yaak visualize-zod visualize-mimicgen visualize-nuscenes
