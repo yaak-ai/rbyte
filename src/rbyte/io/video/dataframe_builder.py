@@ -17,7 +17,7 @@ type Fields = dict[Literal["frame_idx"], InstanceOf[IntegerType]]
 
 @final
 class VideoDataFrameBuilder:
-    __name__ = __qualname__
+    __name__ = __qualname__  # ty: ignore[unresolved-reference]
 
     @validate_call
     def __init__(self, fields: Fields) -> None:
@@ -39,4 +39,4 @@ class VideoDataFrameBuilder:
             case None:
                 raise RuntimeError
 
-        return pl.DataFrame(data=data, schema=self._fields)  # pyright: ignore[reportArgumentType]
+        return pl.DataFrame(data=data, schema=self._fields)

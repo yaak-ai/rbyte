@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 
 
 class IndexSchemaItem(HydraConfig[rr.TimeColumn]):
-    __pydantic_extra__: dict[str, str | tuple[str, ...]] = Field()  # pyright: ignore[reportIncompatibleVariableOverride]
+    __pydantic_extra__: dict[str, str | tuple[str, ...]] = Field()
 
     dtype: str | None = Field(default=None, exclude=True)
 
@@ -41,7 +41,7 @@ class AsComponentsConfig(MethodHydraConfig[rr.AsComponents]): ...
 
 
 class ComponentColumnListConfig(MethodHydraConfig[rr.ComponentColumnList]):
-    __pydantic_extra__: dict[str, str | tuple[str, ...]]  # pyright: ignore[reportIncompatibleVariableOverride]
+    __pydantic_extra__: dict[str, str | tuple[str, ...]]
 
 
 class StaticSchemaItem(BaseModel):
@@ -165,16 +165,16 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
 
                     kwargs[key] = tensor.reshape(prod(batch_dims), -1).view(torch.uint8)
 
-                    return config.instantiate(**kwargs.cpu().numpy())  # pyright: ignore[reportUnknownMemberType]
+                    return config.instantiate(**kwargs.cpu().numpy())
 
                 case rr.Points2D.columns:
                     match (tensor := kwargs[key := "positions"]).shape:
                         case (2,):
-                            return config.instantiate(**kwargs.cpu().numpy())  # pyright: ignore[reportUnknownMemberType]
+                            return config.instantiate(**kwargs.cpu().numpy())
 
                         case (*batch_dims, n, 2):
                             kwargs[key] = tensor.view(-1, 2)
-                            return config.instantiate(**kwargs.cpu().numpy()).partition(  # pyright: ignore[reportUnknownMemberType]
+                            return config.instantiate(**kwargs.cpu().numpy()).partition(
                                 [n] * prod(batch_dims)
                             )
 
@@ -188,11 +188,11 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
                     match (tensor := kwargs[key := "positions"]).shape:
                         case (3,):
                             kwargs[key] = tensor.view(-1, 3)
-                            return config.instantiate(**kwargs.cpu().numpy())  # pyright: ignore[reportUnknownMemberType]
+                            return config.instantiate(**kwargs.cpu().numpy())
 
                         case (*batch_dims, n, 3):
                             kwargs[key] = tensor.view(-1, 3)
-                            return config.instantiate(**kwargs.cpu().numpy()).partition(  # pyright: ignore[reportUnknownMemberType]
+                            return config.instantiate(**kwargs.cpu().numpy()).partition(
                                 [n] * prod(batch_dims)
                             )
 
@@ -203,7 +203,7 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
                             raise NotImplementedError(msg)
 
                 case _:
-                    return config.instantiate(**kwargs.cpu().numpy())  # pyright: ignore[reportUnknownMemberType]
+                    return config.instantiate(**kwargs.cpu().numpy())
 
     @override
     def log(self, data: TensorDict | TensorClass) -> None:
@@ -215,19 +215,19 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
                     self._log(data)
 
             case tuple():
-                for recording_name_elem, data_elem in zip(  # pyright: ignore[reportUnknownVariableType]
+                for recording_name_elem, data_elem in zip(
                     map(str, data[recording_name]), data, strict=True
                 ):
                     with self._get_recording(recording_name_elem):
-                        self._log(data_elem)  # pyright: ignore[reportUnknownArgumentType]
+                        self._log(data_elem)
 
     def _log(self, data: TensorDict) -> None:
         indexes: list[rr.TimeColumn] = []
         for timeline, config in self._schema.indexes.items():
             kwargs: dict[str, Any] = {}
-            for k, k_data in config.model_extra.items():  # pyright: ignore[reportOptionalMemberAccess]
-                v = torch.atleast_1d(data[k_data].flatten()).cpu().numpy()  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-                kwargs[k] = v if config.dtype is None else v.astype(config.dtype)  # pyright: ignore[reportUnknownMemberType]
+            for k, k_data in config.model_extra.items():
+                v = torch.atleast_1d(data[k_data].flatten()).cpu().numpy()
+                kwargs[k] = v if config.dtype is None else v.astype(config.dtype)
 
             indexes.append(config.instantiate(timeline=timeline, **kwargs))
 

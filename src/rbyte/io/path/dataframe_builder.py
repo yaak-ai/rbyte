@@ -6,7 +6,7 @@ from typing import Self, final
 import polars as pl
 from optree import tree_map
 from polars.datatypes import DataType
-from polars.polars import dtype_str_repr  # pyright: ignore[reportUnknownVariableType]
+from polars.polars import dtype_str_repr  # ty: ignore[unresolved-import]
 from pydantic import (
     DirectoryPath,
     InstanceOf,
@@ -56,12 +56,12 @@ class Config(BaseModel):
     @field_serializer("fields", when_used="json")
     @staticmethod
     def _serialize_fields(fields: Fields) -> dict[str, str | None]:
-        return tree_map(dtype_str_repr, fields)  # pyright: ignore[reportArgumentType, reportUnknownArgumentType, reportUnknownVariableType, reportReturnType]
+        return tree_map(dtype_str_repr, fields)  # ty: ignore[invalid-argument-type, invalid-return-type]
 
 
 @final
 class PathDataFrameBuilder:
-    __name__ = __qualname__
+    __name__ = __qualname__  # ty: ignore[unresolved-reference]
 
     def __init__(self, *, fields: Fields, pattern: str) -> None:
         self._config = Config(fields=fields, pattern=pattern)
@@ -91,7 +91,7 @@ class PathDataFrameBuilder:
             .unnest("groups")
             .drop_nulls()
             .select(self._config.fields.keys())
-            .cast(self._schema, strict=True)  # pyright: ignore[reportArgumentType]
+            .cast(self._schema, strict=True)
             .collect()
         )
 

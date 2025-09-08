@@ -32,7 +32,7 @@ class AsofColumnAlignConfig(BaseModel):
     tolerance: str | int | float | timedelta | None = None
 
 
-type ColumnAlignConfig = InterpColumnAlignConfig | AsofColumnAlignConfig
+ColumnAlignConfig = InterpColumnAlignConfig | AsofColumnAlignConfig
 
 
 class AlignConfig(BaseModel):
@@ -45,7 +45,7 @@ type Fields = OrderedDict[str, AlignConfig | Fields]
 
 @final
 class DataFrameAligner:
-    __name__ = __qualname__
+    __name__ = __qualname__  # ty: ignore[unresolved-reference]
 
     @validate_call
     def __init__(self, *, fields: Fields, separator: str = "/") -> None:
@@ -62,14 +62,14 @@ class DataFrameAligner:
 
             return AlignConfig(key=key, columns=columns)
 
-        return tree_map_with_path(fqn, self._fields)  # pyright: ignore[reportArgumentType]
+        return tree_map_with_path(fqn, self._fields)
 
     def __call__(
         self, input: PyTree[pl.DataFrame] | None = None, **kwargs: PyTree[pl.DataFrame]
     ) -> pl.DataFrame:
         match input, kwargs:
             case [None, _]:
-                input = kwargs  # pyright: ignore[reportAssignmentType]
+                input = kwargs  # ty: ignore[invalid-assignment]
 
             case [_, {}]:
                 pass
@@ -78,10 +78,10 @@ class DataFrameAligner:
                 msg = "either `input` or `kwargs` must be specified"
                 raise ValueError(msg)
 
-        result = self._build(input)  # pyright: ignore[reportArgumentType]
+        result = self._build(input)
         logger.debug(
             "aligned dataframes",
-            length={"input": tree_map(len, input), "result": len(result)},  # pyright: ignore[reportArgumentType]
+            length={"input": tree_map(len, input), "result": len(result)},  # ty: ignore[invalid-argument-type]
         )
 
         return result
@@ -95,7 +95,7 @@ class DataFrameAligner:
         def get_df(accessor: PyTreeAccessor, cfg: AlignConfig) -> pl.DataFrame:
             return (
                 accessor(input)
-                .rename(lambda col: self._separator.join((*accessor.path, col)))  # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+                .rename(lambda col: self._separator.join((*accessor.path, col)))
                 .sort(cfg.key)
             )
 

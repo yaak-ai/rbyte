@@ -14,8 +14,8 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 @final
-class BuildYaakIdlProtosHook(BuildHookInterface):  # pyright: ignore[reportMissingTypeArgument]
-    PLUGIN_NAME = "build-yaak-idl-protos"  # pyright: ignore[reportIncompatibleUnannotatedOverride]
+class BuildYaakIdlProtosHook(BuildHookInterface):
+    PLUGIN_NAME = "build-yaak-idl-protos"
 
     YAAK_IDL_PROTO_PATH = (
         Path(__file__).resolve().parent
@@ -63,7 +63,7 @@ class BuildYaakIdlProtosHook(BuildHookInterface):  # pyright: ignore[reportMissi
                 *cls.YAAK_IDL_PROTOS,
             ]
 
-            if protoc.main(protoc_cmd) != 0:  # pyright: ignore[reportUnknownMemberType]
+            if protoc.main(protoc_cmd) != 0:
                 msg = f"error: {protoc_cmd} failed"
                 raise RuntimeError(msg)
 

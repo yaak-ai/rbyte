@@ -86,7 +86,7 @@ class YaakMetadataMessageIterator(Iterator[tuple[type[Message], bytes]]):
                 msg_type_idx, msg_buf = msg_data
                 msg_type = self._message_types.get(msg_type_idx)
 
-        return msg_type, msg_buf  # pyright: ignore[reportPossiblyUnboundVariable]
+        return msg_type, msg_buf
 
     def _read_message(self) -> tuple[int, bytes] | None:
         msg_type_idx_buf = self._file.read(4)

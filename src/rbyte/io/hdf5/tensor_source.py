@@ -17,7 +17,7 @@ class Hdf5TensorSource(TensorSource[int]):
 
     @override
     def __getitem__(self, indexes: int | Sequence[int]) -> Tensor:
-        return torch.from_numpy(self._dataset[indexes])  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+        return torch.from_numpy(self._dataset[indexes])
 
     @override
     def __len__(self) -> int:

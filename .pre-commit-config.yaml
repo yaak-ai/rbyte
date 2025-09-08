@@ -11,19 +11,24 @@ repos:
       - id: pyupgrade
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.7
+    rev: v0.13.0
     hooks:
       - id: ruff-check
         args: [--fix]
       - id: ruff-format
 
-  - repo: https://github.com/DetachHead/basedpyright-pre-commit-mirror
-    rev: 1.31.1
+  - repo: local
+    # TODO: replace once available
     hooks:
-      - id: basedpyright
+      - id: ty
+        name: ty check
+        entry: uvx ty@latest check
+        language: system
+        always_run: true
+        pass_filenames: false
 
   - repo: https://github.com/tombi-toml/tombi-pre-commit
-    rev: v0.4.42
+    rev: v0.6.4
     hooks:
       - id: tombi-format
       - id: tombi-lint

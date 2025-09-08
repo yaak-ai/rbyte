@@ -39,7 +39,7 @@ class SpecialField(StrEnum):
 
 @final
 class McapDataFrameBuilder:
-    __name__ = __qualname__
+    __name__ = __qualname__  # ty: ignore[unresolved-reference]
 
     @validate_call
     def __init__(
@@ -70,7 +70,7 @@ class McapDataFrameBuilder:
             mmap(fileno=_f.fileno(), length=0, access=ACCESS_READ) as f,
         ):
             reader = SeekingReader(
-                f,  # pyright: ignore[reportArgumentType]
+                f,
                 validate_crcs=self._validate_crcs,
                 decoder_factories=self._decoder_factories_instantiated,
             )
@@ -142,13 +142,13 @@ class McapDataFrameBuilder:
                     message.lazy()
                     .select(unnest_all(message.collect_schema()))
                     .select(fields.keys())
-                    .cast(df_schema)  # pyright: ignore[reportArgumentType]
+                    .cast(df_schema)
                 ).collect()
 
             case _:
                 return pl.from_dict({
                     field: attrgetter(field)(message) for field in fields
-                }).cast(df_schema)  # pyright: ignore[reportArgumentType]
+                }).cast(df_schema)
 
     @cached_property
     def _decoder_factories_instantiated(self) -> tuple[DecoderFactory, ...]:

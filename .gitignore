@@ -20,8 +20,8 @@ config/*
 # lockfiles
 uv.lock
 
-.basedpyright
-
 .ipynb_checkpoints
 
-.dprint.json
+# env
+.direnv
+.envrc

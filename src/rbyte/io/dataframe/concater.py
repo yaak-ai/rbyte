@@ -9,7 +9,7 @@ from pydantic import validate_call
 
 @final
 class DataFrameConcater:
-    __name__ = __qualname__
+    __name__ = __qualname__  # ty: ignore[unresolved-reference]
 
     @validate_call
     def __init__(
@@ -37,5 +37,5 @@ class DataFrameConcater:
             case _:
                 return self._fn([
                     v.lazy().select(pl.lit(k).alias(self._key_column), pl.all())
-                    for k, v in zip(keys, values, strict=True)
+                    for k, v in zip(keys, values, strict=True)  # ty: ignore[invalid-argument-type]
                 ]).collect()

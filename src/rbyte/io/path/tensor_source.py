@@ -34,13 +34,13 @@ class PathTensorSource(TensorSource[object]):
     def _getitem(self, index: object) -> Tensor:
         path = self._path_posix.format(index)
         array = self._decode(path)
-        return torch.from_numpy(array)  # pyright: ignore[reportUnknownMemberType]
+        return torch.from_numpy(array)
 
     @override
     def __getitem__(self, indexes: object | Sequence[object]) -> Tensor:
         match indexes:
             case Sequence():
-                tensors = map(self._getitem, indexes)  # pyright: ignore[reportUnknownArgumentType]
+                tensors = map(self._getitem, indexes)
 
                 return torch.stack(list(tensors))
 
