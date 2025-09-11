@@ -18,7 +18,7 @@ class DataFrameGroupByDynamic:
     Build samples using `polars.DataFrame.group_by_dynamic`.
     """
 
-    __name__ = __qualname__
+    __name__ = __qualname__  # ty: ignore[unresolved-reference]
 
     @validate_call
     def __init__(  # noqa: PLR0913

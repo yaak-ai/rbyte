@@ -74,18 +74,6 @@ test = [
 requires = ["hatchling>=1.27.0"]
 build-backend = "hatchling.build"
 
-[tool.basedpyright]
-typeCheckingMode = "all"
-enableTypeIgnoreComments = true
-reportMissingTypeStubs = "none"
-reportAny = "none"
-reportExplicitAny = "none"
-reportIgnoreCommentWithoutRule = "error"
-venvPath = "."
-venv = ".venv"
-include = ["src/"]
-ignore = ["src/**/*_pb2.py", "**/*.pyi"]
-
 [tool.hatch.metadata]
 allow-direct-references = true
 
@@ -132,7 +120,6 @@ ignore = [
   "CPY",
   "COM812",
   "F722",
-  "PD901",
   "ISC001",
   "TD",
   "TC006",

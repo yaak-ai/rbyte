@@ -7,7 +7,7 @@ import pytest
 import torch
 from hydra import compose, initialize
 from hydra.utils import instantiate
-from makefun import with_signature  # pyright: ignore[reportUnknownVariableType]
+from makefun import with_signature
 from pipefunc import PipeFunc, Pipeline
 from pytest_lazy_fixtures import lf
 from structlog import get_logger
@@ -21,12 +21,12 @@ from rbyte.io import (
     DataFrameDuckDbQuery,
     DataFrameGroupByDynamic,
     DuckDbDataFrameBuilder,
-    McapDataFrameBuilder,
-    ProtobufMcapDecoderFactory,
-    TorchCodecFrameSource,
-    VideoDataFrameBuilder,
-    WaypointBuilder,
-    YaakMetadataDataFrameBuilder,
+    McapDataFrameBuilder,  # ty: ignore[possibly-unbound-import]
+    ProtobufMcapDecoderFactory,  # ty: ignore[possibly-unbound-import]
+    TorchCodecFrameSource,  # ty: ignore[possibly-unbound-import]
+    VideoDataFrameBuilder,  # ty: ignore[possibly-unbound-import]
+    WaypointBuilder,  # ty: ignore[possibly-unbound-import]
+    YaakMetadataDataFrameBuilder,  # ty: ignore[possibly-unbound-import]
 )
 from rbyte.io.dataframe.aligner import (
     AlignConfig,
@@ -61,8 +61,8 @@ def yaak_pydantic() -> Dataset:
             }
             for input_id in input_ids
         ],
-        parallel=False,  # pyright: ignore[reportCallIssue]
-        storage="dict",  # pyright: ignore[reportCallIssue]
+        parallel=False,  # ty: ignore[unknown-argument]
+        storage="dict",  # ty: ignore[unknown-argument]
         pipeline=Pipeline(
             validate_type_annotations=False,
             functions=[
@@ -72,7 +72,7 @@ def yaak_pydantic() -> Dataset:
                     mapspec="meta_path[i] -> meta[i]",
                     func=YaakMetadataDataFrameBuilder(
                         fields={
-                            "rbyte.io.yaak.proto.sensor_pb2.ImageMetadata": {  # pyright: ignore[reportArgumentType]
+                            "rbyte.io.yaak.proto.sensor_pb2.ImageMetadata": {
                                 "time_stamp": pl.Datetime(),
                                 "frame_idx": pl.Int32(),
                                 "camera_name": pl.Enum((
@@ -152,7 +152,7 @@ FROM ST_Read('{path}')
                 PipeFunc(
                     output_name="aligned",
                     mapspec="meta[i], mcap[i], waypoints[i] -> aligned[i]",
-                    func=with_signature("align(*, meta, mcap, waypoints)")(  # pyright: ignore[reportUnknownArgumentType]
+                    func=with_signature("align(*, meta, mcap, waypoints)")(
                         DataFrameAligner(
                             separator="/",
                             fields=OrderedDict({
@@ -225,7 +225,7 @@ FROM ST_Read('{path}')
                         ", ".join(["aligned[i]", *map("{}_meta[i]".format, cameras)])
                         + " -> filtered[i]"
                     ),
-                    func=with_signature(  # pyright: ignore[reportUnknownArgumentType]
+                    func=with_signature(
                         "df_query(*, query, aligned, cam_front_left_meta, cam_left_backward_meta, cam_right_backward_meta)"  # noqa: E501
                     )(DataFrameDuckDbQuery()),
                     bound={
@@ -309,7 +309,7 @@ ORDER BY
                 PipeFunc(
                     output_name="samples_cast",
                     mapspec="samples[i] -> samples_cast[i]",
-                    func=with_signature("df_query(*, query, samples)")(  # pyright: ignore[reportUnknownArgumentType]
+                    func=with_signature("df_query(*, query, samples)")(
                         DataFrameDuckDbQuery()
                     ),
                     bound={
@@ -347,19 +347,21 @@ WHERE len("meta/ImageMetadata.cam_front_left/frame_idx") == 6
         ),
     )
 
-    sources = SourcesConfig({
-        drive_id: {
-            camera: SourceConfig(
-                index_column=f"meta/ImageMetadata.{camera}/frame_idx",
-                source=HydraConfig(
-                    target=TorchCodecFrameSource,
-                    source=data_dir / drive_id / f"{camera}.pii.mp4",  # pyright: ignore[reportCallIssue]
-                ),
-            )
-            for camera in cameras
+    sources = SourcesConfig(
+        root={
+            drive_id: {
+                camera: SourceConfig(
+                    index_column=f"meta/ImageMetadata.{camera}/frame_idx",
+                    source=HydraConfig(
+                        target=TorchCodecFrameSource,
+                        source=data_dir / drive_id / f"{camera}.pii.mp4",  # ty: ignore[unknown-argument]
+                    ),
+                )
+                for camera in cameras
+            }
+            for drive_id in input_ids
         }
-        for drive_id in input_ids
-    })
+    )
 
     return Dataset(samples=samples, sources=sources)
 
@@ -408,24 +410,20 @@ def test_yaak(dataset: Dataset) -> None:
             "meta": {"input_id": [*_], "sample_idx": Tensor(shape=[c.B]), **meta_rest},
             **batch_rest,
         } if not any((batch_rest, data_rest, meta_rest)):
-            waypoints_normalized: Tensor = batch.data["waypoints/waypoints_normalized"]  # pyright: ignore[reportUnknownVariableType, reportOptionalSubscript]
+            waypoints_normalized: Tensor = batch.data["waypoints/waypoints_normalized"]
 
-            assert waypoints_normalized.shape[2:] == (10, 2), "invalid waypoints shape"  # noqa: S101 # pyright: ignore[reportUnknownMemberType] # pyright: ignore[reportUnknownArgumentType]
+            assert waypoints_normalized.shape[2:] == (10, 2), "invalid waypoints shape"  # noqa: S101
 
-            assert not (waypoints_normalized == 0.0).all(), "waypoints are all zero"  # noqa: S101 # pyright: ignore[reportUnknownMemberType]
+            assert not (waypoints_normalized == 0.0).all(), "waypoints are all zero"  # noqa: S101
 
             atol_relative = 1
-            relative_distances = torch.linalg.norm(  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
-                torch.diff(waypoints_normalized, dim=2),  # pyright: ignore[reportUnknownArgumentType]
-                dim=3,
-                ord=2,
+            relative_distances = torch.linalg.norm(
+                torch.diff(waypoints_normalized, dim=2), dim=3, ord=2
             )
 
             # since we duplicate waypoints at the end of the ride
             relative_distances = torch.where(
-                relative_distances != 0.0,  # pyright: ignore[reportUnknownArgumentType]
-                relative_distances,  # pyright: ignore[reportUnknownArgumentType]
-                10.0,
+                relative_distances != 0.0, relative_distances, 10.0
             )
 
             assert torch.allclose(  # noqa: S101
@@ -438,23 +436,21 @@ def test_yaak(dataset: Dataset) -> None:
                 f"and min distance is {relative_distances.min().item()}"
             )
 
-            waypoints_radius = torch.linalg.norm(waypoints_normalized, dim=3, ord=2)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+            waypoints_radius = torch.linalg.norm(waypoints_normalized, dim=3, ord=2)
             max_radius = 150.0
-            assert torch.all(waypoints_radius <= max_radius).item(), (  # noqa: S101 # pyright: ignore[reportUnknownArgumentType]
+            assert torch.all(waypoints_radius <= max_radius).item(), (  # noqa: S101
                 f"Expected all waypoints to be within radius {max_radius}, "
-                f"but max radius is {waypoints_radius.max().item()}"  # pyright: ignore[reportUnknownMemberType]
+                f"but max radius is {waypoints_radius.max().item()}"
             )
 
             atol_origin = 10
-            first_waypoints = waypoints_radius[..., 0]  # pyright: ignore[reportUnknownVariableType]
+            first_waypoints = waypoints_radius[..., 0]
             assert torch.allclose(  # noqa: S101
-                first_waypoints,  # pyright: ignore[reportUnknownArgumentType]
-                torch.zeros_like(first_waypoints),  # pyright: ignore[reportUnknownArgumentType]
-                atol=atol_origin,
+                first_waypoints, torch.zeros_like(first_waypoints), atol=atol_origin
             ), (
                 f"Expected first waypoint to be near origin (0,0) "
                 f"with tolerance {atol_origin}, "
-                f"but found at least one waypoint at {first_waypoints.max().item()}"  # pyright: ignore[reportUnknownMemberType]
+                f"but found at least one waypoint at {first_waypoints.max().item()}"
             )
 
         case _:
@@ -464,8 +460,7 @@ def test_yaak(dataset: Dataset) -> None:
 
     match (
         batch := dataset.get_batch(
-            index,
-            keys={"data", ("data", "meta/VehicleMotion/speed"), "meta"},  # pyright: ignore[reportArgumentType]
+            index, keys={"data", ("data", "meta/VehicleMotion/speed"), "meta"}
         )
     ).to_dict():
         case {
@@ -481,7 +476,7 @@ def test_yaak(dataset: Dataset) -> None:
             raise AssertionError(msg)
 
     match (
-        batch := dataset.get_batch(index, keys={("data", "meta/VehicleMotion/speed")})  # pyright: ignore[reportArgumentType]
+        batch := dataset.get_batch(index, keys={("data", "meta/VehicleMotion/speed")})
     ).to_dict():
         case {
             "data": {"meta/VehicleMotion/speed": Tensor(shape=[c.B, *_]), **data_rest},
@@ -495,7 +490,7 @@ def test_yaak(dataset: Dataset) -> None:
 
             raise AssertionError(msg)
 
-    match (batch := dataset.get_batch(index, keys={("meta", "input_id")})).to_dict():  # pyright: ignore[reportArgumentType]
+    match (batch := dataset.get_batch(index, keys={("meta", "input_id")})).to_dict():
         case {"data": None, "meta": {"input_id": [*_]}, **batch_rest} if not batch_rest:
             pass
 

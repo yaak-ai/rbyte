@@ -18,7 +18,7 @@ type Fields = dict[str, InstanceOf[DataType] | None] | dict[str, Fields]
 
 @final
 class Hdf5DataFrameBuilder:
-    __name__ = __qualname__
+    __name__ = __qualname__  # ty: ignore[unresolved-reference]
 
     @validate_call
     def __init__(self, fields: Fields) -> None:
@@ -38,21 +38,21 @@ class Hdf5DataFrameBuilder:
                 path: Sequence[str], dtype: DataType | None
             ) -> pl.Series | None:
                 name = "/".join((prefix, *path))
-                match obj := f.get(name):  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+                match obj := f.get(name):
                     case Dataset():
-                        return pl.Series(values=obj[:], dtype=dtype)  # pyright: ignore[reportUnknownArgumentType]
+                        return pl.Series(values=obj[:], dtype=dtype)
 
                     case None:
                         return None
 
-                    case _:  # pyright: ignore[reportUnknownVariableType]
+                    case _:
                         raise NotImplementedError
 
-            series = tree_map_with_path(build_series, self._fields, none_is_leaf=True)  # pyright: ignore[reportArgumentType]
+            series = tree_map_with_path(build_series, self._fields, none_is_leaf=True)
 
             return tree_map(
                 pl.DataFrame,
                 series,
                 is_leaf=lambda obj: isinstance(obj, dict)
-                and all(isinstance(v, pl.Series) or v is None for v in obj.values()),  # pyright: ignore[reportUnknownVariableType]
+                and all(isinstance(v, pl.Series) or v is None for v in obj.values()),
             )

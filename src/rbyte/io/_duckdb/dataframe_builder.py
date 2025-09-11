@@ -8,7 +8,7 @@ from pydantic import validate_call
 
 @final
 class DuckDbDataFrameBuilder:
-    __name__ = __qualname__
+    __name__ = __qualname__  # ty: ignore[unresolved-reference]
 
     @validate_call
     def __call__(self, *, query: str, path: PathLike[str]) -> pl.DataFrame:

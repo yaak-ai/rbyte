@@ -4,13 +4,13 @@ from tensordict import NonTensorData, TensorClass, TensorDict
 from torch import Tensor
 
 
-class BatchMeta(TensorClass, autocast=True):  # pyright: ignore[reportGeneralTypeIssues, reportCallIssue]
+class BatchMeta(TensorClass, autocast=True):
     sample_idx: Tensor | None = None
     input_id: NonTensorData | None = None
 
 
-class Batch(TensorClass, autocast=True):  # pyright: ignore[reportGeneralTypeIssues, reportCallIssue]
-    data: TensorDict | None = None  # pyright: ignore[reportIncompatibleMethodOverride]
+class Batch(TensorClass, autocast=True):
+    data: TensorDict | None = None
     meta: BatchMeta | None = None
 
 

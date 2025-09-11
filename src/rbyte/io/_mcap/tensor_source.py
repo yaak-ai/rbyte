@@ -96,7 +96,7 @@ class McapTensorSource(TensorSource[int]):
             case _:
                 raise RuntimeError
 
-        return self._mmap  # pyright: ignore[reportReturnType]
+        return self._mmap
 
     @override
     def __getitem__(self, indexes: int | Sequence[int]) -> Tensor:
@@ -120,12 +120,12 @@ class McapTensorSource(TensorSource[int]):
                     for index, message_index in sorted(
                         chunk_indexes, key=lambda x: x[1].message_start_offset
                     ):
-                        stream.read(message_index.message_start_offset - stream.count)  # pyright: ignore[reportUnusedCallResult]
+                        stream.read(message_index.message_start_offset - stream.count)
                         message = Message.read(stream, message_index.message_length)
                         decoded_message = self._message_decoder(message.data)
                         arrays[index] = self._decoder(decoded_message.data)
 
-                tensors = [torch.from_numpy(arrays[idx]) for idx in indexes]  # pyright: ignore[reportUnknownMemberType]
+                tensors = [torch.from_numpy(arrays[idx]) for idx in indexes]
 
                 return torch.stack(tensors)
 
@@ -139,7 +139,10 @@ class McapTensorSource(TensorSource[int]):
                 decoded_message = self._message_decoder(message.data)
                 array = self._decoder(decoded_message.data)
 
-                return torch.from_numpy(array)  # pyright: ignore[reportUnknownMemberType]
+                return torch.from_numpy(array)
+
+            case _:
+                raise ValueError
 
     @override
     def __len__(self) -> int:
@@ -165,7 +168,7 @@ class McapTensorSource(TensorSource[int]):
         validate_crc: bool,
     ) -> Iterable[MessageIndex]:
         for chunk_index in chunk_indexes:
-            f.seek(chunk_index.chunk_start_offset + 1 + 8)  # pyright: ignore[reportUnusedCallResult]
+            f.seek(chunk_index.chunk_start_offset + 1 + 8)
             chunk = Chunk.read(ReadDataStream(f))
             stream, stream_length = get_chunk_data_stream(chunk, validate_crc)
 
@@ -182,4 +185,4 @@ class McapTensorSource(TensorSource[int]):
                             )
 
                     case _:
-                        stream.read(length)  # pyright: ignore[reportUnusedCallResult]
+                        stream.read(length)

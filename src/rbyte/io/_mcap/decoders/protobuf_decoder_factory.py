@@ -5,7 +5,10 @@ from typing import override
 import more_itertools as mit
 import polars as pl
 from cachetools import LRUCache, cachedmethod
-from google.protobuf.descriptor_pb2 import FileDescriptorProto, FileDescriptorSet
+from google.protobuf.descriptor_pb2 import (
+    FileDescriptorProto,  # ty: ignore[unresolved-import]
+    FileDescriptorSet,  # ty: ignore[unresolved-import]
+)
 from google.protobuf.descriptor_pool import DescriptorPool
 from google.protobuf.message import Message
 from google.protobuf.message_factory import GetMessageClassesForFiles
@@ -34,11 +37,11 @@ class ProtobufMcapDecoderFactory(McapDecoderFactory):
             and schema.encoding == SchemaEncoding.Protobuf
         ):
             message_type = self._get_message_type(schema)
-            handler = self._handler_pool.get_for_message(message_type.DESCRIPTOR)  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType, reportArgumentType]
+            handler = self._handler_pool.get_for_message(message_type.DESCRIPTOR)
 
             def decoder(data: bytes) -> pl.DataFrame:
-                record_batch = handler.list_to_record_batch([data])  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
-                return pl.from_arrow(record_batch, rechunk=False)  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType, reportReturnType]
+                record_batch = handler.list_to_record_batch([data])
+                return pl.from_arrow(record_batch, rechunk=False)  # ty: ignore[invalid-return-type]
 
             return decoder
 
@@ -46,11 +49,11 @@ class ProtobufMcapDecoderFactory(McapDecoderFactory):
 
     @cachedmethod(
         cache=lambda self: self._message_type_cache,
-        key=lambda _, schema: hash(schema.data),  # pyright: ignore[reportUnknownArgumentType, reportUnknownLambdaType, reportUnknownMemberType]
+        key=lambda _, schema: hash(schema.data),
     )
     def _get_message_type(self, schema: Schema) -> type[Message]:  # noqa: PLR6301
         fds = FileDescriptorSet.FromString(schema.data)
-        pool = DescriptorPool()
+        pool = DescriptorPool()  # ty: ignore[possibly-unbound-implicit-call]
         descriptor_by_name = mit.map_reduce(
             fds.file, keyfunc=attrgetter("name"), reducefunc=mit.one
         )
@@ -60,7 +63,7 @@ class ProtobufMcapDecoderFactory(McapDecoderFactory):
                 if dependency in descriptor_by_name:
                     _add(descriptor_by_name.pop(dependency))
 
-            pool.Add(fd)  # pyright: ignore[reportUnknownMemberType]
+            pool.Add(fd)
 
         while descriptor_by_name:
             _add(descriptor_by_name.popitem()[1])

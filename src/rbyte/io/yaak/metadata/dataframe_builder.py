@@ -30,7 +30,7 @@ type Fields = dict[
 
 @final
 class YaakMetadataDataFrameBuilder:
-    __name__ = __qualname__
+    __name__ = __qualname__  # ty: ignore[unresolved-reference]
 
     @validate_call
     def __init__(self, *, fields: Fields) -> None:
@@ -64,8 +64,8 @@ class YaakMetadataDataFrameBuilder:
             dfs = {
                 msg.obj.__name__: cast(
                     pl.DataFrame,
-                    pl.from_arrow(  # pyright: ignore[reportUnknownMemberType]
-                        data=handler_pool.get_for_message(msg.obj.DESCRIPTOR)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportArgumentType]
+                    pl.from_arrow(
+                        data=handler_pool.get_for_message(msg.obj.DESCRIPTOR)
                         .list_to_record_batch([
                             msg_data
                             for (_, msg_data) in tqdm(

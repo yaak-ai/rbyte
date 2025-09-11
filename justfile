@@ -9,18 +9,13 @@ _default:
 sync:
     uv sync --all-extras --all-groups
 
-install-tools:
-    uv tool install --force --upgrade ruff
-    uv tool install --force --upgrade basedpyright
-    uv tool install --force --upgrade pre-commit --with pre-commit-uv
-
 install-duckdb-extensions:
     uv run python -c "import duckdb; duckdb.connect().install_extension('spatial')"
 
-setup: sync install-tools install-duckdb-extensions
+setup: sync install-duckdb-extensions
     git submodule update --init --recursive --force --remote
     git lfs pull
-    uvx pre-commit install --install-hooks
+    uvx --with=pre-commit-uv pre-commit install --install-hooks
 
 build:
     uv build
@@ -32,10 +27,10 @@ lint *ARGS:
     uvx ruff check {{ ARGS }}
 
 typecheck *ARGS:
-    uvx basedpyright {{ ARGS }}
+    uvx ty@latest check {{ ARGS }}
 
 pre-commit *ARGS: build
-    uvx pre-commit run --all-files --color=always {{ ARGS }}
+    uvx --with=pre-commit-uv pre-commit run --all-files --color=always {{ ARGS }}
 
 generate-config:
     ytt --ignore-unknown-comments \

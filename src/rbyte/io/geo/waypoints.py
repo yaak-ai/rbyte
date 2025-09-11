@@ -12,7 +12,7 @@ logger = get_logger(__name__)
 
 @final
 class WaypointBuilder:
-    __name__ = __qualname__
+    __name__ = __qualname__  # ty: ignore[unresolved-reference]
 
     class Columns(BaseModel):
         points: str

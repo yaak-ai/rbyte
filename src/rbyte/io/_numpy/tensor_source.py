@@ -32,13 +32,13 @@ class NumpyTensorSource(TensorSource[object]):
     def _getitem(self, index: object) -> Tensor:
         path = self._path_posix.format(index)
         array = structured_to_unstructured(np.load(path)[self._select])
-        return torch.from_numpy(np.ascontiguousarray(array))  # pyright: ignore[reportUnknownMemberType]
+        return torch.from_numpy(np.ascontiguousarray(array))
 
     @override
     def __getitem__(self, indexes: object | Sequence[object]) -> Tensor:
         match indexes:
             case Sequence():
-                tensors = map(self._getitem, indexes)  # pyright: ignore[reportUnknownArgumentType]
+                tensors = map(self._getitem, indexes)
 
                 return torch.stack(list(tensors))
 

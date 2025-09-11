@@ -39,7 +39,7 @@ type Id = Annotated[
 
 
 class SourceConfig(BaseModel):
-    source: HydraConfig[TensorSource]  # pyright: ignore[reportMissingTypeArgument]
+    source: HydraConfig[TensorSource]
     index_column: str
 
 
@@ -83,7 +83,7 @@ class BasePipelineConfig(BaseModel):
     def _validate_inputs(
         cls, value: Sequence[dict[str, Any]]
     ) -> Sequence[dict[str, Any]]:
-        if not mit.all_equal(map(tree_structure, value)):  # pyright: ignore[reportArgumentType]
+        if not mit.all_equal(map(tree_structure, value)):  # ty: ignore[invalid-argument-type]
             msg = "inputs have different structures"
             raise ValueError(msg)
 
@@ -171,7 +171,7 @@ class Dataset(TorchDataset[Batch]):
         self,
         index: int | Sequence[int] | slice | range,
         *,
-        keys: BatchKeys = BATCH_KEYS_DEFAULT,
+        keys: BatchKeys = BATCH_KEYS_DEFAULT,  # ty: ignore[invalid-parameter-default]
     ) -> Batch:
         subkeys: dict[Literal["data", "meta"], set[_ALL_TYPE | str]] = {
             "data": set(),
@@ -217,7 +217,7 @@ class Dataset(TorchDataset[Batch]):
 
                 source_data = {
                     row[Column.source_id]: torch.stack([
-                        self._get_source(source)[idxs]  # pyright: ignore[reportUnknownMemberType]
+                        self._get_source(source)[idxs]
                         for (source, idxs) in zip(
                             row[Column.source_config],
                             row[Column.source_idxs],
@@ -232,7 +232,7 @@ class Dataset(TorchDataset[Batch]):
             sample_data_cols = (
                 pl.all()
                 if _ALL in subkeys_data
-                else pl.col(subkeys_data - source_data.keys())  # pyright: ignore[reportArgumentType]
+                else pl.col(subkeys_data - source_data.keys())
             ).exclude(Column.sample_idx, Column.input_id)
 
             samples_subset = samples.select(sample_data_cols.to_physical())
@@ -242,7 +242,7 @@ class Dataset(TorchDataset[Batch]):
             except TypeError:
                 sample_data = samples_subset.to_dict(as_series=False)
 
-            data = TensorDict(source_data | sample_data, batch_size=batch_size)  # pyright: ignore[reportArgumentType]
+            data = TensorDict(source_data | sample_data, batch_size=batch_size)
 
         else:
             data = None
@@ -277,8 +277,8 @@ class Dataset(TorchDataset[Batch]):
         return len(self.samples)
 
     @cache  # noqa: B019
-    def _get_source(self, config: str) -> TensorSource:  # pyright: ignore[reportUnknownParameterType, reportMissingTypeArgument] # noqa: PLR6301
-        return HydraConfig[TensorSource].model_validate_json(config).instantiate()  # pyright: ignore[reportUnknownVariableType, reportMissingTypeArgument]
+    def _get_source(self, config: str) -> TensorSource:  # noqa: PLR6301
+        return HydraConfig[TensorSource].model_validate_json(config).instantiate()
 
     @classmethod
     def _build_samples(
@@ -293,20 +293,20 @@ class Dataset(TorchDataset[Batch]):
 
             case PipelineHydraConfig():
                 pipeline = samples.pipeline.instantiate()
-                executor: Executor | dict[OUTPUT_TYPE, Executor] | None = tree_map(  # pyright: ignore[reportAssignmentType]
+                executor: Executor | dict[OUTPUT_TYPE, Executor] | None = tree_map(  # ty: ignore[invalid-assignment]
                     HydraConfig[Executor].instantiate,
-                    samples.executor,  # pyright: ignore[reportArgumentType]
+                    samples.executor,  # ty: ignore[invalid-argument-type]
                 )
 
         pipeline.print_documentation()
-        inputs = tree_transpose(  # pyright: ignore[reportUnknownVariableType]
-            tree_structure(list(range(len(samples.inputs)))),  # pyright: ignore[reportArgumentType]
-            tree_structure(samples.inputs[0]),  # pyright: ignore[reportArgumentType]
-            samples.inputs,  # pyright: ignore[reportArgumentType]
+        inputs = tree_transpose(
+            tree_structure(list(range(len(samples.inputs)))),  # ty: ignore[invalid-argument-type]
+            tree_structure(samples.inputs[0]),  # ty: ignore[invalid-argument-type]
+            samples.inputs,  # ty: ignore[invalid-argument-type]
         )
 
         results = pipeline.map(
-            inputs=inputs,  # pyright: ignore[reportArgumentType]
+            inputs=inputs,  # ty: ignore[invalid-argument-type]
             executor=executor,
             **samples.model_dump(exclude={"pipeline", "inputs", "executor"}),
         )
@@ -314,12 +314,12 @@ class Dataset(TorchDataset[Batch]):
         if pipeline.profile:
             pipeline.print_profiling_stats()
 
-        output_name: str = pipeline.unique_leaf_node.output_name  # pyright: ignore[reportUnknownMemberType, reportAssignmentType]
+        output_name: str = pipeline.unique_leaf_node.output_name
 
         result: pl.DataFrame = (
             results[output_name].output
             if results
-            else load_outputs(output_name, run_folder=samples.run_folder)  # pyright: ignore[reportArgumentType]
+            else load_outputs(output_name, run_folder=samples.run_folder)  # ty: ignore[invalid-argument-type]
         )
 
         return (
@@ -346,7 +346,7 @@ class Dataset(TorchDataset[Batch]):
                             source_cfg.model_dump(exclude={"source"})
                             | {
                                 "id": source_id,
-                                "config": source_cfg.source.model_dump_json(  # pyright: ignore[reportUnknownMemberType]
+                                "config": source_cfg.source.model_dump_json(
                                     by_alias=True
                                 ),
                             }
@@ -357,8 +357,8 @@ class Dataset(TorchDataset[Batch]):
                 ],
                 schema_overrides={Column.input_id: input_id_enum},
             )
-            .explode(k)
-            .unnest(k)
-            .select(Column.input_id, pl.exclude(Column.input_id).name.prefix(f"{k}."))
+            .explode(k)  # ty: ignore[unresolved-reference]
+            .unnest(k)  # ty: ignore[unresolved-reference]
+            .select(Column.input_id, pl.exclude(Column.input_id).name.prefix(f"{k}."))  # ty: ignore[unresolved-reference]
             .rechunk()
         )
