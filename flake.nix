@@ -23,9 +23,12 @@
               ]
               ++ lib.optional stdenv.isDarwin [ffmpeg];
 
-            shellHook = lib.optionalString stdenv.isDarwin ''
-              export DYLD_FALLBACK_LIBRARY_PATH=${pkgs.lib.makeLibraryPath [pkgs.ffmpeg]}
-            '';
+            shellHook = lib.strings.concatLines [
+              "export PYTHONBREAKPOINT='pudb.set_trace'"
+              (lib.optionalString
+                stdenv.isDarwin
+                "export DYLD_FALLBACK_LIBRARY_PATH=${pkgs.lib.makeLibraryPath [pkgs.ffmpeg]}")
+            ];
           };
       }
     );
