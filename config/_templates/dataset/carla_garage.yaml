@@ -8,18 +8,18 @@
 #@     'rgb',
 #@ ]
 ---
-_target_: rbyte.Dataset
+_target_: rbyte.Dataset.from_config
 _recursive_: false
 _convert_: all
-sources:
-  #@ for input_id in drives:
-  (@=input_id@):
-    #@ for source_id in cameras:
-    (@=source_id@):
-      index_column: measurements/_idx_
-      source:
+streams:
+  #@ for/end camera in cameras:
+  (@=camera@):
+    index: measurements/_idx_
+    sources:
+      #@ for/end drive in drives:
+      (@=drive@):
         _target_: rbyte.io.PathTensorSource
-        path: "${data_dir}/(@=input_id@)/(@=source_id@)/{:04d}.jpg"
+        path: "${data_dir}/(@=drive@)/(@=camera@)/{:04d}.jpg"
         decoder:
           _target_: simplejpeg.decode_jpeg
           _partial_: true
@@ -27,16 +27,19 @@ sources:
           fastdct: true
           fastupsample: true
 
-    #@ end
-  #@ end
-
 samples:
   inputs:
-    #@ for input_id in drives:
-    - input_id: (@=input_id@)
-      measurements_path: ${data_dir}/(@=input_id@)/measurements.json
-      waypoints_path: ${data_dir}/(@=input_id@)/waypoints.json
-    #@ end
+    input_id:
+      #@ for/end drive in drives:
+      - (@=drive@)
+
+    measurements_path:
+      #@ for/end drive in drives:
+      - ${data_dir}/(@=drive@)/measurements.json
+
+    waypoints_path:
+      #@ for/end drive in drives:
+      - ${data_dir}/(@=drive@)/waypoints.json
 
   parallel: false
   pipeline:
@@ -194,4 +197,4 @@ samples:
         output_name: samples_aggregated
         func:
           _target_: rbyte.io.DataFrameConcater
-          key_column: __input_id
+          key_column: input_id

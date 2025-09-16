@@ -14,10 +14,8 @@ from optree import (
     tree_map_with_path,
 )
 from polars._typing import AsofJoinStrategy
-from pydantic import Field, validate_call
+from pydantic import BaseModel, ConfigDict, Field, validate_call
 from structlog import get_logger
-
-from rbyte.config.base import BaseModel
 
 logger = get_logger(__name__)
 
@@ -25,11 +23,15 @@ logger = get_logger(__name__)
 class InterpColumnAlignConfig(BaseModel):
     method: Literal["interp"] = "interp"
 
+    model_config = ConfigDict(extra="forbid")
+
 
 class AsofColumnAlignConfig(BaseModel):
     method: Literal["asof"] = "asof"
     strategy: AsofJoinStrategy = "backward"
     tolerance: str | int | float | timedelta | None = None
+
+    model_config = ConfigDict(extra="forbid")
 
 
 ColumnAlignConfig = InterpColumnAlignConfig | AsofColumnAlignConfig
@@ -38,6 +40,8 @@ ColumnAlignConfig = InterpColumnAlignConfig | AsofColumnAlignConfig
 class AlignConfig(BaseModel):
     key: str
     columns: OrderedDict[str, ColumnAlignConfig] = Field(default_factory=OrderedDict)
+
+    model_config = ConfigDict(extra="forbid")
 
 
 type Fields = OrderedDict[str, AlignConfig | Fields]

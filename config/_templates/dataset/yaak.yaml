@@ -10,46 +10,43 @@
 #@     'cam_right_backward',
 #@ ]
 ---
-_target_: rbyte.Dataset
+_target_: rbyte.Dataset.from_config
 _recursive_: false
 _convert_: all
-sources:
-  #@ for input_id in drives:
-  (@=input_id@):
-    #@ for source_id in cameras:
-    (@=source_id@):
-      index_column: meta/ImageMetadata.(@=source_id@)/frame_idx
-      source:
+streams:
+  #@ for/end camera in cameras:
+  (@=camera@):
+    index: meta/ImageMetadata.(@=camera@)/frame_idx
+    sources:
+      #@ for/end drive in drives:
+      (@=drive@):
         _target_: rbyte.io.TorchCodecFrameSource
-        source: ${data_dir}/(@=input_id@)/(@=source_id@).pii.mp4
-        device: cpu
-    #@ end
-  #@ end
+        source: ${data_dir}/(@=drive@)/(@=camera@).pii.mp4
 
 samples:
   inputs:
-    #@ for input_id in drives:
-    - input_id: (@=input_id@)
-      meta_path: ${data_dir}/(@=input_id@)/metadata.log
-      mcap_path: ${data_dir}/(@=input_id@)/ai.mcap
-      waypoints_path: ${data_dir}/(@=input_id@)/waypoints.json
-      #@ for camera in cameras:
-      (@=camera@)_path: ${data_dir}/(@=input_id@)/(@=camera@).pii.mp4
-      #@ end
-    #@ end
+    input_id:
+      #@ for/end drive in drives:
+      - (@=drive@)
 
-  executor:
-    _target_: concurrent.futures.ProcessPoolExecutor
-    max_workers: 1
-    mp_context:
-      _target_: multiprocessing.get_context
-      method: forkserver
+    meta_path:
+      #@ for/end drive in drives:
+      - "${data_dir}/(@=drive@)/metadata.log"
 
-  storage: file_array
-  run_folder: "${hydra:run.dir}/rbyte/samples/"
-  return_results: false
-  persist_memory: false
+    mcap_path:
+      #@ for/end drive in drives:
+      - "${data_dir}/(@=drive@)/ai.mcap"
 
+    waypoints_path:
+      #@ for/end drive in drives:
+      - "${data_dir}/(@=drive@)/waypoints.json"
+
+    #@ for/end camera in cameras:
+    (@=camera@)_path:
+      #@ for/end drive in drives:
+      - ${data_dir}/(@=drive@)/(@=camera@).pii.mp4
+
+  parallel: false
   pipeline:
     _target_: pipefunc.Pipeline
     validate_type_annotations: false
@@ -101,7 +98,7 @@ samples:
               longitude:
                 _target_: polars.Float32
 
-      #@ for camera in cameras:
+      #@ for/end camera in cameras:
       - _target_: pipefunc.PipeFunc
         renames:
           path: (@=camera@)_path
@@ -112,7 +109,6 @@ samples:
           fields:
             frame_idx:
               _target_: polars.Int32
-      #@ end
 
       - _target_: pipefunc.PipeFunc
         renames:
@@ -173,7 +169,7 @@ samples:
                 ImageMetadata.(@=cameras[0]@):
                   key: time_stamp
 
-                #@ for camera in cameras[1:]:
+                #@ for/end camera in cameras[1:]:
                 ImageMetadata.(@=camera@):
                   key: time_stamp
                   columns:
@@ -181,7 +177,6 @@ samples:
                       method: asof
                       tolerance: 20ms
                       strategy: nearest
-                #@ end
 
                 VehicleMotion:
                   key: time_stamp
@@ -339,4 +334,4 @@ samples:
         output_name: samples_aggregated
         func:
           _target_: rbyte.io.DataFrameConcater
-          key_column: __input_id
+          key_column: input_id

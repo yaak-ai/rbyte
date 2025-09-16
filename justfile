@@ -4,7 +4,7 @@ export HYDRA_FULL_ERROR := "1"
 export TQDM_DISABLE := "1"
 
 _default:
-    @just --list --unsorted
+    @just --choose --chooser sk
 
 sync:
     uv sync --all-extras --all-groups
@@ -33,20 +33,19 @@ pre-commit *ARGS: build
     uvx --with=pre-commit-uv pre-commit run --all-files --color=always {{ ARGS }}
 
 generate-config:
-    ytt --ignore-unknown-comments \
-        --file {{ justfile_directory() }}/config/_templates \
+    ytt --file {{ justfile_directory() }}/config/_templates \
         --output-files {{ justfile_directory() }}/config \
         --output yaml \
         --strict
 
 test *ARGS: build generate-config
-    uv run --all-extras pytest --capture=no {{ ARGS }}
+    uv run --all-extras pytest --capture=no -v {{ ARGS }}
 
 notebook FILE *ARGS: sync generate-config
     uv run --all-extras --with=jupyter,jupyterlab-vim,rerun-notebook jupyter lab {{ FILE }} {{ ARGS }}
 
 [group('scripts')]
-visualize *ARGS: generate-config
+_visualize *ARGS:
     uv run rbyte-visualize \
         --config-path {{ justfile_directory() }}/config \
         --config-name visualize.yaml \
@@ -54,36 +53,25 @@ visualize *ARGS: generate-config
         hydra/job_logging=disabled \
         {{ ARGS }}
 
-[group('visualize')]
-visualize-yaak *ARGS:
-    just visualize dataset=yaak logger=rerun/yaak ++data_dir={{ justfile_directory() }}/tests/data/yaak {{ ARGS }}
+[group('scripts')]
+visualize dataset *ARGS: generate-config
+    just _visualize dataset={{ dataset }} ++data_dir={{ justfile_directory() }}/tests/data/{{ dataset }} {{ ARGS }}
 
-[group('visualize')]
-visualize-carla-garage *ARGS:
-    just visualize dataset=carla_garage logger=rerun/carla_garage ++data_dir={{ justfile_directory() }}/tests/data/carla_garage {{ ARGS }}
+[group('scripts')]
+visualize-all: generate-config
+    just visualize yaak
+    just visualize zod batch_size=1
+    just visualize mimicgen
+    just visualize nuscenes
+    just visualize carla_garage
 
-[group('visualize')]
-visualize-zod *ARGS:
-    just visualize dataloader=unbatched dataset=zod logger=rerun/zod ++data_dir={{ justfile_directory() }}/tests/data/zod {{ ARGS }}
+benchmark-dataloader *ARGS: generate-config
+    uv run rbyte-benchmark-dataloader \
+        --config-path {{ justfile_directory() }}/config \
+        --config-name benchmark_dataloader.yaml \
+        hydra/hydra_logging=disabled \
+        hydra/job_logging=disabled \
+        {{ ARGS }}
 
-[group('visualize')]
-visualize-mimicgen *ARGS:
-    just visualize dataset=mimicgen logger=rerun/mimicgen ++data_dir={{ justfile_directory() }}/tests/data/mimicgen {{ ARGS }}
-
-[group('visualize')]
-visualize-nuscenes *ARGS:
-    just visualize dataset=nuscenes logger=rerun/nuscenes ++data_dir={{ justfile_directory() }}/tests/data/nuscenes {{ ARGS }}
-
-[group('visualize')]
-visualize-all: visualize-yaak visualize-zod visualize-mimicgen visualize-nuscenes
-
-# rerun server and viewer
-rerun bind="0.0.0.0" port="9876" web-viewer-port="9090":
-    RUST_LOG=debug uv run rerun \
-    	--bind {{ bind }} \
-    	--port {{ port }} \
-    	--web-viewer \
-    	--web-viewer-port {{ web-viewer-port }} \
-    	--memory-limit 95% \
-    	--server-memory-limit 95% \
-    	--expect-data-soon \
+rerun *ARGS:
+    uv run rerun --serve-web {{ ARGS }}

@@ -1,6 +1,6 @@
 from collections.abc import Iterable
 from functools import partial
-from typing import Any, final
+from typing import final
 
 import polars as pl
 from polars._typing import ConcatMethod
@@ -24,7 +24,7 @@ class DataFrameConcater:
         self._fn = partial(pl.concat, how=how, rechunk=rechunk, parallel=parallel)
 
     def __call__(
-        self, *, keys: Iterable[Any] | None = None, values: Iterable[pl.DataFrame]
+        self, *, keys: Iterable[str] | None = None, values: Iterable[pl.DataFrame]
     ) -> pl.DataFrame:
         match self._key_column, keys:
             case None, None:
@@ -35,7 +35,11 @@ class DataFrameConcater:
                 raise ValueError(msg)
 
             case _:
+                key_enum = pl.Enum(categories=keys)  # ty: ignore[invalid-argument-type]
+
                 return self._fn([
-                    v.lazy().select(pl.lit(k).alias(self._key_column), pl.all())
+                    v.lazy().with_columns(
+                        pl.lit(k).cast(key_enum).alias(self._key_column)
+                    )
                     for k, v in zip(keys, values, strict=True)  # ty: ignore[invalid-argument-type]
                 ]).collect()

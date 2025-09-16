@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Callable, Iterable, Sequence
 from functools import cached_property
 from os import PathLike
 from pathlib import Path
@@ -10,37 +10,42 @@ from numpy.lib.recfunctions import structured_to_unstructured
 from pydantic import validate_call
 from torch import Tensor
 
-from rbyte.config.base import BaseModel
-from rbyte.io.base import TensorSource
+from rbyte.types import TensorSource
 
 
 @final
 class NumpyTensorSource(TensorSource[object]):
-    @validate_call(config=BaseModel.model_config)
+    @validate_call
     def __init__(
-        self, path: PathLike[str], select: Sequence[str] | None = None
+        self,
+        path: PathLike[str],
+        select: Sequence[str] | None = None,
+        index_transform: Callable[..., object] | None = None,
     ) -> None:
         super().__init__()
 
         self._path = Path(path)
         self._select = select or ...
+        self._index_transform = index_transform
 
     @cached_property
     def _path_posix(self) -> str:
         return self._path.resolve().as_posix()
 
     def _getitem(self, index: object) -> Tensor:
+        if self._index_transform is not None:
+            index = self._index_transform(index)
+
         path = self._path_posix.format(index)
         array = structured_to_unstructured(np.load(path)[self._select])
+
         return torch.from_numpy(np.ascontiguousarray(array))
 
     @override
-    def __getitem__(self, indexes: object | Sequence[object]) -> Tensor:
+    def __getitem__(self, indexes: object | Iterable[object]) -> Tensor:
         match indexes:
-            case Sequence():
-                tensors = map(self._getitem, indexes)
-
-                return torch.stack(list(tensors))
+            case Iterable():
+                return torch.stack([self._getitem(i) for i in indexes])
 
             case _:
                 return self._getitem(indexes)

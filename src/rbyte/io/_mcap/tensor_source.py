@@ -19,8 +19,7 @@ from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from torch import Tensor
 
-from rbyte.config.base import BaseModel
-from rbyte.io.base import TensorSource
+from rbyte.types import TensorSource
 
 logger = get_logger(__name__)
 
@@ -34,7 +33,7 @@ class MessageIndex:
 
 @final
 class McapTensorSource(TensorSource[int]):
-    @validate_call(config=BaseModel.model_config)
+    @validate_call
     def __init__(
         self,
         path: FilePath,
@@ -99,9 +98,9 @@ class McapTensorSource(TensorSource[int]):
         return self._mmap
 
     @override
-    def __getitem__(self, indexes: int | Sequence[int]) -> Tensor:
+    def __getitem__(self, indexes: int | Iterable[int]) -> Tensor:
         match indexes:
-            case Sequence():
+            case Iterable():
                 arrays: dict[int, npt.ArrayLike] = {}
                 message_indexes = (self._message_indexes[idx] for idx in indexes)
                 indexes_by_chunk_start_offset = mit.map_reduce(

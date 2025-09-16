@@ -1,6 +1,7 @@
 ---
 defaults:
-  - /dataloader: default
-  - /dataset: !!null
-  - /logger: !!null
+  - /dataset: ???
+  - /logger: rerun/${dataset}
   - _self_
+
+batch_size: !!null

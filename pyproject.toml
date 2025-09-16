@@ -1,6 +1,6 @@
 [project]
 name = "rbyte"
-version = "0.30.1"
+version = "0.31.0"
 description = "Multimodal PyTorch dataset library"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
@@ -18,55 +18,59 @@ classifiers = [
 ]
 dependencies = [
   "cachetools>=6.1.0",
-  "duckdb>=1.3.2",
+  "checkedframe>=0.1.0",
+  "duckdb>=1.4.1",
   "hydra-core>=1.3.2",
   "makefun>=1.16.0",
-  "more-itertools>=10.7.0",
+  "more-itertools>=10.8.0",
   "numpy",
   "optree>=0.17.0",
   "pipefunc[autodoc]>=0.86.0",
-  "polars[pyarrow]>=1.33.1",
-  "pydantic>=2.11.7",
+  "polars>=1.34.0",
+  "pydantic>=2.11.10",
   "structlog>=25.4.0",
-  "tensordict>=0.10.0",
+  "tensordict-nightly==2025.9.24",  # https://github.com/pytorch/tensordict/issues/1440
   "torch",
+  "torchdata>=0.11.0",
   "tqdm>=4.67.1",
-  "xxhash>=3.5.0",
+  "xxhash>=3.6.0",
 ]
 
 [project.urls]
 repo = "https://github.com/yaak-ai/rbyte"
 
 [project.scripts]
+rbyte-benchmark-dataloader = "rbyte.scripts.benchmark_dataloader:main"
 rbyte-visualize = "rbyte.scripts.visualize:main"
 
 [project.optional-dependencies]
 build = ["hatchling>=1.27.0"]
-geo = ["polars-st==0.3.0"]
+geo = ["polars-st==0.4.0"]
 hdf5 = ["h5py>=3.14.0"]
 jpeg = ["simplejpeg>=1.8.2"]
 mcap = ["mcap>=1.3.0", "mcap-protobuf-support>=0.5.3", "protobuf"]
 protos = ["grpcio-tools==1.71.0", "protoletariat>=3.3.10"]
 video = ["torchcodec>=0.7.0"]
-visualize = ["rerun-sdk[notebook]>=0.24.1"]
+visualize = ["rerun-sdk[notebook]>=0.25.1"]
 yaak = ["ptars>=0.0.5", "protobuf"]
 
 [dependency-groups]
 dev = [
   "graphviz-anywidget>=0.8.0",
   "ipykernel>=6.29.5",
-  "ipython-autoimport>=0.5.1",
   "ipython>=9.3.0",
-  "jupyterlab-vim>=4.1.4",
+  "ipython-autoimport>=0.5.1",
   "jupyterlab>=4.4.5",
+  "jupyterlab-vim>=4.1.4",
   "lovely-tensors>=0.1.18",
   "pipefunc[plotting]",
   "pudb>=2025.1",
   "wat-inspector>=0.4.3",
 ]
 test = [
-  "pytest-lazy-fixtures>=1.1.4",
+  "dill>=0.4.0",
   "pytest>=8.4.1",
+  "pytest-lazy-fixtures>=1.4.0",
   "testbook>=0.4.2",
 ]
 
@@ -127,6 +131,9 @@ ignore = [
 
 [tool.ruff.lint.isort]
 split-on-trailing-comma = false
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
 
 [tool.tombi]
 schema.strict = false

@@ -1,15 +1,17 @@
 ---
-_target_: rbyte.Dataset
+_target_: rbyte.Dataset.from_config
 _recursive_: false
 _convert_: all
-enable_batched_sampling: false
-sources:
-  000002_short:
-    camera_front_blur:
-      index_column: camera_front_blur_meta/timestamp
-      source:
+streams:
+  camera_front_blur:
+    index: camera_front_blur_meta/timestamp
+    sources:
+      000002_short:
         _target_: rbyte.io.PathTensorSource
         path: "${data_dir}/sequences/000002_short/camera_front_blur/000002_romeo_{:%Y-%m-%dT%H:%M:%S.%f}Z.jpg"
+        index_transform:
+          _target_: rbyte.utils.datetime_from_nanos
+          _partial_: true
         decoder:
           _target_: simplejpeg.decode_jpeg
           _partial_: true
@@ -17,24 +19,25 @@ sources:
           fastdct: true
           fastupsample: true
 
-    lidar_velodyne:
-      index_column: lidar_velodyne_meta/timestamp
-      source:
+  lidar_velodyne:
+    index: lidar_velodyne_meta/timestamp
+    sources:
+      000002_short:
         _target_: rbyte.io.NumpyTensorSource
         path: "${data_dir}/sequences/000002_short/lidar_velodyne/000002_romeo_{:%Y-%m-%dT%H:%M:%S.%f}Z.npy"
+        index_transform:
+          _target_: rbyte.utils.datetime_from_nanos
+          _partial_: true
         select: ["x", "y", "z"]
 
 samples:
   inputs:
-    - input_id: 000002_short
-      camera_front_blur_path: ${data_dir}/sequences/000002_short/camera_front_blur
-      lidar_velodyne_path: ${data_dir}/sequences/000002_short/lidar_velodyne
-      vehicle_data_path: ${data_dir}/sequences/000002_short/vehicle_data.hdf5
+    input_id: [000002_short]
+    camera_front_blur_path: ["${data_dir}/sequences/000002_short/camera_front_blur"]
+    lidar_velodyne_path: ["${data_dir}/sequences/000002_short/lidar_velodyne"]
+    vehicle_data_path: ["${data_dir}/sequences/000002_short/vehicle_data.hdf5"]
 
-  executor:
-    _target_: concurrent.futures.ThreadPoolExecutor
-
-  storage: dict
+  parallel: false
   pipeline:
     _target_: pipefunc.Pipeline
     validate_type_annotations: false
@@ -153,4 +156,4 @@ samples:
         output_name: samples_aggregated
         func:
           _target_: rbyte.io.DataFrameConcater
-          key_column: __input_id
+          key_column: input_id
