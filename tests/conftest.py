@@ -1,21 +1,16 @@
 from collections import OrderedDict
 from pathlib import Path
-from types import SimpleNamespace
 
 import polars as pl
 import pytest
-import torch
 from hydra import compose, initialize
 from hydra.utils import instantiate
 from makefun import with_signature
 from pipefunc import PipeFunc, Pipeline
-from pytest_lazy_fixtures import lf
 from structlog import get_logger
-from torch import Tensor
 
 from rbyte import Dataset
-from rbyte.config.base import HydraConfig
-from rbyte.dataset import PipelineInstanceConfig, SourceConfig, SourcesConfig
+from rbyte.config import HydraConfig, PipelineInstanceConfig, StreamConfig
 from rbyte.io import (
     DataFrameAligner,
     DataFrameDuckDbQuery,
@@ -34,6 +29,7 @@ from rbyte.io.dataframe.aligner import (
     InterpColumnAlignConfig,
 )
 from rbyte.io.dataframe.concater import DataFrameConcater
+from rbyte.viz.loggers.rerun_logger import RerunLogger
 
 logger = get_logger(__name__)
 
@@ -41,28 +37,59 @@ CONFIG_PATH = "../config"
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
 
-@pytest.fixture
-def yaak_pydantic() -> Dataset:
+def _build_dataset(name: str) -> Dataset:
+    with initialize(version_base=None, config_path=CONFIG_PATH):
+        cfg = compose(
+            "dataset", overrides=[f"dataset={name}", f"+data_dir={DATA_DIR}/{name}"]
+        )
+
+    return instantiate(cfg.dataset)
+
+
+# TODO: cleaner way of doing this while preserving fixture caching?  # noqa: FIX002
+@pytest.fixture(scope="session")
+def carla_garage_dataset() -> Dataset:
+    return _build_dataset("carla_garage")
+
+
+@pytest.fixture(scope="session")
+def mimicgen_dataset() -> Dataset:
+    return _build_dataset("mimicgen")
+
+
+@pytest.fixture(scope="session")
+def nuscenes_dataset() -> Dataset:
+    return _build_dataset("nuscenes")
+
+
+@pytest.fixture(scope="session")
+def yaak_dataset() -> Dataset:
+    return _build_dataset("yaak")
+
+
+@pytest.fixture(scope="session")
+def zod_dataset() -> Dataset:
+    return _build_dataset("zod")
+
+
+@pytest.fixture(scope="session")
+def yaak_dataset_pydantic() -> Dataset:
     data_dir = DATA_DIR / "yaak"
     input_ids = ["Niro098-HQ/2024-06-18--13-39-54"]
     cameras = ["cam_front_left", "cam_left_backward", "cam_right_backward"]
 
     samples = PipelineInstanceConfig(
-        inputs=[
-            {
-                "input_id": input_id,
-                "meta_path": data_dir / input_id / "metadata.log",
-                "mcap_path": data_dir / input_id / "ai.mcap",
-                "waypoints_path": data_dir / input_id / "waypoints.json",
-            }
-            | {
-                f"{camera}_path": data_dir / input_id / f"{camera}.pii.mp4"
-                for camera in cameras
-            }
-            for input_id in input_ids
-        ],
+        inputs={
+            "input_id": input_ids,
+            "meta_path": [data_dir / i / "metadata.log" for i in input_ids],
+            "mcap_path": [data_dir / i / "ai.mcap" for i in input_ids],
+            "waypoints_path": [data_dir / i / "waypoints.json" for i in input_ids],
+        }
+        | {
+            f"{camera}_path": [data_dir / i / f"{camera}.pii.mp4" for i in input_ids]
+            for camera in cameras
+        },
         parallel=False,  # ty: ignore[unknown-argument]
-        storage="dict",  # ty: ignore[unknown-argument]
         pipeline=Pipeline(
             validate_type_annotations=False,
             functions=[
@@ -341,160 +368,33 @@ WHERE len("meta/ImageMetadata.cam_front_left/frame_idx") == 6
                 PipeFunc(
                     renames={"keys": "input_id", "values": "samples_cast"},
                     output_name="samples_aggregated",
-                    func=DataFrameConcater(key_column="__input_id"),
+                    func=DataFrameConcater(key_column="input_id"),
                 ),
             ],
         ),
     )
 
-    sources = SourcesConfig(
-        root={
-            drive_id: {
-                camera: SourceConfig(
-                    index_column=f"meta/ImageMetadata.{camera}/frame_idx",
-                    source=HydraConfig(
-                        target=TorchCodecFrameSource,
-                        source=data_dir / drive_id / f"{camera}.pii.mp4",  # ty: ignore[unknown-argument]
-                    ),
+    streams = {
+        camera: StreamConfig(
+            index=f"meta/ImageMetadata.{camera}/frame_idx",
+            sources={
+                input_id: HydraConfig(
+                    target=TorchCodecFrameSource,
+                    source=(data_dir / input_id / f"{camera}.pii.mp4").as_posix(),  # ty: ignore[unknown-argument]
                 )
-                for camera in cameras
-            }
-            for drive_id in input_ids
-        }
-    )
-
-    return Dataset(samples=samples, sources=sources)
-
-
-@pytest.fixture
-def yaak_hydra(tmp_path: Path) -> Dataset:
-    with initialize(version_base=None, config_path=CONFIG_PATH):
-        cfg = compose(
-            "visualize",
-            overrides=[
-                "dataset=yaak",
-                f"dataset.samples.run_folder={tmp_path}",
-                f"+data_dir={DATA_DIR}/yaak",
-            ],
-        )
-
-    return instantiate(cfg.dataset)
-
-
-@pytest.mark.parametrize("dataset", [lf("yaak_hydra"), lf("yaak_pydantic")])
-def test_yaak(dataset: Dataset) -> None:
-    index = [0, 2]
-    c = SimpleNamespace(B=len(index))
-
-    match (batch := dataset.get_batch(index)).to_dict():
-        case {
-            "data": {
-                "cam_front_left": Tensor(shape=[c.B, *_]),
-                "cam_left_backward": Tensor(shape=[c.B, *_]),
-                "cam_right_backward": Tensor(shape=[c.B, *_]),
-                "meta/ImageMetadata.cam_front_left/frame_idx": Tensor(shape=[c.B, *_]),
-                "meta/ImageMetadata.cam_front_left/time_stamp": Tensor(shape=[c.B, *_]),
-                "meta/ImageMetadata.cam_left_backward/frame_idx": Tensor(
-                    shape=[c.B, *_]
-                ),
-                "meta/ImageMetadata.cam_right_backward/frame_idx": Tensor(
-                    shape=[c.B, *_]
-                ),
-                "meta/VehicleMotion/speed": Tensor(shape=[c.B, *_]),
-                "mcap//ai/safety_score/clip.end_timestamp": Tensor(shape=[c.B, *_]),
-                "mcap//ai/safety_score/score": Tensor(shape=[c.B, *_]),
-                "waypoints/heading": Tensor(shape=[c.B, *_]),
-                "waypoints/waypoints_normalized": Tensor(shape=[c.B, *_]),
-                **data_rest,
+                for input_id in input_ids
             },
-            "meta": {"input_id": [*_], "sample_idx": Tensor(shape=[c.B]), **meta_rest},
-            **batch_rest,
-        } if not any((batch_rest, data_rest, meta_rest)):
-            waypoints_normalized: Tensor = batch.data["waypoints/waypoints_normalized"]
-
-            assert waypoints_normalized.shape[2:] == (10, 2), "invalid waypoints shape"  # noqa: S101
-
-            assert not (waypoints_normalized == 0.0).all(), "waypoints are all zero"  # noqa: S101
-
-            atol_relative = 1
-            relative_distances = torch.linalg.norm(
-                torch.diff(waypoints_normalized, dim=2), dim=3, ord=2
-            )
-
-            # since we duplicate waypoints at the end of the ride
-            relative_distances = torch.where(
-                relative_distances != 0.0, relative_distances, 10.0
-            )
-
-            assert torch.allclose(  # noqa: S101
-                relative_distances,
-                torch.full_like(relative_distances, 10.0),
-                atol=atol_relative,
-            ), (
-                f"Expected relative distances to be 10 +- {atol_relative}, "
-                f"but max distance is {relative_distances.max().item()} "
-                f"and min distance is {relative_distances.min().item()}"
-            )
-
-            waypoints_radius = torch.linalg.norm(waypoints_normalized, dim=3, ord=2)
-            max_radius = 150.0
-            assert torch.all(waypoints_radius <= max_radius).item(), (  # noqa: S101
-                f"Expected all waypoints to be within radius {max_radius}, "
-                f"but max radius is {waypoints_radius.max().item()}"
-            )
-
-            atol_origin = 10
-            first_waypoints = waypoints_radius[..., 0]
-            assert torch.allclose(  # noqa: S101
-                first_waypoints, torch.zeros_like(first_waypoints), atol=atol_origin
-            ), (
-                f"Expected first waypoint to be near origin (0,0) "
-                f"with tolerance {atol_origin}, "
-                f"but found at least one waypoint at {first_waypoints.max().item()}"
-            )
-
-        case _:
-            logger.error(msg := "invalid batch structure", batch=batch)
-
-            raise AssertionError(msg)
-
-    match (
-        batch := dataset.get_batch(
-            index, keys={"data", ("data", "meta/VehicleMotion/speed"), "meta"}
         )
-    ).to_dict():
-        case {
-            "data": {"meta/VehicleMotion/speed": Tensor(shape=[c.B, *_]), **data_rest},
-            "meta": {"input_id": [*_], "sample_idx": Tensor(shape=[c.B]), **meta_rest},
-            **batch_rest,
-        } if not any((batch_rest, data_rest, meta_rest)):
-            pass
+        for camera in cameras
+    }
 
-        case _:
-            logger.error(msg := "invalid batch structure", batch=batch)
+    return Dataset.from_config(samples=samples, streams=streams)
 
-            raise AssertionError(msg)
 
-    match (
-        batch := dataset.get_batch(index, keys={("data", "meta/VehicleMotion/speed")})
-    ).to_dict():
-        case {
-            "data": {"meta/VehicleMotion/speed": Tensor(shape=[c.B, *_]), **data_rest},
-            "meta": None,
-            **batch_rest,
-        } if not any((batch_rest, data_rest)):
-            pass
+@pytest.fixture(params=["carla_garage", "mimicgen", "nuscenes", "yaak", "zod"])
+def rerun_logger(request: pytest.FixtureRequest) -> RerunLogger:
+    name = request.param
+    with initialize(version_base=None, config_path=f"{CONFIG_PATH}/logger/rerun"):
+        cfg = compose(f"{name}", overrides=["++spawn=false"])
 
-        case _:
-            logger.error(msg := "invalid batch structure", batch=batch)
-
-            raise AssertionError(msg)
-
-    match (batch := dataset.get_batch(index, keys={("meta", "input_id")})).to_dict():
-        case {"data": None, "meta": {"input_id": [*_]}, **batch_rest} if not batch_rest:
-            pass
-
-        case _:
-            logger.error(msg := "invalid batch structure", batch=batch)
-
-            raise AssertionError(msg)
+    return instantiate(cfg)

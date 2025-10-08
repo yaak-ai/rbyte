@@ -1,19 +1,28 @@
+import math
 from collections import defaultdict
 from collections.abc import Callable, Sequence
-from functools import cache, cached_property
+from functools import cached_property
 from math import prod
-from typing import Annotated, Any, ClassVar, Literal, cast, override
+from typing import Annotated, Any, Literal, cast, override
 
 import more_itertools as mit
 import rerun as rr
 import torch
+from cachetools import Cache, cachedmethod
 from hydra.utils import get_method, instantiate
-from pydantic import BeforeValidator, ConfigDict, Field, RootModel, validate_call
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    RootModel,
+    validate_call,
+)
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from tensordict import TensorClass, TensorDict
 
-from rbyte.config.base import BaseModel, HydraConfig
+from rbyte.config import HydraConfig
 
 from .base import Logger
 
@@ -27,11 +36,11 @@ class IndexSchemaItem(HydraConfig[rr.TimeColumn]):
 
 
 class MethodHydraConfig[T](BaseModel):
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow")
-
     target: Annotated[Callable[..., T], BeforeValidator(get_method)] = Field(
         alias="_target_"
     )
+
+    model_config = ConfigDict(extra="allow")
 
     def instantiate(self, **kwargs: object) -> T:
         return instantiate(self.model_dump(by_alias=True), **kwargs)
@@ -47,6 +56,8 @@ class ComponentColumnListConfig(MethodHydraConfig[rr.ComponentColumnList]):
 class StaticSchemaItem(BaseModel):
     static: Literal[True]
     entity: AsComponentsConfig
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class Schema(
@@ -120,7 +131,13 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
         self._spawn: bool = spawn
         self._port: int = port
 
-    @cache  # noqa: B019
+        self._recordings = Cache(maxsize=math.inf)
+
+    @property
+    def recordings(self) -> Cache:
+        return self._recordings
+
+    @cachedmethod(lambda self: self._recordings)
     def _get_recording(self, name: str) -> rr.RecordingStream:
         recording = rr.RecordingStream(self._application_id)
         if self._spawn:
@@ -215,10 +232,8 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
                     self._log(data)
 
             case tuple():
-                for recording_name_elem, data_elem in zip(
-                    map(str, data[recording_name]), data, strict=True
-                ):
-                    with self._get_recording(recording_name_elem):
+                for data_elem in data:
+                    with self._get_recording(data_elem[recording_name]):
                         self._log(data_elem)
 
     def _log(self, data: TensorDict) -> None:

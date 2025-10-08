@@ -15,7 +15,7 @@ from structlog.contextvars import bound_contextvars
 from tqdm import tqdm
 from xxhash import xxh3_64_hexdigest as digest
 
-from rbyte.config.base import PickleableImportString
+from rbyte.config import PickleableImportString
 from rbyte.io.yaak.proto import sensor_pb2
 
 from .message_iterator import YaakMetadataMessageIterator

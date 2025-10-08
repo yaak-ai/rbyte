@@ -9,7 +9,7 @@
  <img src="https://img.shields.io/github/license/yaak-ai/rbyte.svg?color=green"></a>
 </p>
 
-`rbyte` provides a [PyTorch](https://pytorch.org) [`Dataset`](https://pytorch.org/tutorials/beginner/basics/data_tutorial.html) with [`tensorclass`](https://pytorch.org/tensordict/main/reference/tensorclass.html) samples built from multimodal data
+`rbyte` implements a [PyTorch](https://pytorch.org) [`Dataset`](https://pytorch.org/tutorials/beginner/basics/data_tutorial.html) with [`TensorClass`](https://pytorch.org/tensordict/main/reference/tensorclass.html)-based samples built from multimodal data.
 
 ## Installation
 
@@ -21,42 +21,16 @@ See `pyproject.toml` for available extras.
 
 ## Examples
 
-1. Install required tools:
-
-- [`uv`](https://github.com/astral-sh/uv)
-- [`just`](https://github.com/casey/just)
-- [`ytt`](https://carvel.dev/ytt/)
-
-2. Clone:
-
-```shell
-git clone https://github.com/yaak-ai/rbyte
-```
-
-3. Run:
-
-```shell
-cd rbyte
+```bash
+git clone https://github.com/yaak-ai/rbyte && cd rbyte
+nix develop # alternatively, install `uv`, `just`, `ytt`
 just notebook examples/nuscenes.ipynb
 ```
 
 ## Development
 
-1. Install required tools:
-
-- [`uv`](https://github.com/astral-sh/uv)
-- [`just`](https://github.com/casey/just)
-- [`ytt`](https://carvel.dev/ytt/)
-
-2. Clone:
-
 ```bash
-git clone https://github.com/yaak-ai/rbyte
-```
-
-3. Run:
-
-```shell
-cd rbyte
+git clone https://github.com/yaak-ai/rbyte && cd rbyte
+nix develop
 just setup
 ```

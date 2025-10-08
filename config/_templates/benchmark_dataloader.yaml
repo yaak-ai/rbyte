@@ -1,0 +1,16 @@
+---
+defaults:
+  - /dataloader: ???
+  - /dataset: ???
+  - _self_
+
+dataloader:
+  dataset: ${dataset}
+  shuffle: false
+  batch_size: 64
+  num_workers: 1
+  collate_fn:
+    _target_: rbyte.types.Batch.to_dict
+    _partial_: true
+  pin_memory: true
+  multiprocessing_context: forkserver

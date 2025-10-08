@@ -1,10 +1,11 @@
+from dataclasses import dataclass
 from functools import cached_property
 from typing import final
 from uuid import uuid4
 
 import polars as pl
 import polars_st as st
-from pydantic import BaseModel, validate_call
+from pydantic import validate_call
 from structlog import get_logger
 
 logger = get_logger(__name__)
@@ -14,7 +15,8 @@ logger = get_logger(__name__)
 class WaypointBuilder:
     __name__ = __qualname__  # ty: ignore[unresolved-reference]
 
-    class Columns(BaseModel):
+    @dataclass
+    class Columns:
         points: str
         output: str
 

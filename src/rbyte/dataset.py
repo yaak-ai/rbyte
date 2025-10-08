@@ -1,284 +1,175 @@
-from collections.abc import Callable, Sequence
+import math
+from collections.abc import Sequence
 from concurrent.futures import Executor
-from enum import StrEnum, unique
-from functools import cache
-from pathlib import Path
-from typing import Annotated, Any, ClassVar, Literal, Self, override
+from enum import StrEnum, auto, unique
+from io import BytesIO
+from typing import TYPE_CHECKING, Annotated, Any, Self, override
 
-import more_itertools as mit
+import checkedframe as cf
 import polars as pl
 import torch
-from optree import tree_map, tree_structure, tree_transpose
-from pipefunc import Pipeline
-from pipefunc._pipeline._types import OUTPUT_TYPE
+from cachetools import Cache, cachedmethod
+from optree import tree_map
 from pipefunc.map import load_outputs
-from pydantic import (
-    ConfigDict,
-    InstanceOf,
-    RootModel,
-    StringConstraints,
-    field_validator,
-    model_validator,
-    validate_call,
-)
+from pydantic import DirectoryPath, InstanceOf, validate_call
+from pydantic.functional_validators import AfterValidator
+from pydantic.type_adapter import TypeAdapter
 from structlog import get_logger
-from tensordict import TensorDict
+from tensordict import NonTensorStack, TensorDict
 from torch.utils.data import Dataset as TorchDataset
 
-from rbyte.batch import BATCH_KEYS_DEFAULT, Batch, BatchKeys, BatchMeta
-from rbyte.config import BaseModel, HydraConfig
-from rbyte.io.base import TensorSource
+from rbyte.config import (
+    HydraConfig,
+    PipelineHydraConfig,
+    PipelineInstanceConfig,
+    StreamsConfig,
+)
+from rbyte.types import Batch, BatchMeta, TensorSource
+
+if TYPE_CHECKING:
+    from pipefunc._pipeline._types import OUTPUT_TYPE
 
 __all__ = ["Dataset"]
 
 logger = get_logger(__name__)
 
-type Id = Annotated[
-    str, StringConstraints(strip_whitespace=True, pattern=r"^[\x00-\x7F]+$")
-]
-
-
-class SourceConfig(BaseModel):
-    source: HydraConfig[TensorSource]
-    index_column: str
-
-
-class SourcesConfig(RootModel[dict[Id, dict[Id, SourceConfig]]]):
-    @model_validator(mode="after")
-    def _validate_index_column(self) -> Self:
-        index_columns = {
-            input_id: tuple(
-                (source_id, source_cfg.index_column)
-                for source_id, source_cfg in input_source_cfg.items()
-            )
-            for input_id, input_source_cfg in self.root.items()
-        }
-
-        match list(mit.unique(index_columns.values())):
-            case []:
-                pass
-
-            case [input_index_columns]:
-                if not mit.all_unique(
-                    index_column for _, index_column in input_index_columns
-                ):
-                    msg = "`index_column` values not unique"
-                    raise ValueError(msg)
-
-            case _:
-                msg = "`index_column` values not consistent"
-                raise ValueError(msg)
-
-        return self
-
-
-class BasePipelineConfig(BaseModel):
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow")
-    inputs: Sequence[dict[str, Any]]
-    run_folder: str | Path | None = None
-    return_results: bool = True
-
-    @field_validator("inputs", mode="after")
-    @classmethod
-    def _validate_inputs(
-        cls, value: Sequence[dict[str, Any]]
-    ) -> Sequence[dict[str, Any]]:
-        if not mit.all_equal(map(tree_structure, value)):  # ty: ignore[invalid-argument-type]
-            msg = "inputs have different structures"
-            raise ValueError(msg)
-
-        return value
-
-    @model_validator(mode="after")
-    def _validate(self) -> Self:
-        if not self.return_results and self.run_folder is None:
-            msg = "`run_folder` must be set when `return_results` is False"
-            raise ValueError(msg)
-
-        return self
-
-
-class PipelineInstanceConfig(BasePipelineConfig):
-    executor: InstanceOf[Executor] | dict[OUTPUT_TYPE, InstanceOf[Executor]] | None = (
-        None
-    )
-    pipeline: InstanceOf[Pipeline]
-
-
-class PipelineHydraConfig(BasePipelineConfig):
-    executor: (
-        HydraConfig[Executor] | dict[OUTPUT_TYPE, HydraConfig[Executor]] | None
-    ) = None
-    pipeline: HydraConfig[Pipeline]
-
 
 @unique
-class Column(StrEnum):
-    input_id = "__input_id"
-    sample_idx = "__sample_idx"
-    source_idxs = "__source_idxs"
-    source_id = "__source.id"
-    source_config = "__source.config"
-    source_index_column = "__source.index_column"
+class MetaColumn(StrEnum):
+    input_id = auto()
 
 
-class _ALL_TYPE:  # noqa: N801
-    pass
+class MetaSchema(cf.Schema):
+    input_id = cf.Union(cf.String(), cf.Enum())
 
 
-_ALL = _ALL_TYPE()
+if not set(MetaColumn).issubset(MetaSchema.columns()):
+    raise ValueError
 
 
-class Dataset(TorchDataset[Batch]):
+class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
+    __slots__ = ("_data", "_meta", "_stream_source_cache", "_streams")
+
     @validate_call
     def __init__(
         self,
         *,
-        samples: PipelineInstanceConfig | PipelineHydraConfig,
-        sources: SourcesConfig | None = None,
-        enable_batched_sampling: bool = True,
+        data: InstanceOf[TensorDict],
+        meta: Annotated[InstanceOf[pl.DataFrame], AfterValidator(MetaSchema.validate)],
+        streams: StreamsConfig | None,
     ) -> None:
         super().__init__()
-
-        logger.debug("initializing dataset")
-
-        self._samples: pl.DataFrame = self._build_samples(samples)
-        logger.debug(
-            "built samples",
-            height=self._samples.height,
-            size=f"{self._samples.estimated_size(unit := 'gb'):.3f} {unit}",
-        )
-
-        self._sources: pl.DataFrame | None = (
-            self._build_sources(sources) if sources is not None else None
-        )
-
-        if enable_batched_sampling:
-            self.__getitems__: Callable[[Sequence[int]], Batch] = self._getitems
-
-    @property
-    def samples(self) -> pl.DataFrame:
-        return self._samples
-
-    @property
-    def sources(self) -> pl.DataFrame | None:
-        return self._sources
-
-    @validate_call(
-        config=ConfigDict(arbitrary_types_allowed=True, validate_default=False)
-    )
-    def get_batch(
-        self,
-        index: int | Sequence[int] | slice | range,
-        *,
-        keys: BatchKeys = BATCH_KEYS_DEFAULT,  # ty: ignore[invalid-parameter-default]
-    ) -> Batch:
-        subkeys: dict[Literal["data", "meta"], set[_ALL_TYPE | str]] = {
-            "data": set(),
-            "meta": set(),
-        }
-        for key in keys:
-            match key:
-                case "data" | "meta":
-                    subkeys[key].add(_ALL)
-
-                case ("data" | "meta", _):
-                    subkeys[key[0]].add(key[1])
-
-        for v in subkeys.values():
-            if _ALL in v and len(v) > 1:
-                v.remove(_ALL)
-
-        samples = self.samples[index]
-        batch_size = [samples.height]
-
-        if subkeys_data := subkeys["data"]:
-            if self.sources is not None:
-                source_idx_cols = self.sources[Column.source_index_column].unique()
-                sources = (
-                    samples.lazy()
-                    .join(self.sources.lazy(), on=Column.input_id, how="left")
-                    .with_columns(
-                        pl.coalesce(
-                            pl.when(pl.col(Column.source_index_column) == idx_col).then(
-                                idx_col
-                            )
-                            for idx_col in source_idx_cols
-                        ).alias(Column.source_idxs)
-                    )
-                    .group_by(Column.source_id)
-                    .agg(Column.source_config, Column.source_idxs)
-                    .filter(
-                        True
-                        if _ALL in subkeys_data
-                        else pl.col(Column.source_id).is_in(subkeys_data)
-                    )
-                )
-
-                source_data = {
-                    row[Column.source_id]: torch.stack([
-                        self._get_source(source)[idxs]
-                        for (source, idxs) in zip(
-                            row[Column.source_config],
-                            row[Column.source_idxs],
-                            strict=True,
-                        )
-                    ])
-                    for row in sources.collect().iter_rows(named=True)
-                }
-            else:
-                source_data = {}
-
-            sample_data_cols = (
-                pl.all()
-                if _ALL in subkeys_data
-                else pl.col(subkeys_data - source_data.keys())
-            ).exclude(Column.sample_idx, Column.input_id)
-
-            samples_subset = samples.select(sample_data_cols.to_physical())
-
-            try:
-                sample_data = samples_subset.to_torch(return_type="dict")
-            except TypeError:
-                sample_data = samples_subset.to_dict(as_series=False)
-
-            data = TensorDict(source_data | sample_data, batch_size=batch_size)
-
-        else:
-            data = None
-
-        if subkeys_meta := subkeys["meta"]:
-            meta = BatchMeta(
-                sample_idx=(
-                    samples[Column.sample_idx].to_torch()
-                    if _ALL in subkeys_meta or "sample_idx" in subkeys_meta
-                    else None
-                ),
-                input_id=(
-                    samples[Column.input_id].to_list()
-                    if _ALL in subkeys_meta or "input_id" in subkeys_meta
-                    else None
-                ),
-                batch_size=batch_size,
+        if streams is not None and (
+            missing_stream_indexes := (
+                {stream_config.index for stream_config in streams.values()}
+                - (data_keys := data.keys())
             )
-        else:
-            meta = None
+        ):
+            logger.error(
+                msg := "`data` missing stream indexes",
+                data_keys=sorted(data_keys),
+                indexes=sorted(missing_stream_indexes),
+            )
 
-        return Batch(data=data, meta=meta, batch_size=batch_size)
+            raise ValueError(msg)
 
-    def _getitems(self, index: Sequence[int]) -> Batch:
-        return self.get_batch(index)
+        self._data = data.auto_batch_size_(1).share_memory_().lock_()
+        self._meta = meta
+        self._streams = streams
+
+        if self._streams is not None:
+            self._stream_source_cache = Cache(maxsize=math.inf)
+
+    @classmethod
+    @validate_call
+    def from_config(
+        cls,
+        *,
+        samples: PipelineInstanceConfig | PipelineHydraConfig,
+        streams: StreamsConfig | None = None,
+    ) -> Self:
+        samples = cls._build_samples(samples)
+        samples = MetaSchema.validate(samples)
+
+        data = TensorDict(
+            samples.select(pl.exclude(MetaSchema.columns()).to_physical()).to_torch(
+                return_type="dict"
+            )
+        )
+
+        meta = samples.select(MetaSchema.columns()).rechunk()
+
+        return cls(data=data, meta=meta, streams=streams)
+
+    @property
+    def data(self) -> TensorDict:
+        return self._data
+
+    @property
+    def meta(self) -> pl.DataFrame:
+        return self._meta
+
+    @property
+    def streams(self) -> StreamsConfig | None:
+        return self._streams
 
     @override
     def __getitem__(self, index: int) -> Batch:
+        return self.get_batch([index])[0]
+
+    def __getitems__(self, index: Sequence[int]) -> Batch:  # noqa: PLW3201
         return self.get_batch(index)
 
     def __len__(self) -> int:
-        return len(self.samples)
+        return len(self.data)
 
-    @cache  # noqa: B019
-    def _get_source(self, config: str) -> TensorSource:  # noqa: PLR6301
-        return HydraConfig[TensorSource].model_validate_json(config).instantiate()
+    def get_batch(
+        self,
+        index: Sequence[int] | InstanceOf[range] | InstanceOf[slice],
+        *,
+        include_streams: bool | None = None,
+        include_meta: bool = True,
+    ) -> Batch:
+        data = self.data[index]
+        meta = self.meta[index]
+
+        match include_streams, self.streams:
+            case None | True, dict():
+                stream_data = {stream_id: [] for stream_id in self.streams}
+
+                for sample, input_id in zip(data, meta["input_id"], strict=True):
+                    for stream_id, stream_config in self.streams.items():
+                        stream_index = sample[stream_config.index].tolist()
+                        source = self._get_source(stream_id, input_id)
+                        stream_data[stream_id].append(source[stream_index])
+
+                stream_data = {k: torch.stack(v) for k, v in stream_data.items()}
+
+                if data.is_locked:
+                    data = data.clone(recurse=True)
+
+                data = data.update(stream_data, inplace=False)
+
+            case True, None:
+                msg = "`include_streams` is True but no streams specified"
+                raise ValueError(msg)
+
+            case _:
+                pass
+
+        meta = (
+            BatchMeta.from_dict({
+                k: NonTensorStack(*v) for k, v in meta.to_dict().items()
+            })
+            if include_meta
+            else None
+        )
+
+        return Batch(data=data, meta=meta).auto_batch_size_(1)
+
+    @cachedmethod(lambda self: self._stream_source_cache)
+    def _get_source(self, stream_id: str, input_id: str) -> TensorSource:
+        return self.streams[stream_id].sources[input_id].instantiate()
 
     @classmethod
     def _build_samples(
@@ -298,67 +189,69 @@ class Dataset(TorchDataset[Batch]):
                     samples.executor,  # ty: ignore[invalid-argument-type]
                 )
 
-        pipeline.print_documentation()
-        inputs = tree_transpose(
-            tree_structure(list(range(len(samples.inputs)))),  # ty: ignore[invalid-argument-type]
-            tree_structure(samples.inputs[0]),  # ty: ignore[invalid-argument-type]
-            samples.inputs,  # ty: ignore[invalid-argument-type]
+        output_name = pipeline.unique_leaf_node.output_name
+        results = pipeline.map(  # ty: ignore[missing-argument]
+            executor=executor, **samples.model_dump(exclude={"pipeline", "executor"})
         )
 
-        results = pipeline.map(
-            inputs=inputs,  # ty: ignore[invalid-argument-type]
-            executor=executor,
-            **samples.model_dump(exclude={"pipeline", "inputs", "executor"}),
-        )
-
-        if pipeline.profile:
-            pipeline.print_profiling_stats()
-
-        output_name: str = pipeline.unique_leaf_node.output_name
-
-        result: pl.DataFrame = (
+        return (
             results[output_name].output
             if results
             else load_outputs(output_name, run_folder=samples.run_folder)  # ty: ignore[invalid-argument-type]
         )
 
-        return (
-            result.lazy()
-            .cast({Column.input_id: pl.Enum(sorted(result[Column.input_id].unique()))})
-            .sort(Column.input_id)
-            .with_row_index(Column.sample_idx)
-            .collect()
-            .rechunk()
+    @validate_call
+    def save(self, path: DirectoryPath) -> None:
+        logger.debug("saving dataset", dataset=self, path=path.resolve().as_posix())
+
+        self._data.memmap(
+            path / "data", copy_existing=True, existsok=True, robust_key=True
         )
+        self._meta.write_parquet(path / "meta.parquet")
+        streams_json = TypeAdapter(StreamsConfig).dump_json(self._streams)
+        with (path / "streams.json").open("wb") as f:
+            f.write(streams_json)
 
     @classmethod
-    def _build_sources(cls, sources: SourcesConfig) -> pl.DataFrame:
-        logger.debug("building sources")
+    @validate_call
+    def load(cls, path: DirectoryPath) -> None:
+        logger.debug("loading dataset", path=path.resolve().as_posix())
+        data = TensorDict.load_memmap(path / "data", robust_key=True)
+        meta = pl.read_parquet(path / "meta.parquet")
 
-        input_id_enum = pl.Enum(sorted(sources.root.keys()))
+        with (path / "streams.json").open() as f:
+            streams = TypeAdapter(StreamsConfig).validate_json(f.read())
 
-        return (
-            pl.DataFrame(
-                [
-                    {
-                        Column.input_id: input_id,
-                        (k := "__source"): [
-                            source_cfg.model_dump(exclude={"source"})
-                            | {
-                                "id": source_id,
-                                "config": source_cfg.source.model_dump_json(
-                                    by_alias=True
-                                ),
-                            }
-                            for source_id, source_cfg in input_cfg.items()
-                        ],
-                    }
-                    for input_id, input_cfg in sources.root.items()
-                ],
-                schema_overrides={Column.input_id: input_id_enum},
-            )
-            .explode(k)  # ty: ignore[unresolved-reference]
-            .unnest(k)  # ty: ignore[unresolved-reference]
-            .select(Column.input_id, pl.exclude(Column.input_id).name.prefix(f"{k}."))  # ty: ignore[unresolved-reference]
-            .rechunk()
+        return cls(data=data, meta=meta, streams=streams)
+
+    def __getstate__(self) -> dict[str, Any]:
+        data = self._data
+
+        meta = BytesIO()
+        self._meta.write_parquet(meta)
+
+        streams = (
+            TypeAdapter(StreamsConfig).dump_json(self._streams)
+            if self._streams is not None
+            else None
         )
+
+        return {"data": data, "meta": meta, "streams": streams}
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        state["meta"] = pl.read_parquet(state["meta"])
+
+        if (v := state[k := "streams"]) is not None:
+            state[k] = TypeAdapter(StreamsConfig).validate_json(v)
+
+        self.__init__(**state)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Dataset):
+            return NotImplemented
+
+        return all((
+            (self.data == other.data).all(),
+            self.meta.equals(other.meta),
+            self.streams == other.streams,
+        ))

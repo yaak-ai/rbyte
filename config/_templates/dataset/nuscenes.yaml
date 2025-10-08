@@ -10,16 +10,16 @@
 #@     "CAM_FRONT_RIGHT": "/CAM_FRONT_RIGHT/image_rect_compressed",
 #@ }
 ---
-_target_: rbyte.Dataset
+_target_: rbyte.Dataset.from_config
 _recursive_: false
 _convert_: all
-sources:
-  #@ for input_id in inputs:
-  (@=input_id@):
-    #@ for camera, topic in camera_topics.items():
-    (@=camera@):
-      index_column: (@=topic@)/_idx_
-      source:
+streams:
+  #@ for/end camera, topic in camera_topics.items():
+  (@=camera@):
+    index: (@=topic@)/_idx_
+    sources:
+      #@ for/end input_id in inputs:
+      (@=input_id@):
         _target_: rbyte.io.McapTensorSource
         path: "${data_dir}/(@=input_id@).mcap"
         topic: (@=topic@)
@@ -30,20 +30,18 @@ sources:
           colorspace: rgb
           fastdct: true
           fastupsample: true
-    #@ end
-  #@ end
 
 samples:
   inputs:
-    #@ for input_id in inputs:
-    - input_id: (@=input_id@)
-      path: "${data_dir}/(@=input_id@).mcap"
-    #@ end
+    input_id:
+      #@ for/end input_id in inputs:
+      - (@=input_id@)
 
-  executor:
-    _target_: concurrent.futures.ThreadPoolExecutor
+    path:
+      #@ for/end input_id in inputs:
+      - "${data_dir}/(@=input_id@).mcap"
 
-  storage: dict
+  parallel: false
   pipeline:
     _target_: pipefunc.Pipeline
     validate_type_annotations: false
@@ -57,12 +55,11 @@ samples:
             - rbyte.io.ProtobufMcapDecoderFactory
             - rbyte.io.JsonMcapDecoderFactory
           fields:
-            #@ for topic in camera_topics.values():
+            #@ for/end topic in camera_topics.values():
             (@=topic@):
               log_time:
                 _target_: polars.Datetime
                 time_unit: ns
-            #@ end
 
             /odom:
               log_time:
@@ -95,7 +92,7 @@ samples:
               (@=topic@):
                 key: log_time
 
-              #@ for topic in camera_topics.values()[1:]:
+              #@ for/end topic in camera_topics.values()[1:]:
               (@=topic@):
                 key: log_time
                 columns:
@@ -103,7 +100,6 @@ samples:
                     method: asof
                     tolerance: 40ms
                     strategy: nearest
-              #@ end
 
               /odom:
                 key: log_time
@@ -130,4 +126,4 @@ samples:
         output_name: samples_aggregated
         func:
           _target_: rbyte.io.DataFrameConcater
-          key_column: __input_id
+          key_column: input_id

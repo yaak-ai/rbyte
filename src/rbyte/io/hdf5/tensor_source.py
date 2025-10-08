@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterable
 from typing import cast, final, override
 
 import torch
@@ -6,7 +6,7 @@ from h5py import Dataset, File
 from pydantic import FilePath, validate_call
 from torch import Tensor
 
-from rbyte.io.base import TensorSource
+from rbyte.types import TensorSource
 
 
 @final
@@ -16,7 +16,7 @@ class Hdf5TensorSource(TensorSource[int]):
         self._dataset = cast(Dataset, File(path)[key])
 
     @override
-    def __getitem__(self, indexes: int | Sequence[int]) -> Tensor:
+    def __getitem__(self, indexes: int | Iterable[int]) -> Tensor:
         return torch.from_numpy(self._dataset[indexes])
 
     @override

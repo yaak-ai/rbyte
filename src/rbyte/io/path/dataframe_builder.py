@@ -6,8 +6,9 @@ from typing import Self, final
 import polars as pl
 from optree import tree_map
 from polars.datatypes import DataType
-from polars.polars import dtype_str_repr  # ty: ignore[unresolved-import]
 from pydantic import (
+    BaseModel,
+    ConfigDict,
     DirectoryPath,
     InstanceOf,
     field_serializer,
@@ -17,8 +18,6 @@ from pydantic import (
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from xxhash import xxh3_64_hexdigest as digest
-
-from rbyte.config.base import BaseModel
 
 logger = get_logger(__name__)
 
@@ -38,6 +37,8 @@ class Config(BaseModel):
     fields: Fields
     pattern: str
 
+    model_config = ConfigDict(extra="forbid")
+
     @model_validator(mode="after")
     def _validate_model(self) -> Self:
         if set(self.fields) != set(
@@ -56,7 +57,7 @@ class Config(BaseModel):
     @field_serializer("fields", when_used="json")
     @staticmethod
     def _serialize_fields(fields: Fields) -> dict[str, str | None]:
-        return tree_map(dtype_str_repr, fields)  # ty: ignore[invalid-argument-type, invalid-return-type]
+        return tree_map(DataType._string_repr, fields)  # ty: ignore[invalid-argument-type, invalid-return-type]  # noqa: SLF001
 
 
 @final

@@ -1,11 +1,11 @@
-from collections.abc import Sequence
+from collections.abc import Iterable
 from typing import Literal, final, override
 
 from pydantic import FilePath, validate_call
 from torch import Tensor
 from torchcodec.decoders import VideoDecoder
 
-from rbyte.io.base import TensorSource
+from rbyte.types import TensorSource
 
 
 @final
@@ -33,16 +33,13 @@ class TorchCodecFrameSource(TensorSource[int]):
         )
 
     @override
-    def __getitem__(self, indexes: int | Sequence[int]) -> Tensor:
+    def __getitem__(self, indexes: int | Iterable[int]) -> Tensor:
         match indexes:
-            case Sequence():
+            case Iterable():
                 return self._decoder.get_frames_at(indices=indexes).data
 
             case int():
                 return self._decoder.get_frame_at(index=indexes).data
-
-            case _:
-                raise ValueError
 
     @override
     def __len__(self) -> int:

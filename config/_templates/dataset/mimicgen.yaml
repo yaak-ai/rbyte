@@ -11,38 +11,43 @@
 #@     "obs/agentview_image",
 #@ ]
 ---
-_target_: rbyte.Dataset
+_target_: rbyte.Dataset.from_config
 _recursive_: false
 _convert_: all
-sources:
-  #@ for input_id, input_keys in inputs.items():
-  #@ for input_key in input_keys:
-  (@=input_id@)(@=input_key@):
-    #@ for frame_key in frame_keys:
-    (@=frame_key@):
-      index_column: _idx_
-      source:
+streams:
+  #@ for/end frame_key in frame_keys:
+  (@=frame_key@):
+    index: _idx_
+    sources:
+      #@ for input_id, input_keys in inputs.items():
+      #@ for/end input_key in input_keys:
+      (@=input_id@)(@=input_key@):
         _target_: rbyte.io.Hdf5TensorSource
         path: "${data_dir}/(@=input_id@).hdf5"
         key: (@=input_key@)/(@=frame_key@)
-    #@ end
-    #@ end
-  #@ end
+        #@ end
 
 samples:
   inputs:
-    #@ for input_id, input_keys in inputs.items():
-    #@ for input_key in input_keys:
-    - input_id: (@=input_id@)(@=input_key@)
-      path: "${data_dir}/(@=input_id@).hdf5"
-      prefix: (@=input_key@)
-    #@ end
-    #@ end
+    input_id:
+      #@ for input_id, input_keys in inputs.items():
+      #@ for/end input_key in input_keys:
+      - (@=input_id@)(@=input_key@)
+      #@ end
 
-  executor:
-    _target_: concurrent.futures.ThreadPoolExecutor
+    path:
+      #@ for input_id, input_keys in inputs.items():
+      #@ for/end input_key in input_keys:
+      - "${data_dir}/(@=input_id@).hdf5"
+      #@ end
 
-  storage: dict
+    prefix:
+      #@ for input_id, input_keys in inputs.items():
+      #@ for/end input_key in input_keys:
+      - (@=input_key@)
+      #@ end
+
+  parallel: false
   pipeline:
     _target_: pipefunc.Pipeline
     validate_type_annotations: false
@@ -71,4 +76,4 @@ samples:
         output_name: samples_aggregated
         func:
           _target_: rbyte.io.DataFrameConcater
-          key_column: __input_id
+          key_column: input_id
