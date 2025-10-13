@@ -19,6 +19,7 @@ from rbyte.io import (
     McapDataFrameBuilder,  # ty: ignore[possibly-missing-import]
     ProtobufMcapDecoderFactory,  # ty: ignore[possibly-missing-import]
     TorchCodecFrameSource,  # ty: ignore[possibly-missing-import]
+    TreeBroadcastMapper,
     VideoDataFrameBuilder,  # ty: ignore[possibly-missing-import]
     WaypointBuilder,  # ty: ignore[possibly-missing-import]
     YaakMetadataDataFrameBuilder,  # ty: ignore[possibly-missing-import]
@@ -75,18 +76,23 @@ def zod_dataset() -> Dataset:
 @pytest.fixture(scope="session")
 def yaak_dataset_pydantic() -> Dataset:
     data_dir = DATA_DIR / "yaak"
-    input_ids = ["Niro098-HQ/2024-06-18--13-39-54"]
+    drive_queries: dict[str, str] = {
+        "Niro098-HQ/2024-06-18--13-39-54": "SELECT * FROM self WHERE time_stamp BETWEEN TIMESTAMP('2024-06-18 13:39:55') AND TIMESTAMP('2024-06-18 13:40:15')"  # noqa: E501
+    }
     cameras = ["cam_front_left", "cam_left_backward", "cam_right_backward"]
 
     samples = PipelineInstanceConfig(
         inputs={
-            "input_id": input_ids,
-            "meta_path": [data_dir / i / "metadata.log" for i in input_ids],
-            "mcap_path": [data_dir / i / "ai.mcap" for i in input_ids],
-            "waypoints_path": [data_dir / i / "waypoints.json" for i in input_ids],
+            "input_id": list(drive_queries.keys()),
+            "meta_path": [data_dir / i / "metadata.log" for i in drive_queries],
+            "meta_query": list(drive_queries.values()),
+            "mcap_path": [data_dir / i / "ai.mcap" for i in drive_queries],
+            "waypoints_path": [data_dir / i / "waypoints.json" for i in drive_queries],
         }
         | {
-            f"{camera}_path": [data_dir / i / f"{camera}.pii.mp4" for i in input_ids]
+            f"{camera}_path": [
+                data_dir / i / f"{camera}.pii.mp4" for i in drive_queries
+            ]
             for camera in cameras
         },
         parallel=False,  # ty: ignore[unknown-argument]
@@ -95,8 +101,8 @@ def yaak_dataset_pydantic() -> Dataset:
             functions=[
                 PipeFunc(
                     renames={"path": "meta_path"},
-                    output_name="meta",
-                    mapspec="meta_path[i] -> meta[i]",
+                    output_name="meta_raw",
+                    mapspec="meta_path[i] -> meta_raw[i]",
                     func=YaakMetadataDataFrameBuilder(
                         fields={  # ty: ignore[invalid-argument-type]
                             "rbyte.io.yaak.proto.sensor_pb2.ImageMetadata": {
@@ -124,6 +130,13 @@ def yaak_dataset_pydantic() -> Dataset:
                             },
                         }
                     ),
+                ),
+                PipeFunc(
+                    renames={"left": "meta_raw", "right": "meta_query"},
+                    output_name="meta",
+                    mapspec="meta_raw[i], meta_query[i] -> meta[i]",
+                    func=TreeBroadcastMapper(),
+                    bound={"func": pl.DataFrame.sql},
                 ),
                 *(
                     PipeFunc(
@@ -382,7 +395,7 @@ WHERE len("meta/ImageMetadata.cam_front_left/frame_idx") == 6
                     target=TorchCodecFrameSource,
                     source=(data_dir / input_id / f"{camera}.pii.mp4").as_posix(),  # ty: ignore[unknown-argument]
                 )
-                for input_id in input_ids
+                for input_id in drive_queries
             },
         )
         for camera in cameras
