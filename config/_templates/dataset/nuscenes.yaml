@@ -48,7 +48,7 @@ samples:
     functions:
       - _target_: pipefunc.PipeFunc
         output_name: data
-        mapspec: "path[i] -> data[i]"
+        mapspec: "path[i] -> ${.output_name}[i]"
         func:
           _target_: rbyte.io.McapDataFrameBuilder
           decoder_factories:
@@ -71,7 +71,7 @@ samples:
         renames:
           input: data
         output_name: indexed
-        mapspec: "data[i] -> indexed[i]"
+        mapspec: "${.renames.input}[i] -> ${.output_name}[i]"
         func:
           _target_: rbyte.io.DataFrameIndexer
           name: _idx_
@@ -80,7 +80,7 @@ samples:
         renames:
           input: indexed
         output_name: aligned
-        mapspec: "indexed[i] -> aligned[i]"
+        mapspec: "${.renames.input}[i] -> ${.output_name}[i]"
         func:
           _target_: makefun.create_function
           func_signature: "align(input)"
@@ -111,7 +111,7 @@ samples:
         renames:
           self: aligned
         output_name: samples
-        mapspec: "aligned[i] -> samples[i]"
+        mapspec: "${.renames.self}[i] -> ${.output_name}[i]"
         func:
           _target_: hydra.utils.get_method
           path: polars.DataFrame.sql

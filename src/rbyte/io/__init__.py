@@ -8,6 +8,7 @@ from .dataframe import (
     DataFrameIndexer,
 )
 from .path import PathDataFrameBuilder, PathTensorSource
+from .tree import TreeBroadcastMapper
 
 __all__: list[str] = [
     "DataFrameAligner",
@@ -19,6 +20,7 @@ __all__: list[str] = [
     "NumpyTensorSource",
     "PathDataFrameBuilder",
     "PathTensorSource",
+    "TreeBroadcastMapper",
 ]
 
 

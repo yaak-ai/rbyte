@@ -17,8 +17,8 @@ def test_dataloaders(dataset: Dataset) -> None:
         "multiprocessing_context": "forkserver",
     }
 
-    torch_dataloader = DataLoader(**kwargs)  # ty: ignore[missing-argument]
-    torchdata_dataloader = TorchDataNodeDataLoader(method="process", **kwargs)  # ty: ignore[missing-argument]
+    torch_dataloader = DataLoader(**kwargs)  # ty: ignore[missing-argument,invalid-argument-type]
+    torchdata_dataloader = TorchDataNodeDataLoader(method="process", **kwargs)  # ty: ignore[missing-argument,invalid-argument-type]
 
     for left, right in zip(torch_dataloader, torchdata_dataloader, strict=True):
         assert (left == right).all()

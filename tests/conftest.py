@@ -16,12 +16,12 @@ from rbyte.io import (
     DataFrameDuckDbQuery,
     DataFrameGroupByDynamic,
     DuckDbDataFrameBuilder,
-    McapDataFrameBuilder,  # ty: ignore[possibly-unbound-import]
-    ProtobufMcapDecoderFactory,  # ty: ignore[possibly-unbound-import]
-    TorchCodecFrameSource,  # ty: ignore[possibly-unbound-import]
-    VideoDataFrameBuilder,  # ty: ignore[possibly-unbound-import]
-    WaypointBuilder,  # ty: ignore[possibly-unbound-import]
-    YaakMetadataDataFrameBuilder,  # ty: ignore[possibly-unbound-import]
+    McapDataFrameBuilder,  # ty: ignore[possibly-missing-import]
+    ProtobufMcapDecoderFactory,  # ty: ignore[possibly-missing-import]
+    TorchCodecFrameSource,  # ty: ignore[possibly-missing-import]
+    VideoDataFrameBuilder,  # ty: ignore[possibly-missing-import]
+    WaypointBuilder,  # ty: ignore[possibly-missing-import]
+    YaakMetadataDataFrameBuilder,  # ty: ignore[possibly-missing-import]
 )
 from rbyte.io.dataframe.aligner import (
     AlignConfig,
@@ -98,7 +98,7 @@ def yaak_dataset_pydantic() -> Dataset:
                     output_name="meta",
                     mapspec="meta_path[i] -> meta[i]",
                     func=YaakMetadataDataFrameBuilder(
-                        fields={
+                        fields={  # ty: ignore[invalid-argument-type]
                             "rbyte.io.yaak.proto.sensor_pb2.ImageMetadata": {
                                 "time_stamp": pl.Datetime(),
                                 "frame_idx": pl.Int32(),
@@ -130,7 +130,7 @@ def yaak_dataset_pydantic() -> Dataset:
                         renames={"path": f"{camera}_path"},
                         output_name=f"{camera}_meta",
                         mapspec=f"{camera}_path[i] -> {camera}_meta[i]",
-                        func=VideoDataFrameBuilder(fields={"frame_idx": pl.Int32()}),
+                        func=VideoDataFrameBuilder(fields={"frame_idx": pl.Int32()}),  # ty: ignore[invalid-argument-type]
                     )
                     for camera in cameras
                 ),
