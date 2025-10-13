@@ -46,7 +46,7 @@ samples:
         renames:
           path: camera_front_blur_path
         output_name: camera_front_blur_meta
-        mapspec: "camera_front_blur_path[i] -> camera_front_blur_meta[i]"
+        mapspec: "${.renames.path}[i] -> ${.output_name}[i]"
         func:
           _target_: rbyte.io.PathDataFrameBuilder
           pattern: 000002_romeo_(?<timestamp>.+)Z
@@ -59,7 +59,7 @@ samples:
         renames:
           path: lidar_velodyne_path
         output_name: lidar_velodyne_meta
-        mapspec: "lidar_velodyne_path[i] -> lidar_velodyne_meta[i]"
+        mapspec: "${.renames.path}[i] -> ${.output_name}[i]"
         func:
           _target_: rbyte.io.PathDataFrameBuilder
           pattern: "000002_romeo_(?<timestamp>.+)Z"
@@ -72,7 +72,7 @@ samples:
         renames:
           path: vehicle_data_path
         output_name: vehicle_data
-        mapspec: "vehicle_data_path[i] -> vehicle_data[i]"
+        mapspec: "${.renames.path}[i] -> ${.output_name}[i]"
         func:
           _target_: rbyte.io.Hdf5DataFrameBuilder
           fields:
@@ -93,7 +93,7 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         output_name: aligned
-        mapspec: "camera_front_blur_meta[i], lidar_velodyne_meta[i], vehicle_data[i] -> aligned[i]"
+        mapspec: "camera_front_blur_meta[i], lidar_velodyne_meta[i], vehicle_data[i] -> ${.output_name}[i]"
         func:
           _target_: makefun.create_function
           func_signature: "align(*, camera_front_blur_meta, lidar_velodyne_meta, vehicle_data)"
@@ -141,7 +141,7 @@ samples:
         renames:
           self: aligned
         output_name: filtered
-        mapspec: "aligned[i] -> filtered[i]"
+        mapspec: "${.renames.self}[i] -> ${.output_name}[i]"
         func:
           _target_: hydra.utils.get_method
           path: polars.DataFrame.sql

@@ -1,8 +1,10 @@
+from collections.abc import Iterable
 from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 
 import dill  # noqa: S403
+import more_itertools as mit
 import pytest
 import torch
 from pytest_lazy_fixtures import lf
@@ -264,3 +266,10 @@ def test_save_and_load(dataset: Dataset, tmp_path: Path) -> None:
 )
 def test_pickle(dataset: Dataset) -> None:
     assert dill.pickles(dataset, exact=True, safe=True)
+
+
+@pytest.mark.parametrize(
+    "datasets", [(lf("yaak_dataset"), lf("yaak_dataset_pydantic"))]
+)
+def test_equal(datasets: Iterable[Dataset]) -> None:
+    assert mit.all_equal(datasets)

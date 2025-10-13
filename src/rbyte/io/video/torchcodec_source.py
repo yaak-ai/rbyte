@@ -36,10 +36,13 @@ class TorchCodecFrameSource(TensorSource[int]):
     def __getitem__(self, indexes: int | Iterable[int]) -> Tensor:
         match indexes:
             case Iterable():
-                return self._decoder.get_frames_at(indices=indexes).data
+                return self._decoder.get_frames_at(indices=list(indexes)).data
 
             case int():
                 return self._decoder.get_frame_at(index=indexes).data
+
+            case _:
+                raise ValueError
 
     @override
     def __len__(self) -> int:

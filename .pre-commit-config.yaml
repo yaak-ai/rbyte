@@ -6,12 +6,12 @@ repos:
       - id: validate-pyproject
 
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.20.0
+    rev: v3.21.0
     hooks:
       - id: pyupgrade
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.13.3
+    rev: v0.14.0
     hooks:
       - id: ruff-check
         args: [--fix]
@@ -28,7 +28,7 @@ repos:
         pass_filenames: false
 
   - repo: https://github.com/tombi-toml/tombi-pre-commit
-    rev: v0.6.25
+    rev: v0.6.31
     hooks:
       - id: tombi-format
       - id: tombi-lint

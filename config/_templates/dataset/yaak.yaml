@@ -1,8 +1,8 @@
 #@yaml/text-templated-strings
 
-#@ drives = [
-#@     'Niro098-HQ/2024-06-18--13-39-54',
-#@ ]
+#@ drive_queries = {
+#@     "Niro098-HQ/2024-06-18--13-39-54": "SELECT * FROM self WHERE time_stamp BETWEEN TIMESTAMP('2024-06-18 13:39:55') AND TIMESTAMP('2024-06-18 13:40:15')"
+#@ }
 
 #@ cameras = [
 #@     'cam_front_left',
@@ -18,7 +18,7 @@ streams:
   (@=camera@):
     index: meta/ImageMetadata.(@=camera@)/frame_idx
     sources:
-      #@ for/end drive in drives:
+      #@ for/end drive in drive_queries:
       (@=drive@):
         _target_: rbyte.io.TorchCodecFrameSource
         source: ${data_dir}/(@=drive@)/(@=camera@).pii.mp4
@@ -26,24 +26,28 @@ streams:
 samples:
   inputs:
     input_id:
-      #@ for/end drive in drives:
+      #@ for/end drive in drive_queries:
       - (@=drive@)
 
     meta_path:
-      #@ for/end drive in drives:
+      #@ for/end drive in drive_queries:
       - "${data_dir}/(@=drive@)/metadata.log"
 
+    meta_query:
+      #@ for/end meta_query in drive_queries.values():
+      - (@=meta_query@)
+
     mcap_path:
-      #@ for/end drive in drives:
+      #@ for/end drive in drive_queries:
       - "${data_dir}/(@=drive@)/ai.mcap"
 
     waypoints_path:
-      #@ for/end drive in drives:
+      #@ for/end drive in drive_queries:
       - "${data_dir}/(@=drive@)/waypoints.json"
 
     #@ for/end camera in cameras:
     (@=camera@)_path:
-      #@ for/end drive in drives:
+      #@ for/end drive in drive_queries:
       - ${data_dir}/(@=drive@)/(@=camera@).pii.mp4
 
   parallel: false
@@ -54,8 +58,8 @@ samples:
       - _target_: pipefunc.PipeFunc
         renames:
           path: meta_path
-        output_name: meta
-        mapspec: "meta_path[i] -> meta[i]"
+        output_name: meta_raw
+        mapspec: "${.renames.path}[i] -> ${.output_name}[i]"
         func:
           _target_: rbyte.io.YaakMetadataDataFrameBuilder
           fields:
@@ -98,12 +102,25 @@ samples:
               longitude:
                 _target_: polars.Float32
 
+      - _target_: pipefunc.PipeFunc
+        renames:
+          left: meta_raw
+          right: meta_query
+        output_name: meta
+        mapspec: "${.renames.left}[i], ${.renames.right}[i] -> ${.output_name}[i]"
+        func:
+          _target_: rbyte.io.TreeBroadcastMapper
+        bound:
+          func:
+            _target_: hydra.utils.get_method
+            path: polars.DataFrame.sql
+
       #@ for/end camera in cameras:
       - _target_: pipefunc.PipeFunc
         renames:
           path: (@=camera@)_path
         output_name: (@=camera@)_meta
-        mapspec: "(@=camera@)_path[i] -> (@=camera@)_meta[i]"
+        mapspec: "${.renames.path}[i] -> ${.output_name}[i]"
         func:
           _target_: rbyte.io.VideoDataFrameBuilder
           fields:
@@ -114,7 +131,7 @@ samples:
         renames:
           path: mcap_path
         output_name: mcap
-        mapspec: "mcap_path[i] -> mcap[i]"
+        mapspec: "${.renames.path}[i] -> ${.output_name}[i]"
         func:
           _target_: rbyte.io.McapDataFrameBuilder
           decoder_factories: [rbyte.io.ProtobufMcapDecoderFactory]
@@ -131,7 +148,7 @@ samples:
         renames:
           path: waypoints_path
         output_name: waypoints_raw
-        mapspec: "waypoints_path[i] -> waypoints_raw[i]"
+        mapspec: "${.renames.path}[i] -> ${.output_name}[i]"
         func:
           _target_: rbyte.io.DuckDbDataFrameBuilder
         bound:
@@ -147,7 +164,7 @@ samples:
         renames:
           input: waypoints_raw
         output_name: waypoints
-        mapspec: "waypoints_raw[i] -> waypoints[i]"
+        mapspec: "${.renames.input}[i] -> ${.output_name}[i]"
         func:
           _target_: rbyte.io.WaypointBuilder
           length: 10
@@ -157,7 +174,7 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         output_name: aligned
-        mapspec: "meta[i], mcap[i], waypoints[i] -> aligned[i]"
+        mapspec: "meta[i], mcap[i], waypoints[i] -> ${.output_name}[i]"
         func:
           _target_: makefun.create_function
           func_signature: "align(*, meta, mcap, waypoints)"
@@ -222,7 +239,7 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         output_name: filtered
-        mapspec: "aligned[i], cam_front_left_meta[i], cam_left_backward_meta[i], cam_right_backward_meta[i] -> filtered[i]"
+        mapspec: "aligned[i], cam_front_left_meta[i], cam_left_backward_meta[i], cam_right_backward_meta[i] -> ${.output_name}[i]"
         func:
           _target_: makefun.create_function
           func_signature: "df_query(*, query, aligned, cam_front_left_meta, cam_left_backward_meta, cam_right_backward_meta)"
@@ -298,7 +315,7 @@ samples:
         renames:
           input: filtered
         output_name: samples
-        mapspec: "filtered[i] -> samples[i]"
+        mapspec: "${.renames.input}[i] -> ${.output_name}[i]"
         func:
           _target_: rbyte.io.DataFrameGroupByDynamic
           index_column: meta/ImageMetadata.(@=cameras[0]@)/frame_idx
@@ -307,7 +324,7 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         output_name: samples_cast
-        mapspec: "samples[i] -> samples_cast[i]"
+        mapspec: "samples[i] -> ${.output_name}[i]"
         func:
           _target_: makefun.create_function
           func_signature: "df_query(*, query, samples)"

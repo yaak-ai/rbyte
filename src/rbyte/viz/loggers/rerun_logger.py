@@ -182,16 +182,16 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
 
                     kwargs[key] = tensor.reshape(prod(batch_dims), -1).view(torch.uint8)
 
-                    return config.instantiate(**kwargs.cpu().numpy())
+                    return config.instantiate(**kwargs.cpu().numpy())  # ty: ignore[invalid-argument-type]
 
                 case rr.Points2D.columns:
                     match (tensor := kwargs[key := "positions"]).shape:
                         case (2,):
-                            return config.instantiate(**kwargs.cpu().numpy())
+                            return config.instantiate(**kwargs.cpu().numpy())  # ty: ignore[invalid-argument-type]
 
                         case (*batch_dims, n, 2):
                             kwargs[key] = tensor.view(-1, 2)
-                            return config.instantiate(**kwargs.cpu().numpy()).partition(
+                            return config.instantiate(**kwargs.cpu().numpy()).partition(  # ty: ignore[invalid-argument-type]
                                 [n] * prod(batch_dims)
                             )
 
@@ -205,11 +205,11 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
                     match (tensor := kwargs[key := "positions"]).shape:
                         case (3,):
                             kwargs[key] = tensor.view(-1, 3)
-                            return config.instantiate(**kwargs.cpu().numpy())
+                            return config.instantiate(**kwargs.cpu().numpy())  # ty: ignore[invalid-argument-type]
 
                         case (*batch_dims, n, 3):
                             kwargs[key] = tensor.view(-1, 3)
-                            return config.instantiate(**kwargs.cpu().numpy()).partition(
+                            return config.instantiate(**kwargs.cpu().numpy()).partition(  # ty: ignore[invalid-argument-type]
                                 [n] * prod(batch_dims)
                             )
 
@@ -220,7 +220,7 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
                             raise NotImplementedError(msg)
 
                 case _:
-                    return config.instantiate(**kwargs.cpu().numpy())
+                    return config.instantiate(**kwargs.cpu().numpy())  # ty: ignore[invalid-argument-type]
 
     @override
     def log(self, data: TensorDict | TensorClass) -> None:

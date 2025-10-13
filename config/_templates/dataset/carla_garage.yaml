@@ -50,7 +50,7 @@ samples:
         renames:
           path: measurements_path
         output_name: measurements
-        mapspec: "measurements_path[i] -> measurements[i]"
+        mapspec: "${.renames.path}[i] -> ${.output_name}[i]"
         func:
           _target_: rbyte.io.DuckDbDataFrameBuilder
         bound:
@@ -70,7 +70,7 @@ samples:
         renames:
           path: waypoints_path
         output_name: waypoints_raw
-        mapspec: "waypoints_path[i] -> waypoints_raw[i]"
+        mapspec: "${.renames.path}[i] -> ${.output_name}[i]"
         func:
           _target_: rbyte.io.DuckDbDataFrameBuilder
         bound:
@@ -84,7 +84,7 @@ samples:
         renames:
           input: waypoints_raw
         output_name: waypoints
-        mapspec: "waypoints_raw[i] -> waypoints[i]"
+        mapspec: "${.renames.input}[i] -> ${.output_name}[i]"
         func:
           _target_: rbyte.io.WaypointBuilder
           length: 10
@@ -94,7 +94,7 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         output_name: aligned
-        mapspec: "measurements[i], waypoints[i] -> aligned[i]"
+        mapspec: "measurements[i], waypoints[i] -> ${.output_name}[i]"
         func:
           _target_: makefun.create_function
           func_signature: "align(*, measurements, waypoints)"
@@ -128,7 +128,7 @@ samples:
 
       - _target_: pipefunc.PipeFunc
         output_name: filtered
-        mapspec: "aligned[i] -> filtered[i]"
+        mapspec: "aligned[i] -> ${.output_name}[i]"
         func:
           _target_: makefun.create_function
           func_signature: "df_query(*, query, aligned)"
