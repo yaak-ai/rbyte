@@ -5,11 +5,12 @@
 </p>
 
 <p align="center">
+ <a href="https://deepwiki.com/yaak-ai/rbyte"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
  <img src="https://github.com/yaak-ai/rbyte/actions/workflows/ci.yaml/badge.svg">
  <img src="https://img.shields.io/github/license/yaak-ai/rbyte.svg?color=green"></a>
 </p>
 
-`rbyte` implements a [PyTorch](https://pytorch.org) [`Dataset`](https://pytorch.org/tutorials/beginner/basics/data_tutorial.html) with [`TensorClass`](https://pytorch.org/tensordict/main/reference/tensorclass.html)-based samples built from multimodal data.
+`rbyte` implements a [PyTorch](https://pytorch.org) [`Dataset`](https://pytorch.org/tutorials/beginner/basics/data_tutorial.html) with [`TensorClass`](https://docs.pytorch.org/tensordict/stable/reference/generated/tensordict.TensorClass.html)-based samples built from multimodal data.
 
 ## Installation
 
