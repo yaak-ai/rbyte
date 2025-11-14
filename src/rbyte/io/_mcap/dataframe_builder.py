@@ -70,7 +70,7 @@ class McapDataFrameBuilder:
             mmap(fileno=_f.fileno(), length=0, access=ACCESS_READ) as f,
         ):
             reader = SeekingReader(
-                f,  # ty: ignore[invalid-argument-type]
+                f,
                 validate_crcs=self._validate_crcs,
                 decoder_factories=self._decoder_factories_instantiated,
             )

@@ -1,26 +1,27 @@
 import math
-from collections import defaultdict
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from functools import cached_property
 from math import prod
 from typing import Annotated, Any, Literal, cast, override
 
-import more_itertools as mit
 import rerun as rr
+import rerun.blueprint as rrb
 import torch
 from cachetools import Cache, cachedmethod
-from hydra.utils import get_method, instantiate
+from einops import rearrange
+from hydra.utils import get_method
 from pydantic import (
-    BaseModel,
+    AfterValidator,
     BeforeValidator,
-    ConfigDict,
     Field,
+    InstanceOf,
     RootModel,
     validate_call,
 )
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from tensordict import TensorClass, TensorDict
+from torch import Tensor, uint8
 
 from rbyte.config import HydraConfig
 
@@ -29,92 +30,68 @@ from .base import Logger
 logger = get_logger(__name__)
 
 
-class IndexSchemaItem(HydraConfig[rr.TimeColumn]):
-    __pydantic_extra__: dict[str, str | tuple[str, ...]] = Field()
-
-    dtype: str | None = Field(default=None, exclude=True)
-
-
-class MethodHydraConfig[T](BaseModel):
+class MethodHydraConfig[T](HydraConfig[T]):
     target: Annotated[Callable[..., T], BeforeValidator(get_method)] = Field(
         alias="_target_"
     )
 
-    model_config = ConfigDict(extra="allow")
 
-    def instantiate(self, **kwargs: object) -> T:
-        return instantiate(self.model_dump(by_alias=True), **kwargs)
-
-
-class AsComponentsConfig(MethodHydraConfig[rr.AsComponents]): ...
+class TimeColumnSchemaItem(HydraConfig[rr.TimeColumn]):
+    dtype: str | None = Field(default=None, exclude=True)
 
 
-class ComponentColumnListConfig(MethodHydraConfig[rr.ComponentColumnList]):
-    __pydantic_extra__: dict[str, str | tuple[str, ...]]
+class StaticSchemaItem(MethodHydraConfig[rr.AsComponents]):
+    static: Literal[True] = Field(exclude=True)
 
 
-class StaticSchemaItem(BaseModel):
-    static: Literal[True]
-    entity: AsComponentsConfig
+Indices = tuple[int, ...] | tuple[str, ...]
 
-    model_config = ConfigDict(extra="forbid")
+
+class ComponentColumnSchemaItem(MethodHydraConfig[rr.ComponentColumnList]):
+    indices: Indices | None = Field(default=None, exclude=True)
 
 
 class Schema(
     RootModel[
         dict[
             str,
-            IndexSchemaItem
-            | StaticSchemaItem
-            | ComponentColumnListConfig
-            | Sequence[StaticSchemaItem | ComponentColumnListConfig],
+            TimeColumnSchemaItem
+            | Sequence[StaticSchemaItem | ComponentColumnSchemaItem],
         ]
     ]
 ):
     @cached_property
-    def indexes(self) -> dict[str, IndexSchemaItem]:
-        return {k: v for k, v in self.root.items() if isinstance(v, IndexSchemaItem)}
+    def time_columns(self) -> dict[str, TimeColumnSchemaItem]:
+        return {
+            k: v for k, v in self.root.items() if isinstance(v, TimeColumnSchemaItem)
+        }
 
     @cached_property
     def static(self) -> dict[str, Sequence[StaticSchemaItem]]:
-        result: dict[str, list[StaticSchemaItem]] = defaultdict(list)
-
-        for k, v in self.root.items():
-            match v:
-                case StaticSchemaItem():
-                    result[k].append(v)
-
-                case Sequence():
-                    result[k].extend(x for x in v if isinstance(x, StaticSchemaItem))
-
-                case _:
-                    pass
-
-        return {k: v for k, v in result.items() if v}
+        return {
+            k: items
+            for k, v in self.root.items()
+            if isinstance(v, Sequence)
+            and (items := [item for item in v if isinstance(item, StaticSchemaItem)])
+        }
 
     @cached_property
-    def columns(self) -> dict[str, Sequence[ComponentColumnListConfig]]:
-        result: dict[str, list[ComponentColumnListConfig]] = defaultdict(list)
-
-        for k, v in self.root.items():
-            match v:
-                case ComponentColumnListConfig():
-                    result[k].append(v)
-
-                case Sequence():
-                    result[k].extend(
-                        x for x in v if isinstance(x, ComponentColumnListConfig)
-                    )
-
-                case _:
-                    pass
-
-        return {k: v for k, v in result.items() if v}
+    def component_columns(self) -> dict[str, Sequence[ComponentColumnSchemaItem]]:
+        return {
+            k: items
+            for k, v in self.root.items()
+            if isinstance(v, Sequence)
+            and (
+                items := [
+                    item for item in v if isinstance(item, ComponentColumnSchemaItem)
+                ]
+            )
+        }
 
 
 class RerunLogger(Logger[TensorDict | TensorClass]):
     @validate_call
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         *,
         application_id: str,
@@ -122,6 +99,12 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
         schema: Schema,
         spawn: bool = True,
         port: int = 9876,
+        blueprint: InstanceOf[rrb.BlueprintLike]
+        | Annotated[
+            MethodHydraConfig[rrb.BlueprintLike],
+            AfterValidator(MethodHydraConfig.instantiate),
+        ]
+        | None = None,
     ) -> None:
         super().__init__()
 
@@ -130,97 +113,131 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
         self._schema: Schema = schema
         self._spawn: bool = spawn
         self._port: int = port
+        self._blueprint: rrb.BlueprintLike | None = blueprint
 
-        self._recordings = Cache(maxsize=math.inf)
+        self._recordings: Cache[str, rr.RecordingStream] = Cache(maxsize=math.inf)
 
     @property
-    def recordings(self) -> Cache:
+    def recordings(self) -> Cache[str, rr.RecordingStream]:
         return self._recordings
 
     @cachedmethod(lambda self: self._recordings)
     def _get_recording(self, name: str) -> rr.RecordingStream:
         recording = rr.RecordingStream(self._application_id)
         if self._spawn:
-            recording.spawn(port=self._port)
+            recording.spawn(port=self._port, default_blueprint=self._blueprint)
 
-        rr.send_recording_name(name, recording)
+        recording.send_recording_name(name)
 
         for path, items in self._schema.static.items():
-            rr.log(
-                path,
-                *(item.entity.instantiate() for item in items),
-                static=True,
-                recording=recording,
-            )
+            recording.log(path, *(item.instantiate() for item in items), static=True)
 
         return recording
 
+    def _build_time_columns(
+        self, data: TensorDict, indices: Indices | None = None
+    ) -> Iterable[rr.TimeColumn]:
+        column_indices = (
+            data[*indices]
+            if isinstance(indices, tuple)
+            and all(isinstance(idx, str) for idx in indices)
+            else indices
+        )
+
+        for timeline, config in self._schema.time_columns.items():
+            kwargs: dict[str, Any] = {}
+            for k, k_data in config.model_extra.items():
+                v = (
+                    torch.atleast_1d(data[*k_data][column_indices].flatten())
+                    .cpu()
+                    .numpy()
+                )
+                kwargs[k] = v if (dtype := config.dtype) is None else v.astype(dtype)
+
+            yield config.instantiate(timeline=timeline, **kwargs)
+
     @classmethod
-    def _build_columns(  # noqa: C901, PLR0912
-        cls, config: ComponentColumnListConfig, data: TensorDict
+    def _build_component_columns(  # noqa: C901, PLR0912
+        cls, config: ComponentColumnSchemaItem, data: TensorDict
     ) -> rr.ComponentColumnList:
-        kwargs = TensorDict({k: data[v] for k, v in config.__pydantic_extra__.items()})
+        kwargs = TensorDict({k: data[*v] for k, v in config.model_extra.items()})  # ty: ignore[possibly-unbound-attribute]
+        lengths: list[int] | None = None
 
         with bound_contextvars(target=config.target):
             match cast(Any, config.target):
-                case rr.Image.columns | rr.DepthImage.columns:
-                    match (tensor := kwargs[(key := "buffer")]).shape:
-                        case (*batch_dims, _h, _w, 3):
-                            pass
+                case rr.Image.columns:
+                    match tensor := kwargs.get(key := "buffer"):
+                        case Tensor(shape=(*_batch_dims, 3, _h, _w)):
+                            kwargs[key] = rearrange(
+                                tensor, "... c h w -> (...) (h w c)"
+                            ).view(uint8)
 
-                        case (*batch_dims, 3, _h, _w):
-                            tensor = tensor.permute(*range(len(batch_dims)), -2, -1, -3)
+                        case Tensor(shape=(*_batch_dims, _h, _w, 3)):
+                            kwargs[key] = rearrange(
+                                tensor, "... h w c -> (...) (h w c)"
+                            ).view(uint8)
 
-                        case (*batch_dims, _d, _w):
-                            pass
-
-                        case shape:
+                        case _:
                             logger.error(
-                                (msg := "shape not supported"), key=key, shape=shape
+                                (msg := "shape not supported"),
+                                key=key,
+                                shape=tensor.shape,
                             )
                             raise NotImplementedError(msg)
 
-                    kwargs[key] = tensor.reshape(prod(batch_dims), -1).view(torch.uint8)
+                case rr.DepthImage.columns:
+                    match tensor := kwargs.get(key := "buffer"):
+                        case Tensor(shape=(*_, _h, _w)):
+                            kwargs[key] = rearrange(
+                                tensor, "... h w -> (...) (h w)"
+                            ).view(torch.uint8)
 
-                    return config.instantiate(**kwargs.cpu().numpy())  # ty: ignore[invalid-argument-type]
+                        case _:
+                            logger.error(
+                                (msg := "shape not supported"),
+                                key=key,
+                                shape=tensor.shape,
+                            )
+                            raise NotImplementedError(msg)
 
                 case rr.Points2D.columns:
-                    match (tensor := kwargs[key := "positions"]).shape:
-                        case (2,):
-                            return config.instantiate(**kwargs.cpu().numpy())  # ty: ignore[invalid-argument-type]
+                    match tensor := kwargs.get(key := "positions"):
+                        case Tensor(shape=(2,)):
+                            pass
 
-                        case (*batch_dims, n, 2):
-                            kwargs[key] = tensor.view(-1, 2)
-                            return config.instantiate(**kwargs.cpu().numpy()).partition(  # ty: ignore[invalid-argument-type]
-                                [n] * prod(batch_dims)
-                            )
+                        case Tensor(shape=(*batch_dims, n, 2)):
+                            kwargs[key] = rearrange(tensor, "... n d -> (... n) d")
+                            lengths = [n] * prod(batch_dims)
 
-                        case shape:
+                        case _:
                             logger.error(
-                                (msg := "shape not supported"), key=key, shape=shape
+                                (msg := "shape not supported"),
+                                key=key,
+                                shape=tensor.shape,
                             )
                             raise NotImplementedError(msg)
 
                 case rr.Points3D.columns:
-                    match (tensor := kwargs[key := "positions"]).shape:
-                        case (3,):
-                            kwargs[key] = tensor.view(-1, 3)
-                            return config.instantiate(**kwargs.cpu().numpy())  # ty: ignore[invalid-argument-type]
+                    match tensor := kwargs.get(key := "positions"):
+                        case Tensor(shape=(3,)):
+                            pass
 
-                        case (*batch_dims, n, 3):
-                            kwargs[key] = tensor.view(-1, 3)
-                            return config.instantiate(**kwargs.cpu().numpy()).partition(  # ty: ignore[invalid-argument-type]
-                                [n] * prod(batch_dims)
-                            )
+                        case Tensor(shape=(*batch_dims, n, 3)):
+                            kwargs[key] = rearrange(tensor, "... n d -> (... n) d")
+                            lengths = [n] * prod(batch_dims)
 
-                        case shape:
+                        case _:
                             logger.error(
-                                (msg := "shape not supported"), key=key, shape=shape
+                                (msg := "shape not supported"),
+                                key=key,
+                                shape=tensor.shape,
                             )
                             raise NotImplementedError(msg)
 
                 case _:
-                    return config.instantiate(**kwargs.cpu().numpy())  # ty: ignore[invalid-argument-type]
+                    pass
+
+        return config.instantiate(**kwargs.cpu().numpy()).partition(lengths)
 
     @override
     def log(self, data: TensorDict | TensorClass) -> None:
@@ -237,27 +254,22 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
                         self._log(data_elem)
 
     def _log(self, data: TensorDict) -> None:
-        indexes: list[rr.TimeColumn] = []
-        for timeline, config in self._schema.indexes.items():
-            kwargs: dict[str, Any] = {}
-            for k, k_data in config.model_extra.items():
-                v = torch.atleast_1d(data[k_data].flatten()).cpu().numpy()
-                kwargs[k] = v if config.dtype is None else v.astype(config.dtype)
+        time_columns: dict[Indices | None, list[rr.TimeColumn]] = {}
 
-            indexes.append(config.instantiate(timeline=timeline, **kwargs))
+        for (
+            entity_path,
+            component_column_configs,
+        ) in self._schema.component_columns.items():
+            for column_config in component_column_configs:
+                component_columns = self._build_component_columns(column_config, data)
 
-        for entity_path, configs in self._schema.columns.items():
-            with bound_contextvars(entity_path=entity_path):
-                columns = [self._build_columns(config, data) for config in configs]
-
-                try:
-                    rr.send_columns(
-                        entity_path=entity_path,
-                        indexes=indexes,
-                        columns=mit.flatten(columns),
-                        strict=True,
+                if (indices := column_config.indices) not in time_columns:
+                    time_columns[indices] = list(
+                        self._build_time_columns(data, indices)
                     )
-                except Exception:
-                    logger.exception("rr.send_columns failed")
 
-                    raise
+                rr.send_columns(
+                    entity_path=entity_path,
+                    indexes=time_columns[indices],
+                    columns=component_columns,
+                )

@@ -5,7 +5,7 @@ from polars.testing import assert_frame_equal
 
 from rbyte.io import (
     PathDataFrameBuilder,
-    YaakMetadataDataFrameBuilder,  # ty: ignore[possibly-missing-import]
+    YaakMetadataDataFrameBuilder,  # ty: ignore[possibly-unbound-import]
 )
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
@@ -52,7 +52,7 @@ def test_YaakMetadataDataFrameBuilder() -> None:  # noqa: N802
     path = DATA_DIR / "yaak" / "Niro098-HQ" / "2024-06-18--13-39-54" / "metadata.log"
 
     builder = YaakMetadataDataFrameBuilder(
-        fields={  # ty: ignore[invalid-argument-type]
+        fields={
             "rbyte.io.yaak.proto.sensor_pb2.ImageMetadata": {
                 "time_stamp": pl.Datetime(time_unit="us"),
                 "camera_name": CAMERA_ENUM,

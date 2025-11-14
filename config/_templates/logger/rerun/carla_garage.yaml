@@ -10,23 +10,23 @@ _recursive_: false
 application_id: carla-garage
 recording_name: [meta, input_id]
 schema:
+  _idx_:
+    _target_: rerun.TimeColumn
+    sequence: [data, measurements/_idx_]
+
   #@ for/end camera in cameras:
   (@=camera@):
     - _target_: rerun.Image.columns
       buffer: [data, (@=camera@)]
-    - static: true
-      entity:
-        _target_: rerun.Image.from_fields
-        format:
-          _target_: rerun.components.ImageFormat
-          height: 512
-          width: 1024
-          color_model: RGB
-          channel_datatype: u8
 
-  _idx_:
-    _target_: rerun.TimeColumn
-    sequence: [data, "measurements/_idx_"]
+    - static: true
+      _target_: rerun.Image.from_fields
+      format:
+        _target_: rerun.components.ImageFormat
+        height: 512
+        width: 1024
+        color_model: RGB
+        channel_datatype: u8
 
   #@ for entity, key in {
   #@     "brake": "measurements/brake",
@@ -36,10 +36,10 @@ schema:
   #@     "heading": "waypoints/heading",
   #@ }.items():
   (@=entity@):
-    _target_: rerun.Scalars.columns
-    scalars: [data, "(@=key@)"]
+    - _target_: rerun.Scalars.columns
+      scalars: [data, "(@=key@)"]
   #@ end
 
   waypoints:
-    _target_: rerun.Points2D.columns
-    positions: [data, "waypoints/waypoints_normalized"]
+    - _target_: rerun.Points2D.columns
+      positions: [data, "waypoints/waypoints_normalized"]
