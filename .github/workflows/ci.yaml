@@ -10,8 +10,7 @@ on:
   workflow_dispatch:
 
 env:
-  UV_INDEX: ${{ vars.UV_INDEX }}
-  UV_INDEX_STRATEGY: ${{ vars.UV_INDEX_STRATEGY }}
+  UV_NO_SOURCES: "1"
 
 jobs:
   ci:
@@ -32,23 +31,15 @@ jobs:
       - name: setup just
         uses: extractions/setup-just@v2
 
-      - name: setup python
-        uses: actions/setup-python@v5
-        with:
-          python-version-file: "pyproject.toml"
-
       - name: setup uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
           enable-cache: true
-          cache-dependency-glob: "**/pyproject.toml"
 
-      - run: uv sync --all-extras --group test
+      - run: uv sync --all-extras --group check --group test
       - run: just build
-      - run: just format --check
-      - run: just lint
-      - run: just typecheck
+      - run: just check
 
       - name: git lfs checkout
         run: git lfs checkout

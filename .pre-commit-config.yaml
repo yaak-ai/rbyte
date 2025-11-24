@@ -6,12 +6,12 @@ repos:
       - id: validate-pyproject
 
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.21.0
+    rev: v3.21.2
     hooks:
       - id: pyupgrade
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.0
+    rev: v0.14.5
     hooks:
       - id: ruff-check
         args: [--fix]
@@ -22,19 +22,19 @@ repos:
     hooks:
       - id: ty
         name: ty check
-        entry: uvx ty@latest check
+        entry: uv run ty check
         language: system
         always_run: true
         pass_filenames: false
 
   - repo: https://github.com/tombi-toml/tombi-pre-commit
-    rev: v0.6.31
+    rev: v0.6.52
     hooks:
       - id: tombi-format
       - id: tombi-lint
 
   - repo: https://github.com/kynan/nbstripout
-    rev: 0.8.1
+    rev: 0.8.2
     hooks:
       - id: nbstripout
 

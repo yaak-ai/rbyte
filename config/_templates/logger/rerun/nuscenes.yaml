@@ -28,16 +28,16 @@ schema:
   (@=camera@):
     - _target_: rerun.Image.columns
       buffer: [data, (@=camera@)]
+
     - static: true
-      entity:
-        _target_: rerun.Image.from_fields
-        format:
-          _target_: rerun.components.ImageFormat
-          height: 900
-          width: 1600
-          color_model: RGB
-          channel_datatype: u8
+      _target_: rerun.Image.from_fields
+      format:
+        _target_: rerun.components.ImageFormat
+        height: 900
+        width: 1600
+        color_model: RGB
+        channel_datatype: u8
 
   /odom/vel.x:
-    _target_: rerun.Scalars.columns
-    scalars: [data, /odom/vel.x]
+    - _target_: rerun.Scalars.columns
+      scalars: [data, /odom/vel.x]

@@ -1,13 +1,11 @@
 {
-  inputs.nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
-  inputs.flake-utils.url = "github:numtide/flake-utils";
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable?shallow=1";
+    flake-utils.url = "github:numtide/flake-utils?shallow=1";
+  };
 
   outputs =
-    {
-      nixpkgs,
-      flake-utils,
-      ...
-    }:
+    { nixpkgs, flake-utils, ... }:
     flake-utils.lib.eachDefaultSystem (
       system:
       let
@@ -24,13 +22,11 @@
               ytt
               just
               skim
-            ]
-            ++ lib.optional stdenv.isDarwin [ ffmpeg ];
+            ];
 
             shellHook = lib.strings.concatLines [
-              "export PYTHONBREAKPOINT='pudb.set_trace'"
               (lib.optionalString stdenv.isDarwin "export DYLD_FALLBACK_LIBRARY_PATH=${
-                pkgs.lib.makeLibraryPath [ pkgs.ffmpeg ]
+                pkgs.lib.makeLibraryPath [ pkgs.ffmpeg_7-headless ]
               }")
             ];
           };
