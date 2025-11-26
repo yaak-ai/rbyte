@@ -14,10 +14,7 @@ _default:
 sync:
     uv sync --all-extras --all-groups
 
-install-duckdb-extensions:
-    uv run python -c "import duckdb; duckdb.connect().install_extension('spatial')"
-
-setup: sync install-duckdb-extensions
+setup: sync
     git submodule update --init --recursive --force --remote
     git lfs pull
     uvx --with=pre-commit-uv pre-commit install --install-hooks

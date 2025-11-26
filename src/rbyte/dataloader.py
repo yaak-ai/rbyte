@@ -2,8 +2,7 @@ from collections.abc import Callable, Iterable, Sequence, Sized
 from typing import Any, Literal, Protocol, runtime_checkable
 
 import torchdata.nodes as tn
-from pydantic import InstanceOf, validate_call
-from pydantic.types import PositiveInt
+from pydantic import InstanceOf, PositiveInt, validate_call
 from torch import Generator
 from torch.utils.data import (
     BatchSampler,
