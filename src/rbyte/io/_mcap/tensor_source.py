@@ -51,7 +51,8 @@ class McapTensorSource(TensorSource[int]):
             self._validate_crcs = validate_crcs
 
             summary = SeekingReader(
-                stream=self._file, validate_crcs=self._validate_crcs
+                stream=self._file,  # ty: ignore[invalid-argument-type]
+                validate_crcs=self._validate_crcs,
             ).get_summary()
 
             if summary is None:
@@ -83,7 +84,7 @@ class McapTensorSource(TensorSource[int]):
             self._mmap = None
 
     @property
-    def _file(self) -> IO[bytes]:
+    def _file(self) -> mmap:
         match getattr(self, "_mmap", None):
             case mmap(closed=False):
                 pass
@@ -95,7 +96,7 @@ class McapTensorSource(TensorSource[int]):
             case _:
                 raise RuntimeError
 
-        return self._mmap
+        return self._mmap  # ty: ignore[invalid-return-type]
 
     @override
     def __getitem__(self, indexes: int | Iterable[int]) -> Tensor:
@@ -112,7 +113,7 @@ class McapTensorSource(TensorSource[int]):
                     indexes_by_chunk_start_offset.items(), key=itemgetter(0)
                 ):
                     _ = self._file.seek(chunk_start_offset + 1 + 8)
-                    chunk = Chunk.read(ReadDataStream(self._file))
+                    chunk = Chunk.read(ReadDataStream(self._file))  # ty: ignore[invalid-argument-type]
                     stream, _ = get_chunk_data_stream(
                         chunk, validate_crc=self._validate_crcs
                     )
@@ -124,14 +125,14 @@ class McapTensorSource(TensorSource[int]):
                         decoded_message = self._message_decoder(message.data)
                         arrays[index] = self._decoder(decoded_message.data)
 
-                tensors = [torch.from_numpy(arrays[idx]) for idx in indexes]
+                tensors = [torch.from_numpy(arrays[idx]) for idx in indexes]  # ty: ignore[invalid-argument-type]
 
                 return torch.stack(tensors)
 
             case int():
                 message_index = self._message_indexes[indexes]
                 _ = self._file.seek(message_index.chunk_start_offset + 1 + 8)
-                chunk = Chunk.read(ReadDataStream(self._file))
+                chunk = Chunk.read(ReadDataStream(self._file))  # ty: ignore[invalid-argument-type]
                 stream, _ = get_chunk_data_stream(chunk, self._validate_crcs)
                 _ = stream.read(message_index.message_start_offset - stream.count)
                 message = Message.read(stream, length=message_index.message_length)
@@ -151,7 +152,7 @@ class McapTensorSource(TensorSource[int]):
     def _message_indexes(self) -> Sequence[MessageIndex]:
         return tuple(
             self._build_message_indexes(
-                self._file,
+                self._file,  # ty: ignore[invalid-argument-type]
                 chunk_indexes=self._chunk_indexes,
                 channel_id=self._channel.id,
                 validate_crc=self._validate_crcs,

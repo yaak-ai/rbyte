@@ -28,7 +28,7 @@ class MapAndCollate[T]:
     def __init__(
         self,
         dataset: InstanceOf[BatchIndexableDataset],
-        collate_fn: Callable[[list[T]], Any],
+        collate_fn: Callable[[...], Any],
     ) -> None:
         self._dataset = dataset
         self._collate_fn = collate_fn

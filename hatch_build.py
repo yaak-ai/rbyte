@@ -35,9 +35,7 @@ class BuildYaakIdlProtosHook(BuildHookInterface):
     @override
     def clean(self, versions: list[str]) -> None:
         for path in self._get_yaak_idl_proto_paths():
-            if path.exists():
-                logger.warning("removing %s", path)
-                path.unlink()
+            path.unlink(missing_ok=True)
 
     @override
     def initialize(self, version: str, build_data: dict[str, Any]) -> None:
@@ -78,4 +76,4 @@ class BuildYaakIdlProtosHook(BuildHookInterface):
     @staticmethod
     def _overwrite_callback(file: Path, text: str) -> None:
         logger.warning("overwriting %s", file)
-        _ = file.write_text(text, encoding="utf-8")
+        file.write_text(text, encoding="utf-8")

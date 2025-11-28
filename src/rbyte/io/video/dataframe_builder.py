@@ -39,4 +39,4 @@ class VideoDataFrameBuilder:
             case None:
                 raise RuntimeError
 
-        return pl.DataFrame(data=data, schema=self._fields)
+        return pl.DataFrame(data=data, schema=self._fields)  # ty: ignore[invalid-argument-type]

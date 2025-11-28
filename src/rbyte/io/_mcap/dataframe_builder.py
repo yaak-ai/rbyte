@@ -66,11 +66,11 @@ class McapDataFrameBuilder:
     def _build(self, path: PathLike[str]) -> dict[str, pl.DataFrame]:
         with (
             bound_contextvars(path=str(path)),
-            Path(path).open("rb") as _f,
-            mmap(fileno=_f.fileno(), length=0, access=ACCESS_READ) as f,
+            Path(path).open("rb") as f_,
+            mmap(fileno=f_.fileno(), length=0, access=ACCESS_READ) as f,
         ):
             reader = SeekingReader(
-                f,
+                f,  # ty: ignore[invalid-argument-type]
                 validate_crcs=self._validate_crcs,
                 decoder_factories=self._decoder_factories_instantiated,
             )

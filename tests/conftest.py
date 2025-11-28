@@ -17,13 +17,13 @@ from rbyte.io import (
     DataFrameAligner,
     DataFrameGroupByDynamic,
     DuckDBDataFrameQuery,
-    McapDataFrameBuilder,  # ty: ignore[possibly-unbound-import]
-    ProtobufMcapDecoderFactory,  # ty: ignore[possibly-unbound-import]
-    TorchCodecFrameSource,  # ty: ignore[possibly-unbound-import]
+    McapDataFrameBuilder,  # ty: ignore[possibly-missing-import]
+    ProtobufMcapDecoderFactory,  # ty: ignore[possibly-missing-import]
+    TorchCodecFrameSource,  # ty: ignore[possibly-missing-import]
     TreeBroadcastMapper,
-    VideoDataFrameBuilder,  # ty: ignore[possibly-unbound-import]
-    WaypointBuilder,  # ty: ignore[possibly-unbound-import]
-    YaakMetadataDataFrameBuilder,  # ty: ignore[possibly-unbound-import]
+    VideoDataFrameBuilder,  # ty: ignore[possibly-missing-import]
+    WaypointBuilder,  # ty: ignore[possibly-missing-import]
+    YaakMetadataDataFrameBuilder,  # ty: ignore[possibly-missing-import]
 )
 from rbyte.io.dataframe.aligner import (
     AlignConfig,
@@ -107,7 +107,7 @@ def yaak_dataset_pydantic() -> Dataset:
                     output_name="meta_raw",
                     mapspec="meta_path[i] -> meta_raw[i]",
                     func=YaakMetadataDataFrameBuilder(
-                        fields={
+                        fields={  # ty: ignore[invalid-argument-type]
                             "rbyte.io.yaak.proto.sensor_pb2.ImageMetadata": {
                                 "time_stamp": pl.Datetime(),
                                 "frame_idx": pl.Int32(),

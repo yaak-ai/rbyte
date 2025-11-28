@@ -66,7 +66,7 @@ class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
         if streams is not None and (
             missing_stream_indexes := (
                 {stream_config.index for stream_config in streams.values()}
-                - (data_keys := data.keys())
+                - (data_keys := set(data.keys()))
             )
         ):
             logger.error(
@@ -119,7 +119,7 @@ class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
 
     @override
     def __getitem__(self, index: int) -> Batch:
-        return self.get_batch([index])[0]
+        return self.get_batch([index])[0]  # ty: ignore[invalid-return-type]
 
     def __getitems__(self, index: Sequence[int]) -> Batch:  # noqa: PLW3201
         return self.get_batch(index)
@@ -134,25 +134,25 @@ class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
         include_streams: bool | None = None,
         include_meta: bool = True,
     ) -> Batch:
-        data = self.data[index]
+        data = self.data[index]  # ty: ignore[invalid-argument-type]
         meta = self.meta[index]
 
         match include_streams, self.streams:
             case None | True, dict():
-                stream_data = {stream_id: [] for stream_id in self.streams}
+                stream_data = {stream_id: [] for stream_id in self.streams}  # ty: ignore[not-iterable]
 
                 for sample, input_id in zip(data, meta["input_id"], strict=True):
-                    for stream_id, stream_config in self.streams.items():
+                    for stream_id, stream_config in self.streams.items():  # ty: ignore[possibly-missing-attribute]
                         stream_index = sample[stream_config.index].tolist()
                         source = self._get_source(stream_id, input_id)
                         stream_data[stream_id].append(source[stream_index])
 
                 stream_data = {k: torch.stack(v) for k, v in stream_data.items()}
 
-                if data.is_locked:
-                    data = data.clone(recurse=True)
+                if data.is_locked:  # ty: ignore[possibly-missing-attribute]
+                    data = data.clone(recurse=True)  # ty: ignore[unknown-argument]
 
-                data = data.update(stream_data, inplace=False)
+                data = data.update(stream_data, inplace=False)  # ty: ignore[possibly-missing-attribute]
 
             case True, None:
                 msg = "`include_streams` is True but no streams specified"
@@ -173,6 +173,10 @@ class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
 
     @cachedmethod(lambda self: self._stream_source_cache)
     def _get_source(self, stream_id: str, input_id: str) -> TensorSource:
+        if self.streams is None:
+            msg = "streams not specified"
+            raise RuntimeError(msg)
+
         return self.streams[stream_id].sources[input_id].instantiate()
 
     @classmethod
@@ -194,7 +198,7 @@ class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
                 )
 
         output_name = pipeline.unique_leaf_node.output_name
-        results = pipeline.map(  # ty: ignore[missing-argument]
+        results = pipeline.map(
             executor=executor, **samples.model_dump(exclude={"pipeline", "executor"})
         )
 

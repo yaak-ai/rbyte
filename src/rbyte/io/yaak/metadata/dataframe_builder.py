@@ -51,7 +51,7 @@ class YaakMetadataDataFrameBuilder:
             return result
 
     def _build(self, path: PathLike[str]) -> dict[str, pl.DataFrame]:
-        with Path(path).open("rb") as _f, mmap(_f.fileno(), 0, access=ACCESS_READ) as f:
+        with Path(path).open("rb") as f_, mmap(f_.fileno(), 0, access=ACCESS_READ) as f:
             handler_pool = HandlerPool()
 
             message_types = {k.obj for k in self._fields}
@@ -65,7 +65,7 @@ class YaakMetadataDataFrameBuilder:
                 msg.obj.__name__: cast(
                     pl.DataFrame,
                     pl.from_arrow(
-                        data=handler_pool.get_for_message(msg.obj.DESCRIPTOR)
+                        data=handler_pool.get_for_message(msg.obj.DESCRIPTOR)  # ty: ignore[invalid-argument-type]
                         .list_to_record_batch([
                             msg_data
                             for (_, msg_data) in tqdm(
