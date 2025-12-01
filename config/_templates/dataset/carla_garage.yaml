@@ -41,44 +41,52 @@ samples:
       #@ for/end drive in drives:
       - ${data_dir}/(@=drive@)/waypoints.json
 
-  parallel: false
+  executor:
+    _target_: concurrent.futures.ProcessPoolExecutor
+    max_workers: 1
+    mp_context:
+      _target_: multiprocessing.get_context
+      method: forkserver
+
   pipeline:
     _target_: pipefunc.Pipeline
     validate_type_annotations: false
     functions:
       - _target_: pipefunc.PipeFunc
-        renames:
-          path: measurements_path
         output_name: measurements
-        mapspec: "${.renames.path}[i] -> ${.output_name}[i]"
+        mapspec: "measurements_path[i] -> ${.output_name}[i]"
         func:
-          _target_: rbyte.io.DuckDbDataFrameBuilder
-        bound:
-          query: |
-            LOAD spatial;
-            SELECT (row_number() OVER () - 1) as _idx_,
-                   speed,
-                   steer,
-                   throttle,
-                   brake::DOUBLE AS brake,
-                   ST_AsWKB(ST_Point(pos_global[2], pos_global[1])) AS pos_global
-            FROM (SELECT unnest(records, recursive := true)
-                  FROM read_json('{path}')
-            )
+          _target_: makefun.create_function
+          func_signature: "build_measurements(*, measurements_path)"
+          func_impl:
+            _target_: rbyte.io.DuckDBDataFrameQuery
+            extensions: [spatial]
+            query: |
+              SELECT (row_number() OVER () - 1) as _idx_,
+                     speed,
+                     steer,
+                     throttle,
+                     brake::DOUBLE AS brake,
+                     ST_AsWKB(ST_Point(pos_global[2], pos_global[1])) AS pos_global
+              FROM (SELECT unnest(records, recursive := true)
+                    FROM read_json($measurements_path)
+              )
 
       - _target_: pipefunc.PipeFunc
-        renames:
-          path: waypoints_path
         output_name: waypoints_raw
-        mapspec: "${.renames.path}[i] -> ${.output_name}[i]"
+        mapspec: "waypoints_path[i] -> ${.output_name}[i]"
         func:
-          _target_: rbyte.io.DuckDbDataFrameBuilder
-        bound:
-          query: |
-            LOAD spatial;
-            SELECT timestamp, heading, ST_AsWKB(geom) AS geometry
-            FROM ST_Read('{path}')
-            ORDER BY timestamp
+          _target_: makefun.create_function
+          func_signature: "build_waypoints(*, waypoints_path)"
+          func_impl:
+            _target_: rbyte.io.DuckDBDataFrameQuery
+            extensions: [spatial]
+            config:
+              TimeZone: 'UTC'
+            query: |
+              SELECT timestamp, heading, ST_AsWKB(geom) AS geometry
+              FROM ST_Read($waypoints_path)
+              ORDER BY timestamp
 
       - _target_: pipefunc.PipeFunc
         renames:
@@ -131,64 +139,63 @@ samples:
         mapspec: "aligned[i] -> ${.output_name}[i]"
         func:
           _target_: makefun.create_function
-          func_signature: "df_query(*, query, aligned)"
+          func_signature: "filter(*, aligned)"
           func_impl:
-            _target_: rbyte.io.DataFrameDuckDbQuery
-        bound:
-          query: |
-            LOAD spatial;
-            WITH normalized_data AS (
-              WITH
-                normalized_geometries AS (
-                  SELECT
-                    *,
-                    ST_Rotate(
-                      ST_Translate(
-                        ST_GeomFromWKB("waypoints/waypoints"),
-                        -ST_X(ST_GeomFromWKB("measurements/pos_global")),
-                        -ST_Y(ST_GeomFromWKB("measurements/pos_global"))
-                      ),
-                      radians("waypoints/heading")
-                    ) AS normalized_waypoints_geom
-                  FROM
-                    aligned
-                  WHERE
-                    "waypoints/waypoints" IS NOT NULL AND "measurements/pos_global" IS NOT NULL
+            _target_: rbyte.io.DuckDBDataFrameQuery
+            extensions: [spatial]
+            query: |
+              WITH normalized_data AS (
+                WITH
+                  normalized_geometries AS (
+                    SELECT
+                      *,
+                      ST_Rotate(
+                        ST_Translate(
+                          ST_GeomFromWKB("waypoints/waypoints"),
+                          -ST_X(ST_GeomFromWKB("measurements/pos_global")),
+                          -ST_Y(ST_GeomFromWKB("measurements/pos_global"))
+                        ),
+                        radians("waypoints/heading")
+                      ) AS normalized_waypoints_geom
+                    FROM
+                      aligned
+                    WHERE
+                      "waypoints/waypoints" IS NOT NULL AND "measurements/pos_global" IS NOT NULL
+                )
+                SELECT
+                  * EXCLUDE (normalized_waypoints_geom),
+                  (
+                    SELECT
+                      list(
+                        [ST_X(p.point_struct.geom), ST_Y(p.point_struct.geom)]
+                        ORDER BY
+                          p.point_struct.path
+                      )
+                    FROM
+                      UNNEST(ST_Dump(normalized_waypoints_geom)) AS p(point_struct)
+                  ) AS "waypoints/waypoints_normalized"
+                FROM
+                  normalized_geometries
+                WHERE
+                  ST_Contains(
+                    ST_MakeEnvelope(-150, -150, 150, 150),
+                    normalized_waypoints_geom
+                  )
               )
               SELECT
-                * EXCLUDE (normalized_waypoints_geom),
-                (
-                  SELECT
-                    list(
-                      [ST_X(p.point_struct.geom), ST_Y(p.point_struct.geom)]
-                      ORDER BY
-                        p.point_struct.path
-                    )
-                  FROM
-                    UNNEST(ST_Dump(normalized_waypoints_geom)) AS p(point_struct)
-                ) AS "waypoints/waypoints_normalized"
+                "measurements/_idx_",
+                "measurements/speed",
+                "measurements/steer",
+                "measurements/throttle",
+                "measurements/brake",
+                "waypoints/heading",
+                "waypoints/waypoints_normalized"::FLOAT[2][10] AS "waypoints/waypoints_normalized"
               FROM
-                normalized_geometries
+                normalized_data
               WHERE
-                ST_Contains(
-                  ST_MakeEnvelope(-150, -150, 150, 150),
-                  normalized_waypoints_geom
-                )
-            )
-            SELECT
-              "measurements/_idx_",
-              "measurements/speed",
-              "measurements/steer",
-              "measurements/throttle",
-              "measurements/brake",
-              "waypoints/heading",
-              "waypoints/waypoints_normalized"::FLOAT[2][10] AS "waypoints/waypoints_normalized"
-            FROM
-              normalized_data
-            WHERE
-              "measurements/_idx_" BETWEEN 115 AND 135
-            ORDER BY
-              "measurements/_idx_";
+                "measurements/_idx_" BETWEEN 115 AND 135
+              ORDER BY
+                "measurements/_idx_";
 
       - _target_: pipefunc.PipeFunc
         renames:

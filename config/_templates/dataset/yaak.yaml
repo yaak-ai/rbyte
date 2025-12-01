@@ -50,7 +50,13 @@ samples:
       #@ for/end drive in drive_queries:
       - ${data_dir}/(@=drive@)/(@=camera@).pii.mp4
 
-  parallel: false
+  executor:
+    _target_: concurrent.futures.ProcessPoolExecutor
+    max_workers: 1
+    mp_context:
+      _target_: multiprocessing.get_context
+      method: forkserver
+
   pipeline:
     _target_: pipefunc.Pipeline
     validate_type_annotations: false
@@ -145,20 +151,21 @@ samples:
                 _target_: polars.Float32
 
       - _target_: pipefunc.PipeFunc
-        renames:
-          path: waypoints_path
         output_name: waypoints_raw
-        mapspec: "${.renames.path}[i] -> ${.output_name}[i]"
+        mapspec: "waypoints_path[i] -> ${.output_name}[i]"
         func:
-          _target_: rbyte.io.DuckDbDataFrameBuilder
-        bound:
-          query: |
-            LOAD spatial;
-            SET TimeZone = 'UTC';
-            SELECT TO_TIMESTAMP(timestamp)::TIMESTAMP AS timestamp,
-                   heading,
-                   ST_AsWKB(ST_Transform(geom, 'EPSG:4326', 'EPSG:25832', always_xy := true)) AS geometry
-            FROM ST_Read('{path}')
+          _target_: makefun.create_function
+          func_signature: "build_waypoints(*, waypoints_path)"
+          func_impl:
+            _target_: rbyte.io.DuckDBDataFrameQuery
+            extensions: [spatial]
+            config:
+              TimeZone: 'UTC'
+            query: |
+              SELECT TO_TIMESTAMP(timestamp)::TIMESTAMP AS timestamp,
+                     heading,
+                     ST_AsWKB(ST_Transform(geom, 'EPSG:4326', 'EPSG:25832', always_xy := true)) AS geometry
+              FROM ST_Read($waypoints_path);
 
       - _target_: pipefunc.PipeFunc
         renames:
@@ -242,74 +249,73 @@ samples:
         mapspec: "aligned[i], cam_front_left_meta[i], cam_left_backward_meta[i], cam_right_backward_meta[i] -> ${.output_name}[i]"
         func:
           _target_: makefun.create_function
-          func_signature: "df_query(*, query, aligned, cam_front_left_meta, cam_left_backward_meta, cam_right_backward_meta)"
+          func_signature: "filter(*, aligned, cam_front_left_meta, cam_left_backward_meta, cam_right_backward_meta)"
           func_impl:
-            _target_: rbyte.io.DataFrameDuckDbQuery
-        bound:
-          query: |
-            LOAD spatial;
-            WITH
-              base_data AS (
-                SELECT
-                  *,
-                  ST_Transform(
-                    ST_Point("meta/Gnss/longitude", "meta/Gnss/latitude"),
-                    'EPSG:4326', 'EPSG:25832', always_xy := true
-                  ) AS ego_geom,
-                  ST_GeomFromWKB("waypoints/waypoints") AS waypoints_geom
-                FROM
-                  aligned
-                  SEMI JOIN cam_front_left_meta
-                    ON aligned."meta/ImageMetadata.cam_front_left/frame_idx"
-                    = cam_front_left_meta.frame_idx
-                  SEMI JOIN cam_left_backward_meta
-                    ON aligned."meta/ImageMetadata.cam_left_backward/frame_idx"
-                    = cam_left_backward_meta.frame_idx
-                  SEMI JOIN cam_right_backward_meta
-                    ON aligned."meta/ImageMetadata.cam_right_backward/frame_idx"
-                    = cam_right_backward_meta.frame_idx
-                WHERE
-                  COLUMNS(*) IS NOT NULL
-                  AND "meta/VehicleMotion/speed" > 44
-              ),
-              normalized_geometries AS (
-                SELECT
-                  *,
-                  ST_Rotate(
-                    ST_Translate(
-                      waypoints_geom,
-                      -ST_X(ego_geom),
-                      -ST_Y(ego_geom)
-                    ),
-                    radians("waypoints/heading")
-                  ) AS normalized_waypoints_geom
-                FROM
-                  base_data
-              )
-            SELECT
-              * EXCLUDE (
-                waypoints_geom,
-                normalized_waypoints_geom
-              ),
-              (
-                SELECT
-                  list(
-                    [ST_X(p.point_struct.geom), ST_Y(p.point_struct.geom)]
-                    ORDER BY
-                      p.point_struct.path
-                  )
-                FROM
-                  UNNEST(ST_Dump(normalized_waypoints_geom)) AS p(point_struct)
-              ) AS "waypoints/waypoints_normalized"
-            FROM
-              normalized_geometries
-            WHERE
-              ST_Contains(
-                ST_MakeEnvelope(-150, -150, 150, 150),
-                normalized_waypoints_geom
-              )
-            ORDER BY
-              "meta/ImageMetadata.cam_front_left/time_stamp";
+            _target_: rbyte.io.DuckDBDataFrameQuery
+            extensions: [spatial]
+            query: |
+              WITH
+                base_data AS (
+                  SELECT
+                    *,
+                    ST_Transform(
+                      ST_Point("meta/Gnss/longitude", "meta/Gnss/latitude"),
+                      'EPSG:4326', 'EPSG:25832', always_xy := true
+                    ) AS ego_geom,
+                    ST_GeomFromWKB("waypoints/waypoints") AS waypoints_geom
+                  FROM
+                    aligned
+                    SEMI JOIN cam_front_left_meta
+                      ON aligned."meta/ImageMetadata.cam_front_left/frame_idx"
+                      = cam_front_left_meta.frame_idx
+                    SEMI JOIN cam_left_backward_meta
+                      ON aligned."meta/ImageMetadata.cam_left_backward/frame_idx"
+                      = cam_left_backward_meta.frame_idx
+                    SEMI JOIN cam_right_backward_meta
+                      ON aligned."meta/ImageMetadata.cam_right_backward/frame_idx"
+                      = cam_right_backward_meta.frame_idx
+                  WHERE
+                    COLUMNS(*) IS NOT NULL
+                    AND "meta/VehicleMotion/speed" > 44
+                ),
+                normalized_geometries AS (
+                  SELECT
+                    *,
+                    ST_Rotate(
+                      ST_Translate(
+                        waypoints_geom,
+                        -ST_X(ego_geom),
+                        -ST_Y(ego_geom)
+                      ),
+                      radians("waypoints/heading")
+                    ) AS normalized_waypoints_geom
+                  FROM
+                    base_data
+                )
+              SELECT
+                * EXCLUDE (
+                  waypoints_geom,
+                  normalized_waypoints_geom
+                ),
+                (
+                  SELECT
+                    list(
+                      [ST_X(p.point_struct.geom), ST_Y(p.point_struct.geom)]
+                      ORDER BY
+                        p.point_struct.path
+                    )
+                  FROM
+                    UNNEST(ST_Dump(normalized_waypoints_geom)) AS p(point_struct)
+                ) AS "waypoints/waypoints_normalized"
+              FROM
+                normalized_geometries
+              WHERE
+                ST_Contains(
+                  ST_MakeEnvelope(-150, -150, 150, 150),
+                  normalized_waypoints_geom
+                )
+              ORDER BY
+                "meta/ImageMetadata.cam_front_left/time_stamp";
 
       - _target_: pipefunc.PipeFunc
         renames:
@@ -327,22 +333,21 @@ samples:
         mapspec: "samples[i] -> ${.output_name}[i]"
         func:
           _target_: makefun.create_function
-          func_signature: "df_query(*, query, samples)"
+          func_signature: "cast(*, samples)"
           func_impl:
-            _target_: rbyte.io.DataFrameDuckDbQuery
-        bound:
-          query: |
-            SELECT "meta/ImageMetadata.cam_front_left/time_stamp"::TIMESTAMP[6] AS "meta/ImageMetadata.cam_front_left/time_stamp",
-                   "meta/ImageMetadata.cam_front_left/frame_idx"::INT32[6] AS "meta/ImageMetadata.cam_front_left/frame_idx",
-                   "meta/ImageMetadata.cam_left_backward/frame_idx"::INT32[6] AS "meta/ImageMetadata.cam_left_backward/frame_idx",
-                   "meta/ImageMetadata.cam_right_backward/frame_idx"::INT32[6] AS "meta/ImageMetadata.cam_right_backward/frame_idx",
-                   "meta/VehicleMotion/speed"::FLOAT[6] AS "meta/VehicleMotion/speed",
-                   "mcap//ai/safety_score/clip.end_timestamp"::TIMESTAMP[6] AS "mcap//ai/safety_score/clip.end_timestamp",
-                   "mcap//ai/safety_score/score"::FLOAT[6] AS "mcap//ai/safety_score/score",
-                   "waypoints/heading"::FLOAT[6] AS "waypoints/heading",
-                   "waypoints/waypoints_normalized"::FLOAT[2][10][6] AS "waypoints/waypoints_normalized",
-            FROM samples
-            WHERE len("meta/ImageMetadata.cam_front_left/frame_idx") == 6
+            _target_: rbyte.io.DuckDBDataFrameQuery
+            query: |
+              SELECT "meta/ImageMetadata.cam_front_left/time_stamp"::TIMESTAMP[6] AS "meta/ImageMetadata.cam_front_left/time_stamp",
+                     "meta/ImageMetadata.cam_front_left/frame_idx"::INT32[6] AS "meta/ImageMetadata.cam_front_left/frame_idx",
+                     "meta/ImageMetadata.cam_left_backward/frame_idx"::INT32[6] AS "meta/ImageMetadata.cam_left_backward/frame_idx",
+                     "meta/ImageMetadata.cam_right_backward/frame_idx"::INT32[6] AS "meta/ImageMetadata.cam_right_backward/frame_idx",
+                     "meta/VehicleMotion/speed"::FLOAT[6] AS "meta/VehicleMotion/speed",
+                     "mcap//ai/safety_score/clip.end_timestamp"::TIMESTAMP[6] AS "mcap//ai/safety_score/clip.end_timestamp",
+                     "mcap//ai/safety_score/score"::FLOAT[6] AS "mcap//ai/safety_score/score",
+                     "waypoints/heading"::FLOAT[6] AS "waypoints/heading",
+                     "waypoints/waypoints_normalized"::FLOAT[2][10][6] AS "waypoints/waypoints_normalized",
+              FROM samples
+              WHERE len("meta/ImageMetadata.cam_front_left/frame_idx") == 6
 
       - _target_: pipefunc.PipeFunc
         renames:

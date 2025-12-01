@@ -11,9 +11,13 @@ import torch
 from cachetools import Cache, cachedmethod
 from optree import tree_map
 from pipefunc.map import load_outputs
-from pydantic import DirectoryPath, InstanceOf, validate_call
-from pydantic.functional_validators import AfterValidator
-from pydantic.type_adapter import TypeAdapter
+from pydantic import (
+    AfterValidator,
+    DirectoryPath,
+    InstanceOf,
+    TypeAdapter,
+    validate_call,
+)
 from structlog import get_logger
 from tensordict import NonTensorStack, TensorDict
 from torch.utils.data import Dataset as TorchDataset

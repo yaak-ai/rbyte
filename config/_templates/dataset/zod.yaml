@@ -37,7 +37,13 @@ samples:
     lidar_velodyne_path: ["${data_dir}/sequences/000002_short/lidar_velodyne"]
     vehicle_data_path: ["${data_dir}/sequences/000002_short/vehicle_data.hdf5"]
 
-  parallel: false
+  executor:
+    _target_: concurrent.futures.ProcessPoolExecutor
+    max_workers: 1
+    mp_context:
+      _target_: multiprocessing.get_context
+      method: forkserver
+
   pipeline:
     _target_: pipefunc.Pipeline
     validate_type_annotations: false

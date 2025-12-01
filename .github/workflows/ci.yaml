@@ -52,5 +52,4 @@ jobs:
       - name: install ffmpeg
         run: sudo apt update && sudo apt install -y ffmpeg
 
-      - run: just install-duckdb-extensions
       - run: just test

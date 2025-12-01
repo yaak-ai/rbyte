@@ -1,9 +1,8 @@
-from ._duckdb import DuckDbDataFrameBuilder
+from ._duckdb import DuckDBDataFrameQuery
 from ._numpy import NumpyTensorSource
 from .dataframe import (
     DataFrameAligner,
     DataFrameConcater,
-    DataFrameDuckDbQuery,
     DataFrameGroupByDynamic,
     DataFrameIndexer,
 )
@@ -13,10 +12,9 @@ from .tree import TreeBroadcastMapper
 __all__: list[str] = [
     "DataFrameAligner",
     "DataFrameConcater",
-    "DataFrameDuckDbQuery",
     "DataFrameGroupByDynamic",
     "DataFrameIndexer",
-    "DuckDbDataFrameBuilder",
+    "DuckDBDataFrameQuery",
     "NumpyTensorSource",
     "PathDataFrameBuilder",
     "PathTensorSource",

@@ -41,7 +41,13 @@ samples:
       #@ for/end input_id in inputs:
       - "${data_dir}/(@=input_id@).mcap"
 
-  parallel: false
+  executor:
+    _target_: concurrent.futures.ProcessPoolExecutor
+    max_workers: 1
+    mp_context:
+      _target_: multiprocessing.get_context
+      method: forkserver
+
   pipeline:
     _target_: pipefunc.Pipeline
     validate_type_annotations: false

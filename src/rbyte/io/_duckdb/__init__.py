@@ -1,3 +1,3 @@
-from .dataframe_builder import DuckDbDataFrameBuilder
+from .dataframe_query import DuckDBDataFrameQuery
 
-__all__ = ["DuckDbDataFrameBuilder"]
+__all__ = ["DuckDBDataFrameQuery"]

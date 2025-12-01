@@ -1,4 +1,6 @@
+import multiprocessing
 from collections import OrderedDict
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import polars as pl
@@ -13,9 +15,8 @@ from rbyte import Dataset
 from rbyte.config import HydraConfig, PipelineInstanceConfig, StreamConfig
 from rbyte.io import (
     DataFrameAligner,
-    DataFrameDuckDbQuery,
     DataFrameGroupByDynamic,
-    DuckDbDataFrameBuilder,
+    DuckDBDataFrameQuery,
     McapDataFrameBuilder,  # ty: ignore[possibly-unbound-import]
     ProtobufMcapDecoderFactory,  # ty: ignore[possibly-unbound-import]
     TorchCodecFrameSource,  # ty: ignore[possibly-unbound-import]
@@ -95,7 +96,9 @@ def yaak_dataset_pydantic() -> Dataset:
             ]
             for camera in cameras
         },
-        parallel=False,  # ty: ignore[unknown-argument]
+        executor=ProcessPoolExecutor(
+            max_workers=1, mp_context=multiprocessing.get_context("forkserver")
+        ),
         pipeline=Pipeline(
             validate_type_annotations=False,
             functions=[
@@ -162,21 +165,21 @@ def yaak_dataset_pydantic() -> Dataset:
                     ),
                 ),
                 PipeFunc(
-                    renames={"path": "waypoints_path"},
                     output_name="waypoints_raw",
                     mapspec="waypoints_path[i] -> waypoints_raw[i]",
-                    func=DuckDbDataFrameBuilder(),
-                    bound={
-                        "query": """
-LOAD spatial;
-SET TimeZone = 'UTC';
+                    func=with_signature("build_waypoints(*, waypoints_path)")(
+                        DuckDBDataFrameQuery(
+                            extensions=["spatial"],
+                            config={"TimeZone": "UTC"},
+                            query="""
 SELECT TO_TIMESTAMP(timestamp)::TIMESTAMP as timestamp,
    heading,
    ST_AsWKB(
        ST_Transform(geom, 'EPSG:4326', 'EPSG:25832', always_xy := true)) AS geometry
-FROM ST_Read('{path}')
-"""
-                    },
+FROM ST_Read($waypoints_path)
+""",
+                        )
+                    ),
                 ),
                 PipeFunc(
                     renames={"input": "waypoints_raw"},
@@ -266,11 +269,11 @@ FROM ST_Read('{path}')
                         + " -> filtered[i]"
                     ),
                     func=with_signature(
-                        "df_query(*, query, aligned, cam_front_left_meta, cam_left_backward_meta, cam_right_backward_meta)"  # noqa: E501
-                    )(DataFrameDuckDbQuery()),
-                    bound={
-                        "query": """
-LOAD spatial;
+                        "filter(*, aligned, cam_front_left_meta, cam_left_backward_meta, cam_right_backward_meta)"  # noqa: E501
+                    )(
+                        DuckDBDataFrameQuery(
+                            extensions=["spatial"],
+                            query="""
 WITH
   base_data AS (
     SELECT
@@ -333,8 +336,9 @@ WHERE
   )
 ORDER BY
   "meta/ImageMetadata.cam_front_left/time_stamp";
-"""
-                    },
+""",
+                        )
+                    ),
                 ),
                 PipeFunc(
                     renames={"input": "filtered"},
@@ -349,11 +353,9 @@ ORDER BY
                 PipeFunc(
                     output_name="samples_cast",
                     mapspec="samples[i] -> samples_cast[i]",
-                    func=with_signature("df_query(*, query, samples)")(
-                        DataFrameDuckDbQuery()
-                    ),
-                    bound={
-                        "query": """
+                    func=with_signature("cast(*, samples)")(
+                        DuckDBDataFrameQuery(
+                            query="""
 SELECT
    "meta/ImageMetadata.cam_front_left/time_stamp"::TIMESTAMP[6]
         AS "meta/ImageMetadata.cam_front_left/time_stamp",
@@ -376,7 +378,8 @@ SELECT
 FROM samples
 WHERE len("meta/ImageMetadata.cam_front_left/frame_idx") == 6
 """
-                    },
+                        )
+                    ),
                 ),
                 PipeFunc(
                     renames={"keys": "input_id", "values": "samples_cast"},
