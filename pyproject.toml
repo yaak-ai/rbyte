@@ -1,6 +1,6 @@
 [project]
 name = "rbyte"
-version = "0.34.0"
+version = "0.34.1"
 description = "Multimodal PyTorch dataset library"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
@@ -26,7 +26,7 @@ dependencies = [
   "numpy",
   "optree>=0.17.0",
   "pipefunc[autodoc]>=0.87.1",
-  "polars>=1.34.0",
+  "polars==1.34.0",  # https://github.com/pola-rs/polars/issues/25567
   "pydantic>=2.12.4",
   "structlog>=25.4.0",
   "tensordict-nightly==2025.9.24",  # https://github.com/pytorch/tensordict/issues/1440
