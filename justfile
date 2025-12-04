@@ -17,7 +17,7 @@ sync:
 setup: sync
     git submodule update --init --recursive --force --remote
     git lfs pull
-    uvx --with=pre-commit-uv pre-commit install --install-hooks
+    uvx prek install
 
 build:
     uv build
@@ -27,8 +27,8 @@ check:
     uv run ruff check
     uv run ty check
 
-pre-commit *ARGS: build
-    uvx --with=pre-commit-uv pre-commit run --all-files --color=always {{ ARGS }}
+prek *ARGS: build
+    uvx prek --all-files {{ ARGS }}
 
 generate-config:
     ytt --file {{ justfile_directory() }}/config/_templates \

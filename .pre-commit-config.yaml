@@ -1,5 +1,10 @@
 ---
 repos:
+  - repo: builtin
+    hooks:
+      - id: trailing-whitespace
+      - id: check-added-large-files
+
   - repo: https://github.com/abravalheri/validate-pyproject
     rev: v0.24.1
     hooks:
@@ -11,24 +16,14 @@ repos:
       - id: pyupgrade
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.5
+    rev: v0.14.7
     hooks:
       - id: ruff-check
         args: [--fix]
       - id: ruff-format
 
-  - repo: local
-    # TODO: replace once available
-    hooks:
-      - id: ty
-        name: ty check
-        entry: uv run ty check
-        language: system
-        always_run: true
-        pass_filenames: false
-
   - repo: https://github.com/tombi-toml/tombi-pre-commit
-    rev: v0.6.52
+    rev: v0.7.0
     hooks:
       - id: tombi-format
       - id: tombi-lint
@@ -38,8 +33,28 @@ repos:
     hooks:
       - id: nbstripout
 
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+      - id: codespell
+
+  - repo: https://github.com/hukkin/mdformat
+    rev: 1.0.0
+    hooks:
+      - id: mdformat
+        additional_dependencies:
+          - mdformat-gfm
+
   - repo: local
     hooks:
+      # TODO: replace once available
+      - id: ty
+        name: ty check
+        entry: uv run ty check
+        language: system
+        always_run: true
+        pass_filenames: false
+
       - id: just-format
         name: just-format
         language: system

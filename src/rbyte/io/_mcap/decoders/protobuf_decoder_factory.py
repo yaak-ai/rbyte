@@ -53,7 +53,7 @@ class ProtobufMcapDecoderFactory(McapDecoderFactory):
     )
     def _get_message_type(self, schema: Schema) -> type[Message]:  # noqa: PLR6301
         fds = FileDescriptorSet.FromString(schema.data)
-        pool = DescriptorPool()  # ty: ignore[possibly-unbound-implicit-call]
+        pool = DescriptorPool()  # ty: ignore[possibly-missing-implicit-call]
         descriptor_by_name = mit.map_reduce(
             fds.file, keyfunc=attrgetter("name"), reducefunc=mit.one
         )

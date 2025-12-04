@@ -148,7 +148,7 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
             kwargs: dict[str, Any] = {}
             for k, k_data in config.model_extra.items():
                 v = (
-                    torch.atleast_1d(data[*k_data][column_indices].flatten())
+                    torch.atleast_1d(data[*k_data][column_indices].flatten())  # ty: ignore[invalid-argument-type]
                     .cpu()
                     .numpy()
                 )
@@ -160,7 +160,7 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
     def _build_component_columns(  # noqa: C901, PLR0912
         cls, config: ComponentColumnSchemaItem, data: TensorDict
     ) -> rr.ComponentColumnList:
-        kwargs = TensorDict({k: data[*v] for k, v in config.model_extra.items()})  # ty: ignore[possibly-unbound-attribute]
+        kwargs = TensorDict({k: data[*v] for k, v in config.model_extra.items()})  # ty: ignore[possibly-missing-attribute]
         lengths: list[int] | None = None
 
         with bound_contextvars(target=config.target):
@@ -237,7 +237,7 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
                 case _:
                     pass
 
-        return config.instantiate(**kwargs.cpu().numpy()).partition(lengths)
+        return config.instantiate(**kwargs.cpu().numpy()).partition(lengths)  # ty: ignore[invalid-argument-type]
 
     @override
     def log(self, data: TensorDict | TensorClass) -> None:
@@ -246,7 +246,7 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
         match recording_name := self._recording_name:
             case str():
                 with self._get_recording(recording_name):
-                    self._log(data)
+                    self._log(data)  # ty: ignore[invalid-argument-type]
 
             case tuple():
                 for data_elem in data:

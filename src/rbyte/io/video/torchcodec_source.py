@@ -1,9 +1,10 @@
 from collections.abc import Iterable
-from typing import Literal, final, override
+from typing import Annotated, Literal, final, override
 
-from pydantic import FilePath, validate_call
+import torch
+from pydantic import AfterValidator, FilePath, InstanceOf, validate_call
 from torch import Tensor
-from torchcodec.decoders import VideoDecoder
+from torchcodec.decoders import VideoDecoder, set_cuda_backend
 
 from rbyte.types import TensorSource
 
@@ -18,19 +19,30 @@ class TorchCodecFrameSource(TensorSource[int]):
         stream_index: int | None = None,
         dimension_order: Literal["NCHW", "NHWC"] = "NCHW",
         num_ffmpeg_threads: int = 1,
-        device: str | None = "cpu",
+        device: Annotated[str, AfterValidator(torch.device)]
+        | InstanceOf[torch.device] = "cpu",
         seek_mode: Literal["exact", "approximate"] = "exact",
+        cuda_backend: Literal["ffmpeg", "beta"] | None = None,
     ) -> None:
         super().__init__()
 
-        self._decoder = VideoDecoder(
-            source=source,
-            stream_index=stream_index,
-            dimension_order=dimension_order,
-            num_ffmpeg_threads=num_ffmpeg_threads,
-            device=device,
-            seek_mode=seek_mode,
-        )
+        if cuda_backend is None:
+            match device:
+                case torch.device(type="cuda"):
+                    cuda_backend = "beta"
+
+                case _:
+                    cuda_backend = "ffmpeg"
+
+        with set_cuda_backend(cuda_backend):
+            self._decoder = VideoDecoder(
+                source=source,
+                stream_index=stream_index,
+                dimension_order=dimension_order,
+                num_ffmpeg_threads=num_ffmpeg_threads,
+                device=device,
+                seek_mode=seek_mode,
+            )
 
     @override
     def __getitem__(self, indexes: int | Iterable[int]) -> Tensor:

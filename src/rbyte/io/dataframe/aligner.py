@@ -66,7 +66,7 @@ class DataFrameAligner:
 
             return AlignConfig(key=key, columns=columns)
 
-        return tree_map_with_path(fqn, self._fields)
+        return tree_map_with_path(fqn, self._fields)  # ty: ignore[invalid-argument-type]
 
     def __call__(
         self, input: PyTree[pl.DataFrame] | None = None, **kwargs: PyTree[pl.DataFrame]
@@ -82,7 +82,7 @@ class DataFrameAligner:
                 msg = "either `input` or `kwargs` must be specified"
                 raise ValueError(msg)
 
-        result = self._build(input)
+        result = self._build(input)  # ty: ignore[invalid-argument-type]
         logger.debug(
             "aligned dataframes",
             length={"input": tree_map(len, input), "result": len(result)},  # ty: ignore[invalid-argument-type]

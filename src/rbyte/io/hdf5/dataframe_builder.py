@@ -48,7 +48,7 @@ class Hdf5DataFrameBuilder:
                     case _:
                         raise NotImplementedError
 
-            series = tree_map_with_path(build_series, self._fields, none_is_leaf=True)
+            series = tree_map_with_path(build_series, self._fields, none_is_leaf=True)  # ty: ignore[invalid-argument-type]
 
             return tree_map(
                 pl.DataFrame,

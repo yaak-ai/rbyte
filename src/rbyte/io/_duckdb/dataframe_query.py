@@ -80,11 +80,10 @@ class DuckDBDataFrameQuery:
 
     @override
     def __getstate__(self) -> dict[str, Any]:
-        state = super().__getstate__()
+        state: dict[str, Any] = super().__getstate__()  # ty: ignore[invalid-assignment]
         state.pop("_thread_local", None)
         return state
 
-    @override
     def __setstate__(self, state: dict[str, Any]) -> None:
         self.__dict__.update(state)
         self._thread_local = threading.local()
