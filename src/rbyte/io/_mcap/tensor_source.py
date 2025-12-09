@@ -99,9 +99,9 @@ class McapTensorSource(TensorSource[int]):
         return self._mmap  # ty: ignore[invalid-return-type]
 
     @override
-    def __getitem__(self, indexes: int | Iterable[int]) -> Tensor:
+    def __getitem__(self, indexes: int | Sequence[int]) -> Tensor:
         match indexes:
-            case Iterable():
+            case Sequence():
                 arrays: dict[int, npt.ArrayLike] = {}
                 message_indexes = (self._message_indexes[idx] for idx in indexes)
                 indexes_by_chunk_start_offset = mit.map_reduce(
