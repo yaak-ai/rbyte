@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Sequence
 from typing import Annotated, Literal, final, override
 
 import torch
@@ -45,9 +45,9 @@ class TorchCodecFrameSource(TensorSource[int]):
             )
 
     @override
-    def __getitem__(self, indexes: int | Iterable[int]) -> Tensor:
+    def __getitem__(self, indexes: int | Sequence[int]) -> Tensor:
         match indexes:
-            case Iterable():
+            case Sequence():
                 return self._decoder.get_frames_at(indices=list(indexes)).data
 
             case int():

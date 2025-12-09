@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Sequence
 from typing import cast, final, override
 
 import torch
@@ -16,7 +16,7 @@ class Hdf5TensorSource(TensorSource[int]):
         self._dataset = cast(Dataset, File(path)[key])
 
     @override
-    def __getitem__(self, indexes: int | Iterable[int]) -> Tensor:
+    def __getitem__(self, indexes: int | Sequence[int]) -> Tensor:
         return torch.from_numpy(self._dataset[indexes])
 
     @override

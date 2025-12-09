@@ -1,4 +1,4 @@
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Sequence
 from functools import cached_property
 from os import PathLike
 from pathlib import Path
@@ -42,9 +42,9 @@ class NumpyTensorSource(TensorSource[object]):
         return torch.from_numpy(np.ascontiguousarray(array))
 
     @override
-    def __getitem__(self, indexes: object | Iterable[object]) -> Tensor:
+    def __getitem__(self, indexes: object | Sequence[object]) -> Tensor:
         match indexes:
-            case Iterable():
+            case Sequence():
                 return torch.stack([self._getitem(i) for i in indexes])
 
             case _:

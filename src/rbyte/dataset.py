@@ -216,9 +216,11 @@ class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
             path / "data", copy_existing=True, existsok=True, robust_key=True
         )
         self._meta.write_parquet(path / "meta.parquet")
-        streams_json = TypeAdapter(StreamsConfig).dump_json(self._streams)
-        with (path / "streams.json").open("wb") as f:
-            f.write(streams_json)
+
+        if self._streams is not None:
+            streams_json = TypeAdapter(StreamsConfig).dump_json(self._streams)
+            with (path / "streams.json").open("wb") as f:
+                f.write(streams_json)
 
     @classmethod
     @validate_call
@@ -227,8 +229,11 @@ class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
         data = TensorDict.load_memmap(path / "data", robust_key=True)
         meta = pl.read_parquet(path / "meta.parquet")
 
-        with (path / "streams.json").open() as f:
-            streams = TypeAdapter(StreamsConfig).validate_json(f.read())
+        try:
+            with (path / "streams.json").open() as f:
+                streams = TypeAdapter(StreamsConfig).validate_json(f.read())
+        except FileNotFoundError:
+            streams = None
 
         return cls(data=data, meta=meta, streams=streams)
 
