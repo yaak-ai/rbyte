@@ -10,6 +10,7 @@ from typing import NamedTuple, final
 
 import more_itertools as mit
 import polars as pl
+import polars.selectors as cs
 from mcap.decoder import DecoderFactory
 from mcap.reader import SeekingReader
 from polars.datatypes import DataType
@@ -17,8 +18,6 @@ from pydantic import ImportString, InstanceOf, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from tqdm import tqdm
-
-from rbyte.utils.dataframe import unnest_all
 
 logger = get_logger(__name__)
 
@@ -140,7 +139,7 @@ class McapDataFrameBuilder:
             case pl.DataFrame():
                 return (
                     message.lazy()
-                    .select(unnest_all(message.collect_schema()))
+                    .unnest(cs.struct(), separator=".")
                     .select(fields.keys())
                     .cast(df_schema)
                 ).collect()
