@@ -1,0 +1,41 @@
+#@yaml/text-templated-strings
+
+#@ camera_topics = {
+#@     "hawk_back": "/hawk_back/left/image_rect_resized",
+#@ }
+---
+_target_: rbyte.viz.loggers.RerunLogger
+_convert_: all
+_recursive_: false
+application_id: kion
+recording_name: [meta, input_id]
+spawn: true
+schema:
+  #@ topic = camera_topics.values()[0]
+  (@=topic@)/log_time:
+    _target_: rerun.TimeColumn
+    timestamp: [data, "(@=topic@)/log_time"]
+    dtype: datetime64[ns]
+
+  #@ for/end topic in camera_topics.values():
+  (@=topic@)/_idx_:
+    _target_: rerun.TimeColumn
+    sequence: [data, "(@=topic@)/_idx_"]
+
+  #@ for/end camera in camera_topics.keys():
+  (@=camera@):
+    - _target_: rerun.Image.columns
+      buffer: [data, (@=camera@)]
+
+    - static: true
+      _target_: rerun.Image.from_fields
+      format:
+        _target_: rerun.components.ImageFormat
+        height: 600
+        width: 960
+        color_model: RGB
+        channel_datatype: u8
+
+  /cmd_vel/linear.x:
+    - _target_: rerun.Scalars.columns
+      scalars: [data, /cmd_vel/linear.x]
