@@ -1,5 +1,5 @@
 from ._duckdb import DuckDBDataFrameQuery
-from ._numpy import NumpyTensorSource
+from ._numpy import NumpyTensorSource, frombuffer
 from .dataframe import (
     DataFrameAligner,
     DataFrameConcater,
@@ -19,6 +19,7 @@ __all__: list[str] = [
     "PathDataFrameBuilder",
     "PathTensorSource",
     "TreeBroadcastMapper",
+    "frombuffer",
 ]
 
 

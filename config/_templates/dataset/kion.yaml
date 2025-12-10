@@ -1,0 +1,125 @@
+#@yaml/text-templated-strings
+
+#@ inputs = [
+#@     "pallets_scenario000_run001",
+#@ ]
+
+#@ camera_topics = {
+#@     "hawk_back": "/hawk_back/left/image_rect_resized",
+#@ }
+---
+_target_: rbyte.Dataset.from_config
+_recursive_: false
+_convert_: all
+streams:
+  #@ for/end camera, topic in camera_topics.items():
+  (@=camera@):
+    index: (@=topic@)/_idx_
+    sources:
+      #@ for/end input_id in inputs:
+      (@=input_id@):
+        _target_: rbyte.io.McapTensorSource
+        path: "${data_dir}/(@=input_id@)/episode.mcap"
+        topic: (@=topic@)
+        decoder_factory: mcap_ros2.decoder.DecoderFactory
+        decoder:
+          _target_: rbyte.io.frombuffer
+          _partial_: true
+          dtype:
+            _target_: numpy.dtype
+          height: 600
+          width: 960
+          channels: 3
+
+samples:
+  inputs:
+    input_id:
+      #@ for/end input_id in inputs:
+      - (@=input_id@)
+
+    path:
+      #@ for/end input_id in inputs:
+      - "${data_dir}/(@=input_id@)/episode.mcap"
+
+  executor:
+    _target_: concurrent.futures.ProcessPoolExecutor
+    max_workers: 1
+    mp_context:
+      _target_: multiprocessing.get_context
+      method: forkserver
+
+  pipeline:
+    _target_: pipefunc.Pipeline
+    validate_type_annotations: false
+    functions:
+      - _target_: pipefunc.PipeFunc
+        output_name: data
+        mapspec: "path[i] -> ${.output_name}[i]"
+        func:
+          _target_: rbyte.io.McapDataFrameBuilder
+          decoder_factories:
+            - mcap_ros2.decoder.DecoderFactory
+          fields:
+            #@ for/end topic in camera_topics.values():
+            (@=topic@):
+              log_time:
+                _target_: polars.Datetime
+                time_unit: ns
+
+            /cmd_vel:
+              log_time:
+                _target_: polars.Datetime
+                time_unit: ns
+              linear.x:
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input: data
+        output_name: indexed
+        mapspec: "${.renames.input}[i] -> ${.output_name}[i]"
+        func:
+          _target_: rbyte.io.DataFrameIndexer
+          name: _idx_
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input: indexed
+        output_name: aligned
+        mapspec: "${.renames.input}[i] -> ${.output_name}[i]"
+        func:
+          _target_: makefun.create_function
+          func_signature: "align(input)"
+          func_impl:
+            _target_: rbyte.io.DataFrameAligner
+            separator: /
+            fields:
+              #@ topic = camera_topics.values()[0]
+              (@=topic@):
+                key: log_time
+
+              /cmd_vel:
+                key: log_time
+                columns:
+                  linear.x:
+                    method: interp
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          self: aligned
+        output_name: samples
+        mapspec: "${.renames.self}[i] -> ${.output_name}[i]"
+        func:
+          _target_: hydra.utils.get_method
+          path: polars.DataFrame.sql
+        bound:
+          query: |
+            SELECT * FROM self WHERE `/cmd_vel/linear.x` >= 0
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          keys: input_id
+          values: samples
+        output_name: samples_aggregated
+        func:
+          _target_: rbyte.io.DataFrameConcater
+          key_column: input_id

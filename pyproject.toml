@@ -48,7 +48,12 @@ build = ["hatchling>=1.27.0"]
 geo = ["polars-st==0.4.3"]
 hdf5 = ["h5py>=3.14.0"]
 jpeg = ["simplejpeg>=1.9.0"]
-mcap = ["mcap>=1.3.0", "mcap-protobuf-support>=0.5.3", "protobuf"]
+mcap = [
+  "mcap>=1.3.0",
+  "mcap-protobuf-support>=0.5.3",
+  "protobuf",
+  "mcap-ros2-support>=0.5.6"
+]
 protos = ["grpcio-tools==1.71.0", "protoletariat>=3.3.10"]
 video = ["torchcodec>=0.8.1"]
 visualize = [
