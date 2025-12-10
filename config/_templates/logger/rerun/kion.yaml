@@ -39,3 +39,7 @@ schema:
   /cmd_vel/linear.x:
     - _target_: rerun.Scalars.columns
       scalars: [data, /cmd_vel/linear.x]
+
+  /cmd_vel/angular.z:
+    - _target_: rerun.Scalars.columns
+      scalars: [data, /cmd_vel/angular.z]

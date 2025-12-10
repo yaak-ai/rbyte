@@ -71,6 +71,7 @@ samples:
                 _target_: polars.Datetime
                 time_unit: ns
               linear.x:
+              angular.z:
 
       - _target_: pipefunc.PipeFunc
         renames:
@@ -101,6 +102,9 @@ samples:
                 key: log_time
                 columns:
                   linear.x:
+                    method: asof
+                    strategy: nearest
+                  angular.z:
                     method: asof
                     strategy: nearest
 
