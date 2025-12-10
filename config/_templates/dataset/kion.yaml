@@ -101,7 +101,8 @@ samples:
                 key: log_time
                 columns:
                   linear.x:
-                    method: interp
+                    method: asof
+                    strategy: nearest
 
       - _target_: pipefunc.PipeFunc
         renames:
