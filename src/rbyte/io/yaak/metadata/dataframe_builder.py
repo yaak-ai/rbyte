@@ -30,7 +30,7 @@ type Fields = dict[
 
 @final
 class YaakMetadataDataFrameBuilder:
-    __name__ = __qualname__  # ty: ignore[unresolved-reference]
+    __name__ = __qualname__
 
     @validate_call
     def __init__(self, *, fields: Fields) -> None:
@@ -65,7 +65,8 @@ class YaakMetadataDataFrameBuilder:
                 msg.obj.__name__: cast(
                     pl.DataFrame,
                     pl.from_arrow(
-                        data=handler_pool.get_for_message(msg.obj.DESCRIPTOR)  # ty: ignore[invalid-argument-type]
+                        data=handler_pool
+                        .get_for_message(msg.obj.DESCRIPTOR)  # ty: ignore[invalid-argument-type]
                         .list_to_record_batch([
                             msg_data
                             for (_, msg_data) in tqdm(

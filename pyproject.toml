@@ -1,6 +1,6 @@
 [project]
 name = "rbyte"
-version = "0.34.4"
+version = "0.34.5"
 description = "Multimodal PyTorch dataset library"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
@@ -55,7 +55,7 @@ visualize = [
   "einops>=0.8.1",
   "rerun-sdk[notebook]>=0.27.2",
 ]
-yaak = ["ptars>=0.0.5", "protobuf"]
+yaak = ["ptars==0.0.5", "protobuf"]
 
 [dependency-groups]
 dev = [
@@ -72,8 +72,8 @@ dev = [
   "wat-inspector>=0.4.3",
 ]
 check = [
-  "ruff>=0.14.6",
-  "ty>=0.0.1a32",
+  "ruff>=0.14.10",
+  "ty>=0.0.7",
 ]
 test = [
   "dill>=0.4.0",

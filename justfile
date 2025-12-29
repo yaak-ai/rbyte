@@ -17,7 +17,7 @@ sync:
 setup: sync
     git submodule update --init --recursive --force --remote
     git lfs pull
-    uvx prek install
+    uvx prek@latest install
 
 build:
     uv build
@@ -28,7 +28,7 @@ check:
     uv run ty check
 
 prek *ARGS: build
-    uvx prek --all-files {{ ARGS }}
+    uvx prek@latest --all-files {{ ARGS }}
 
 generate-config:
     ytt --file {{ justfile_directory() }}/config/_templates \

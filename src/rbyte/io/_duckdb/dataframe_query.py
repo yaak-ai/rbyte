@@ -39,7 +39,7 @@ DuckDBQueryParameter = (
 
 @final
 class DuckDBDataFrameQuery:
-    __name__ = __qualname__  # ty: ignore[unresolved-reference]
+    __name__ = __qualname__
 
     @validate_call
     def __init__(

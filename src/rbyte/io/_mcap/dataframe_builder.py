@@ -38,7 +38,7 @@ class SpecialField(StrEnum):
 
 @final
 class McapDataFrameBuilder:
-    __name__ = __qualname__  # ty: ignore[unresolved-reference]
+    __name__ = __qualname__
 
     @validate_call
     def __init__(
@@ -103,7 +103,7 @@ class McapDataFrameBuilder:
             ):
                 schema = self._fields[dmt.channel.topic]
                 message_fields, special_fields = map(
-                    dict,
+                    dict,  # ty:ignore[invalid-argument-type]
                     mit.partition(lambda kv: kv[0] in SpecialField, schema.items()),
                 )
 
@@ -138,7 +138,8 @@ class McapDataFrameBuilder:
         match message:
             case pl.DataFrame():
                 return (
-                    message.lazy()
+                    message
+                    .lazy()
                     .unnest(cs.struct(), separator=".")
                     .select(fields.keys())
                     .cast(df_schema)

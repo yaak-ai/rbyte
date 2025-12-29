@@ -18,7 +18,7 @@ class DataFrameGroupByDynamic:
     Build samples using `polars.DataFrame.group_by_dynamic`.
     """
 
-    __name__ = __qualname__  # ty: ignore[unresolved-reference]
+    __name__ = __qualname__
 
     @validate_call
     def __init__(  # noqa: PLR0913
@@ -71,7 +71,8 @@ class DataFrameGroupByDynamic:
 
     def _build(self, input: pl.DataFrame) -> pl.DataFrame:
         return (
-            input.lazy()
+            input
+            .lazy()
             .sort(self._index_column)
             .with_columns(self._index_column.alias(self._index_column_tmp))
             .group_by_dynamic(

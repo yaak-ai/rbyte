@@ -9,7 +9,7 @@ from pydantic import validate_call
 
 @final
 class DataFrameConcater:
-    __name__ = __qualname__  # ty: ignore[unresolved-reference]
+    __name__ = __qualname__
 
     @validate_call
     def __init__(

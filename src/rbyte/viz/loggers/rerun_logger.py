@@ -148,7 +148,8 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
             kwargs: dict[str, Any] = {}
             for k, k_data in config.model_extra.items():
                 v = (
-                    torch.atleast_1d(data[*k_data][column_indices].flatten())  # ty: ignore[invalid-argument-type]
+                    torch
+                    .atleast_1d(data[*k_data][column_indices].flatten())  # ty: ignore[invalid-argument-type]
                     .cpu()
                     .numpy()
                 )

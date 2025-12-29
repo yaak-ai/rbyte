@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 @final
 class WaypointBuilder:
-    __name__ = __qualname__  # ty: ignore[unresolved-reference]
+    __name__ = __qualname__
 
     @dataclass
     class Columns:
@@ -39,7 +39,8 @@ class WaypointBuilder:
         )
 
         return (
-            lf.rolling(
+            lf
+            .rolling(
                 self._index_column,
                 period=f"{self._length}i",
                 offset="0i",

@@ -18,7 +18,7 @@ type Fields = dict[str, InstanceOf[DataType] | None] | dict[str, Fields]
 
 @final
 class Hdf5DataFrameBuilder:
-    __name__ = __qualname__  # ty: ignore[unresolved-reference]
+    __name__ = __qualname__
 
     @validate_call
     def __init__(self, fields: Fields) -> None:
@@ -53,6 +53,8 @@ class Hdf5DataFrameBuilder:
             return tree_map(
                 pl.DataFrame,
                 series,
-                is_leaf=lambda obj: isinstance(obj, dict)
-                and all(isinstance(v, pl.Series) or v is None for v in obj.values()),
+                is_leaf=lambda obj: (
+                    isinstance(obj, dict)
+                    and all(isinstance(v, pl.Series) or v is None for v in obj.values())
+                ),
             )

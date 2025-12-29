@@ -92,16 +92,16 @@ class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
         samples: PipelineInstanceConfig | PipelineHydraConfig,
         streams: StreamsConfig | None = None,
     ) -> Self:
-        samples = cls._build_samples(samples)
-        samples = MetaSchema.validate(samples)
+        sample_df = cls._build_samples(samples)
+        sample_df = MetaSchema.validate(sample_df)
 
         data = TensorDict(
-            samples.select(pl.exclude(MetaSchema.columns()).to_physical()).to_torch(
+            sample_df.select(pl.exclude(MetaSchema.columns()).to_physical()).to_torch(
                 return_type="dict"
             )
         )
 
-        meta = samples.select(MetaSchema.columns()).rechunk()
+        meta = sample_df.select(MetaSchema.columns()).rechunk()
 
         return cls(data=data, meta=meta, streams=streams)
 
@@ -224,7 +224,7 @@ class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
 
     @classmethod
     @validate_call
-    def load(cls, path: DirectoryPath) -> None:
+    def load(cls, path: DirectoryPath) -> Self:
         logger.debug("loading dataset", path=path.resolve().as_posix())
         data = TensorDict.load_memmap(path / "data", robust_key=True)
         meta = pl.read_parquet(path / "meta.parquet")
