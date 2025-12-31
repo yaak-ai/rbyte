@@ -33,8 +33,7 @@ class PathTensorSource(TensorSource[object]):
         return self._path.resolve().as_posix()
 
     def _decode(self, path: str) -> npt.ArrayLike:
-        with Path(path).open("rb") as f:
-            return self._decoder(f.read())
+        return self._decoder(Path(path).read_bytes())
 
     def _getitem(self, index: object) -> Tensor:
         if self._index_transform is not None:

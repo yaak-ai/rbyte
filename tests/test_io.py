@@ -3,10 +3,7 @@ from pathlib import Path
 import polars as pl
 from polars.testing import assert_frame_equal
 
-from rbyte.io import (
-    PathDataFrameBuilder,
-    YaakMetadataDataFrameBuilder,  # ty: ignore[possibly-missing-import]
-)
+from rbyte.io import PathDataFrameBuilder, YaakMetadataDataFrameBuilder
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 CAMERA_ENUM = pl.Enum(

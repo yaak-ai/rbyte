@@ -49,7 +49,7 @@ type Fields = OrderedDict[str, AlignConfig | Fields]
 
 @final
 class DataFrameAligner:
-    __name__ = __qualname__  # ty: ignore[unresolved-reference]
+    __name__ = __qualname__
 
     @validate_call
     def __init__(self, *, fields: Fields, separator: str = "/") -> None:
@@ -134,7 +134,8 @@ class DataFrameAligner:
 
                         df = (
                             # take a union of timestamps
-                            df.join(
+                            df
+                            .join(
                                 other.select(right_on, column),
                                 how="full",
                                 left_on=left_on,

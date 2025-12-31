@@ -62,7 +62,7 @@ class Config(BaseModel):
 
 @final
 class PathDataFrameBuilder:
-    __name__ = __qualname__  # ty: ignore[unresolved-reference]
+    __name__ = __qualname__
 
     def __init__(self, *, fields: Fields, pattern: str) -> None:
         self._config = Config(fields=fields, pattern=pattern)
@@ -81,9 +81,11 @@ class PathDataFrameBuilder:
 
     def _build(self, path: str) -> pl.DataFrame:
         return (
-            pl.LazyFrame({"path": scantree(path)})
+            pl
+            .LazyFrame({"path": scantree(path)})
             .select(
-                pl.col("path")
+                pl
+                .col("path")
                 .str.strip_prefix(path)
                 .str.strip_prefix("/")
                 .str.extract_groups(self._config.pattern)

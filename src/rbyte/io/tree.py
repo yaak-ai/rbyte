@@ -6,7 +6,7 @@ from optree import PyTree, tree_broadcast_map
 class TreeBroadcastMapper:
     """A `pipefunc.PipeFunc`-friendly wrapper of `optree.tree_broadcast_map`."""
 
-    __name__ = __qualname__  # ty: ignore[unresolved-reference]
+    __name__ = __qualname__
 
     def __call__[T, U](  # noqa: PLR0913
         self,

@@ -17,7 +17,7 @@ type Fields = dict[Literal["frame_idx"], InstanceOf[IntegerType]]
 
 @final
 class VideoDataFrameBuilder:
-    __name__ = __qualname__  # ty: ignore[unresolved-reference]
+    __name__ = __qualname__
 
     @validate_call
     def __init__(self, fields: Fields) -> None:
