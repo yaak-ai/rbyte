@@ -1,7 +1,7 @@
 from collections import OrderedDict
 from datetime import timedelta
 from functools import cached_property
-from typing import Literal, final
+from typing import Literal, TypeAlias, final
 from uuid import uuid4
 
 import polars as pl
@@ -44,7 +44,7 @@ class AlignConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-type Fields = OrderedDict[str, AlignConfig | Fields]
+Fields: TypeAlias = "OrderedDict[str, AlignConfig | Fields]"
 
 
 @final

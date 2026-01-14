@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from os import PathLike
-from typing import final
+from typing import TypeAlias, final
 
 import polars as pl
 from h5py import Dataset, File
@@ -13,7 +13,7 @@ from structlog.contextvars import bound_contextvars
 logger = get_logger(__name__)
 
 
-type Fields = dict[str, InstanceOf[DataType] | None] | dict[str, Fields]
+Fields: TypeAlias = "dict[str, InstanceOf[DataType] | None] | dict[str, Fields]"
 
 
 @final

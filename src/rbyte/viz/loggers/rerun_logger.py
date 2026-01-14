@@ -2,7 +2,7 @@ import math
 from collections.abc import Callable, Iterable, Sequence
 from functools import cached_property
 from math import prod
-from typing import Annotated, Any, Literal, TypeVar, cast, override
+from typing import Annotated, Any, Generic, Literal, TypeVar, cast
 
 import rerun as rr
 import rerun.blueprint as rrb
@@ -22,6 +22,7 @@ from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from tensordict import TensorClass, TensorDict
 from torch import Tensor, uint8
+from typing_extensions import override
 
 from rbyte.config import HydraConfig
 
@@ -33,7 +34,7 @@ logger = get_logger(__name__)
 T = TypeVar("T")
 
 
-class MethodHydraConfig[T](HydraConfig[T]):
+class MethodHydraConfig(HydraConfig[T], Generic[T]):
     target: Annotated[Callable[..., T], BeforeValidator(get_method)] = Field(
         alias="_target_"
     )

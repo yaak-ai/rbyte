@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from functools import cached_property
 from mmap import ACCESS_READ, mmap
 from operator import itemgetter
-from typing import IO, final, override
+from typing import IO, final
 
 import more_itertools as mit
 import numpy.typing as npt
@@ -18,6 +18,7 @@ from pydantic import FilePath, ImportString, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from torch import Tensor
+from typing_extensions import override
 
 from rbyte.types import TensorSource
 

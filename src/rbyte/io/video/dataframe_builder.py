@@ -1,6 +1,6 @@
 from os import PathLike
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, final
+from typing import TYPE_CHECKING, Literal, TypeAlias, final
 
 import polars as pl
 from pydantic import InstanceOf, validate_call
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-type Fields = dict[Literal["frame_idx"], InstanceOf[IntegerType]]
+Fields: TypeAlias = "dict[Literal['frame_idx'], InstanceOf[IntegerType]]"
 
 
 @final

@@ -6,7 +6,7 @@ from mmap import ACCESS_READ, mmap
 from operator import attrgetter
 from os import PathLike
 from pathlib import Path
-from typing import NamedTuple, final
+from typing import NamedTuple, TypeAlias, final
 
 import more_itertools as mit
 import polars as pl
@@ -22,7 +22,7 @@ from tqdm import tqdm
 logger = get_logger(__name__)
 
 
-type Fields = dict[str, dict[str, InstanceOf[DataType] | None]]
+Fields: TypeAlias = "dict[str, dict[str, InstanceOf[DataType] | None]]"
 
 
 class RowValues(NamedTuple):

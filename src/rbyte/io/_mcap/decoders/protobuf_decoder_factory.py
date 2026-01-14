@@ -1,6 +1,5 @@
 from collections.abc import Callable
 from operator import attrgetter
-from typing import override
 
 import more_itertools as mit
 import polars as pl
@@ -18,6 +17,7 @@ from mcap.records import Schema
 from mcap.well_known import MessageEncoding, SchemaEncoding
 from ptars import HandlerPool
 from structlog import get_logger
+from typing_extensions import override
 
 logger = get_logger(__name__)
 

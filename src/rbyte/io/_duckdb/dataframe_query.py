@@ -3,7 +3,7 @@ import threading
 from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Annotated, Any, final, override
+from typing import Annotated, Any, final
 
 import duckdb
 import more_itertools as mit
@@ -11,6 +11,7 @@ import polars as pl
 from duckdb import DuckDBPyConnection, Statement, StatementType
 from pydantic import AfterValidator, InstanceOf, validate_call
 from structlog import get_logger
+from typing_extensions import override
 
 logger = get_logger(__name__)
 

@@ -1,10 +1,11 @@
 from collections.abc import Sequence
-from typing import Annotated, Literal, final, override
+from typing import Annotated, Literal, final
 
 import torch
 from pydantic import AfterValidator, FilePath, InstanceOf, validate_call
 from torch import Tensor
 from torchcodec.decoders import VideoDecoder, set_cuda_backend
+from typing_extensions import override
 
 from rbyte.types import TensorSource
 

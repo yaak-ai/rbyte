@@ -2,12 +2,13 @@ import struct
 from collections.abc import Iterator
 from collections.abc import Set as AbstractSet
 from mmap import mmap
-from typing import BinaryIO, ClassVar, Self, override
+from typing import BinaryIO, ClassVar
 
 from google.protobuf.message import Message
 from pydantic import InstanceOf, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
+from typing_extensions import Self, override
 
 from rbyte.io.yaak.proto import can_pb2, sensor_pb2
 

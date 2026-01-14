@@ -1,10 +1,11 @@
 from collections.abc import Sequence
-from typing import cast, final, override
+from typing import cast, final
 
 import torch
 from h5py import Dataset, File
 from pydantic import FilePath, validate_call
 from torch import Tensor
+from typing_extensions import override
 
 from rbyte.types import TensorSource
 

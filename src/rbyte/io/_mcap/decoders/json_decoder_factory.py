@@ -1,10 +1,10 @@
 from collections.abc import Callable
-from typing import override
 
 import polars as pl
 from mcap.decoder import DecoderFactory as McapDecoderFactory
 from mcap.records import Schema
 from structlog import get_logger
+from typing_extensions import override
 
 logger = get_logger(__name__)
 

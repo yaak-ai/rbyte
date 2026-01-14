@@ -9,12 +9,12 @@ from strenum import StrEnum
 try:
     from typing import Self  # py>=3.11
 except ImportError:  # py<=3.10
-    from typing import Self
+    from typing_extensions import Self
 
 try:
     from typing import override  # py>=3.12
 except ImportError:  # py<=3.11
-    from typing import override
+    from typing_extensions import override
 
 from io import BytesIO
 

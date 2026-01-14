@@ -25,14 +25,16 @@ dependencies = [
   "more-itertools>=10.8.0",
   "numpy",
   "optree>=0.18.0",
-  "pipefunc[autodoc]>=0.89.0",
+  "pipefunc[autodoc]>=0.87.0",
   "polars>=1.36.0",
   "pydantic>=2.12.5",
+  "strenum>=0.4.15",
   "structlog>=25.4.0",
   "tensordict-nightly==2025.9.24",  # https://github.com/pytorch/tensordict/issues/1440
   "torch",
   "torchdata>=0.11.0",
   "tqdm>=4.67.1",
+  "typing-extensions>=4.15.0",
   "xxhash>=3.6.0",
 ]
 
@@ -62,7 +64,7 @@ dev = [
   "better-exceptions>=0.3.3",
   "graphviz-anywidget>=0.8.0",
   "ipykernel>=6.29.5",
-  "ipython>=9.3.0",
+  "ipython>=8.1.0",
   "ipython-autoimport>=0.5.1",
   "jupyterlab>=4.4.5",
   "jupyterlab-vim>=4.1.4",
@@ -115,7 +117,7 @@ output-format = "grouped"
 preview = true
 fix = true
 unsafe-fixes = true
-target-version = "py312"
+target-version = "py310"
 
 [tool.ruff.format]
 preview = true

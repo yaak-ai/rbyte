@@ -2,13 +2,14 @@ from collections.abc import Callable, Sequence
 from functools import cached_property
 from os import PathLike
 from pathlib import Path
-from typing import final, override
+from typing import final
 
 import numpy as np
 import torch
 from numpy.lib.recfunctions import structured_to_unstructured
 from pydantic import validate_call
 from torch import Tensor
+from typing_extensions import override
 
 from rbyte.types import TensorSource
 

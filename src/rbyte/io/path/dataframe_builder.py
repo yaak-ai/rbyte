@@ -1,7 +1,7 @@
 import os
 from collections.abc import Iterator
 from functools import cached_property
-from typing import Self, final
+from typing import TypeAlias, final
 
 import polars as pl
 from optree import tree_map
@@ -17,12 +17,13 @@ from pydantic import (
 )
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
+from typing_extensions import Self
 from xxhash import xxh3_64_hexdigest as digest
 
 logger = get_logger(__name__)
 
 
-type Fields = dict[str, InstanceOf[DataType] | None]
+Fields: TypeAlias = "dict[str, InstanceOf[DataType] | None]"
 
 
 def scantree(path: str) -> Iterator[str]:

@@ -1,7 +1,7 @@
 from concurrent.futures import Executor
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Literal, Self, TypeVar, override
+from typing import Any, Generic, Literal, TypeAlias, TypeVar
 
 from hydra.utils import instantiate
 from pipefunc import Pipeline
@@ -15,13 +15,14 @@ from pydantic import (
     TypeAdapter,
     model_validator,
 )
+from typing_extensions import Self, override
 
 from rbyte.types import TensorSource
 
 T = TypeVar("T")
 
 
-class HydraConfig[T](BaseModel):
+class HydraConfig(BaseModel, Generic[T]):
     target: ImportString[type[T]] = Field(
         serialization_alias="_target_", validation_alias="_target_"
     )
@@ -37,7 +38,7 @@ class HydraConfig[T](BaseModel):
         return instantiate(self.model_dump(by_alias=True), **kwargs)
 
 
-class PickleableImportString[T](BaseModel):
+class PickleableImportString(BaseModel, Generic[T]):
     obj: ImportString[T]
     _path: str
 
@@ -70,7 +71,7 @@ class StreamConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-type StreamsConfig = dict[str, StreamConfig]
+StreamsConfig: TypeAlias = dict[str, StreamConfig]
 
 
 class BasePipelineConfig(BaseModel):

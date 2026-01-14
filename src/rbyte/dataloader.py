@@ -1,5 +1,5 @@
 from collections.abc import Callable, Iterable, Sequence, Sized
-from typing import Any, Literal, Protocol, TypeVar, runtime_checkable
+from typing import Any, Generic, Literal, Protocol, TypeVar, runtime_checkable
 
 import torchdata.nodes as tn
 from pydantic import InstanceOf, PositiveInt, validate_call
@@ -15,7 +15,7 @@ from torchdata.nodes.loader import LoaderIterator
 T = TypeVar("T")
 
 
-def collate_identity[T](x: T) -> T:
+def collate_identity(x: T) -> T:
     return x
 
 
@@ -25,7 +25,7 @@ class BatchIndexableDataset(Protocol):
     def __len__(self) -> int: ...
 
 
-class MapAndCollate[T]:
+class MapAndCollate(Generic[T]):
     @validate_call
     def __init__(
         self,
@@ -40,7 +40,7 @@ class MapAndCollate[T]:
         return self._collate_fn(batch)
 
 
-class TorchDataNodeDataLoader[T](Iterable[T], Sized):
+class TorchDataNodeDataLoader(Iterable[T], Sized, Generic[T]):
     """https://meta-pytorch.org/data/main/migrate_to_nodes_from_utils.html"""
 
     @validate_call

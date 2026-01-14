@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Protocol, runtime_checkable
+from typing import Generic, Protocol, TypeVar, runtime_checkable
 
 from tensordict import NonTensorStack, TensorClass, TensorDict
 from torch import Tensor
@@ -14,7 +14,10 @@ class Batch(TensorClass, autocast=True):
     meta: BatchMeta | None = None
 
 
+IndexT = TypeVar("IndexT")
+
+
 @runtime_checkable
-class TensorSource[I](Protocol):
-    def __getitem__(self, indexes: I | Sequence[I]) -> Tensor: ...
+class TensorSource(Protocol, Generic[IndexT]):
+    def __getitem__(self, indexes: IndexT | Sequence[IndexT]) -> Tensor: ...
     def __len__(self) -> int: ...

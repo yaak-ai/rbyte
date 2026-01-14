@@ -2,11 +2,10 @@ from mmap import ACCESS_READ, mmap
 from operator import itemgetter
 from os import PathLike
 from pathlib import Path
-from typing import TYPE_CHECKING, cast, final
+from typing import TYPE_CHECKING, TypeAlias, cast, final
 
 import more_itertools as mit
 import polars as pl
-from polars.datatypes import DataType
 from ptars import HandlerPool
 from pydantic import InstanceOf, validate_call
 from structlog import get_logger
@@ -14,20 +13,20 @@ from structlog.contextvars import bound_contextvars
 from tqdm import tqdm
 from xxhash import xxh3_64_hexdigest as digest
 
-from rbyte.config import PickleableImportString
 from rbyte.io.yaak.proto import sensor_pb2
 
 from .message_iterator import YaakMetadataMessageIterator
 
 if TYPE_CHECKING:
     from google.protobuf.message import Message
+    from polars.datatypes import DataType
+
+    from rbyte.config import PickleableImportString
 
 logger = get_logger(__name__)
 
 
-type Fields = dict[
-    PickleableImportString[type[Message]], dict[str, InstanceOf[DataType] | None]
-]
+Fields: TypeAlias = "dict[PickleableImportString[type[Message]], dict[str, InstanceOf[DataType] | None]]"
 
 
 @final

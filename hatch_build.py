@@ -3,11 +3,12 @@ from collections.abc import Generator
 from importlib import resources
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Any, final, override
+from typing import Any, final
 
 from grpc_tools import protoc
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 from protoletariat.fdsetgen import Raw
+from typing_extensions import override
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
