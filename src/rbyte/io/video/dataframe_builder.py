@@ -1,13 +1,15 @@
 from os import PathLike
 from pathlib import Path
-from typing import Literal, final
+from typing import TYPE_CHECKING, Literal, final
 
 import polars as pl
-from polars.datatypes import IntegerType
 from pydantic import InstanceOf, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from torchcodec.decoders import VideoDecoder
+
+if TYPE_CHECKING:
+    from polars.datatypes import IntegerType
 
 logger = get_logger(__name__)
 

@@ -2,7 +2,7 @@ import math
 from collections.abc import Callable, Iterable, Sequence
 from functools import cached_property
 from math import prod
-from typing import Annotated, Any, Literal, cast, override
+from typing import Annotated, Any, Literal, TypeVar, cast, override
 
 import rerun as rr
 import rerun.blueprint as rrb
@@ -28,6 +28,9 @@ from rbyte.config import HydraConfig
 from .base import Logger
 
 logger = get_logger(__name__)
+
+
+T = TypeVar("T")
 
 
 class MethodHydraConfig[T](HydraConfig[T]):

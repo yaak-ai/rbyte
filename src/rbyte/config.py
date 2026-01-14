@@ -1,7 +1,7 @@
 from concurrent.futures import Executor
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Literal, Self, override
+from typing import Any, Literal, Self, TypeVar, override
 
 from hydra.utils import instantiate
 from pipefunc import Pipeline
@@ -17,6 +17,8 @@ from pydantic import (
 )
 
 from rbyte.types import TensorSource
+
+T = TypeVar("T")
 
 
 class HydraConfig[T](BaseModel):

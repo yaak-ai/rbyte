@@ -1,9 +1,22 @@
 import math
 from collections.abc import Sequence
 from concurrent.futures import Executor
-from enum import StrEnum, auto, unique
+from enum import auto, unique
+from typing import TYPE_CHECKING, Annotated, Any
+
+from strenum import StrEnum
+
+try:
+    from typing import Self  # py>=3.11
+except ImportError:  # py<=3.10
+    from typing import Self
+
+try:
+    from typing import override  # py>=3.12
+except ImportError:  # py<=3.11
+    from typing import override
+
 from io import BytesIO
-from typing import TYPE_CHECKING, Annotated, Any, Self, override
 
 import checkedframe as cf
 import polars as pl

@@ -1,4 +1,6 @@
-from typing import Protocol, runtime_checkable
+from typing import Protocol, TypeVar, runtime_checkable
+
+T = TypeVar("T")
 
 
 @runtime_checkable

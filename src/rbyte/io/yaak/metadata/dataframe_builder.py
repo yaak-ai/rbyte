@@ -2,11 +2,10 @@ from mmap import ACCESS_READ, mmap
 from operator import itemgetter
 from os import PathLike
 from pathlib import Path
-from typing import cast, final
+from typing import TYPE_CHECKING, cast, final
 
 import more_itertools as mit
 import polars as pl
-from google.protobuf.message import Message
 from polars.datatypes import DataType
 from ptars import HandlerPool
 from pydantic import InstanceOf, validate_call
@@ -19,6 +18,9 @@ from rbyte.config import PickleableImportString
 from rbyte.io.yaak.proto import sensor_pb2
 
 from .message_iterator import YaakMetadataMessageIterator
+
+if TYPE_CHECKING:
+    from google.protobuf.message import Message
 
 logger = get_logger(__name__)
 

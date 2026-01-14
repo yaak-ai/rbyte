@@ -1,5 +1,5 @@
 from collections.abc import Callable, Iterable, Sequence, Sized
-from typing import Any, Literal, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, TypeVar, runtime_checkable
 
 import torchdata.nodes as tn
 from pydantic import InstanceOf, PositiveInt, validate_call
@@ -11,6 +11,8 @@ from torch.utils.data import (
     default_collate,
 )
 from torchdata.nodes.loader import LoaderIterator
+
+T = TypeVar("T")
 
 
 def collate_identity[T](x: T) -> T:
