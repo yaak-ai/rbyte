@@ -3,7 +3,7 @@ name = "rbyte"
 version = "0.34.5"
 description = "Multimodal PyTorch dataset library"
 readme = "README.md"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.10,<3.13"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
 maintainers = [{ name = "Evgenii Gorchakov", email = "evgenii@yaak.ai" }]
