@@ -1,4 +1,5 @@
 import logging
+import subprocess
 from collections.abc import Generator
 from importlib import resources
 from pathlib import Path
@@ -12,6 +13,22 @@ from typing_extensions import override
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
+
+
+def _fetch_submodules() -> None:
+    """Fetch git submodules before building."""
+    repo_root = Path(__file__).resolve().parent
+    logger.info("Fetching git submodules...")
+    result = subprocess.run(
+        ["git", "submodule", "update", "--init", "--recursive"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        logger.warning("Failed to fetch submodules: %s", result.stderr)
+    else:
+        logger.info("Submodules fetched successfully")
 
 
 @final
@@ -40,6 +57,7 @@ class BuildYaakIdlProtosHook(BuildHookInterface):
 
     @override
     def initialize(self, version: str, build_data: dict[str, Any]) -> None:
+        _fetch_submodules()
         self._build_yaak_idl_protos()
 
     @classmethod
