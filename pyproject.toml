@@ -107,6 +107,10 @@ require-runtime-features = ["protos"]
 packages = ["src/rbyte"]
 artifacts = ["src/rbyte/io/yaak/proto/*_pb2.py*"]
 
+[tool.hatch.build.targets.wheel.hooks.custom]
+enable-by-default = true
+require-runtime-features = ["protos"]
+
 [tool.pytest]
 addopts = ["--import-mode=importlib", "-ra", "-vv"]
 testpaths = ["tests"]

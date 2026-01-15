@@ -57,6 +57,11 @@ class BuildYaakIdlProtosHook(BuildHookInterface):
 
     @override
     def initialize(self, version: str, build_data: dict[str, Any]) -> None:
+        # Skip proto generation if all generated files already exist (e.g., building wheel from sdist)
+        if all(path.exists() for path in self._get_yaak_idl_proto_paths()):
+            logger.info("Proto files already exist, skipping generation")
+            return
+
         _fetch_submodules()
         self._build_yaak_idl_protos()
 
