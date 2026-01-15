@@ -1,27 +1,25 @@
+from __future__ import annotations
+
 from collections.abc import Sequence
 from os import PathLike
-from typing import TypeAlias, final
+from typing import Any, final
 
 import polars as pl
 from h5py import Dataset, File
 from optree import PyTree, tree_map, tree_map_with_path
 from polars.datatypes import DataType
-from pydantic import InstanceOf, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 
 logger = get_logger(__name__)
 
 
-Fields: TypeAlias = "dict[str, InstanceOf[DataType] | None] | dict[str, Fields]"
-
-
 @final
 class Hdf5DataFrameBuilder:
     __name__ = __qualname__
 
-    @validate_call
-    def __init__(self, fields: Fields) -> None:
+    def __init__(self, fields: Any) -> None:
+        # fields is PyTree[Union[InstanceOf[DataType], None]] - recursive type not supported by @validate_call in Python 3.10
         self._fields = fields
 
     def __call__(self, path: PathLike[str], prefix: str = "/") -> PyTree[pl.DataFrame]:

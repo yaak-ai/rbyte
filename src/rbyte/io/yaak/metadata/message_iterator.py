@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import struct
 from collections.abc import Iterator
 from collections.abc import Set as AbstractSet

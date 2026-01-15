@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Callable, Iterable, Sequence, Sized
 from typing import Any, Generic, Literal, Protocol, TypeVar, runtime_checkable
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from concurrent.futures import Executor
 from copy import deepcopy
 from pathlib import Path

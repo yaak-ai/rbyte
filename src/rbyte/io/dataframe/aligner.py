@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 from collections import OrderedDict
 from datetime import timedelta
 from functools import cached_property
-from typing import Literal, TypeAlias, final
+from typing import Any, Literal, Union, final
 from uuid import uuid4
 
 import polars as pl
@@ -14,7 +16,7 @@ from optree import (
     tree_map_with_path,
 )
 from polars._typing import AsofJoinStrategy
-from pydantic import BaseModel, ConfigDict, Field, validate_call
+from pydantic import BaseModel, ConfigDict, Field
 from structlog import get_logger
 
 logger = get_logger(__name__)
@@ -34,7 +36,7 @@ class AsofColumnAlignConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-ColumnAlignConfig = InterpColumnAlignConfig | AsofColumnAlignConfig
+ColumnAlignConfig = Union[InterpColumnAlignConfig, AsofColumnAlignConfig]
 
 
 class AlignConfig(BaseModel):
@@ -44,15 +46,12 @@ class AlignConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-Fields: TypeAlias = "OrderedDict[str, AlignConfig | Fields]"
-
-
 @final
 class DataFrameAligner:
     __name__ = __qualname__
 
-    @validate_call
-    def __init__(self, *, fields: Fields, separator: str = "/") -> None:
+    def __init__(self, *, fields: Any, separator: str = "/") -> None:
+        # fields is PyTree[AlignConfig] - recursive type not supported by @validate_call in Python 3.10
         self._fields = fields
         self._separator = separator
 

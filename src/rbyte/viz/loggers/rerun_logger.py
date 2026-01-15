@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import math
 from collections.abc import Callable, Iterable, Sequence
 from functools import cached_property
 from math import prod
-from typing import Annotated, Any, Generic, Literal, TypeVar, cast
+from typing import Annotated, Any, Generic, Literal, TypeVar, Union, cast
 
 import rerun as rr
 import rerun.blueprint as rrb
@@ -48,7 +50,7 @@ class StaticSchemaItem(MethodHydraConfig[rr.AsComponents]):
     static: Literal[True] = Field(exclude=True)
 
 
-Indices = tuple[int, ...] | tuple[str, ...]
+Indices = Union[tuple[int, ...], tuple[str, ...]]
 
 
 class ComponentColumnSchemaItem(MethodHydraConfig[rr.ComponentColumnList]):

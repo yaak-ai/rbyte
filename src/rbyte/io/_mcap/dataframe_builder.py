@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from enum import StrEnum, unique
@@ -6,7 +8,7 @@ from mmap import ACCESS_READ, mmap
 from operator import attrgetter
 from os import PathLike
 from pathlib import Path
-from typing import NamedTuple, TypeAlias, final
+from typing import NamedTuple, TypeAlias, Union, final
 
 import more_itertools as mit
 import polars as pl
@@ -22,7 +24,7 @@ from tqdm import tqdm
 logger = get_logger(__name__)
 
 
-Fields: TypeAlias = "dict[str, dict[str, InstanceOf[DataType] | None]]"
+Fields: TypeAlias = "dict[str, dict[str, Union[InstanceOf[DataType], None]]]"
 
 
 class RowValues(NamedTuple):

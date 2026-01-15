@@ -1,13 +1,14 @@
+from __future__ import annotations
+
 from mmap import ACCESS_READ, mmap
 from operator import itemgetter
 from os import PathLike
 from pathlib import Path
-from typing import TYPE_CHECKING, TypeAlias, cast, final
+from typing import Any, cast, final
 
 import more_itertools as mit
 import polars as pl
 from ptars import HandlerPool
-from pydantic import InstanceOf, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from tqdm import tqdm
@@ -17,24 +18,16 @@ from rbyte.io.yaak.proto import sensor_pb2
 
 from .message_iterator import YaakMetadataMessageIterator
 
-if TYPE_CHECKING:
-    from google.protobuf.message import Message
-    from polars.datatypes import DataType
-
-    from rbyte.config import PickleableImportString
-
 logger = get_logger(__name__)
-
-
-Fields: TypeAlias = "dict[PickleableImportString[type[Message]], dict[str, InstanceOf[DataType] | None]]"
 
 
 @final
 class YaakMetadataDataFrameBuilder:
     __name__ = __qualname__
 
-    @validate_call
-    def __init__(self, *, fields: Fields) -> None:
+    def __init__(self, *, fields: Any) -> None:
+        # fields is dict[PickleableImportString[type[Message]], dict[str, Union[InstanceOf[DataType], None]]]
+        # Complex type not supported by @validate_call in Python 3.10
         super().__init__()
 
         self._fields = fields

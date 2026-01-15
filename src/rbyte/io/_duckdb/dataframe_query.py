@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import datetime
 import threading
 from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Annotated, Any, final
+from typing import Annotated, Any, Union, final
 
 import duckdb
 import more_itertools as mit
@@ -29,13 +31,13 @@ def _validate_query(query: str) -> str:
 
 
 # https://duckdb.org/docs/stable/clients/python/conversion#object-conversion-python-object-to-duckdb
-DuckDBQueryParameter = (
-    str
-    | Annotated[Path, AfterValidator(Path.as_posix)]
-    | bool
-    | datetime.timedelta
-    | None
-)
+DuckDBQueryParameter = Union[
+    str,
+    Annotated[Path, AfterValidator(Path.as_posix)],
+    bool,
+    datetime.timedelta,
+    None,
+]
 
 
 @final

@@ -1,28 +1,23 @@
+from __future__ import annotations
+
 from os import PathLike
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, TypeAlias, final
+from typing import Any, final
 
 import polars as pl
-from pydantic import InstanceOf, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from torchcodec.decoders import VideoDecoder
 
-if TYPE_CHECKING:
-    from polars.datatypes import IntegerType
-
 logger = get_logger(__name__)
-
-
-Fields: TypeAlias = "dict[Literal['frame_idx'], InstanceOf[IntegerType]]"
 
 
 @final
 class VideoDataFrameBuilder:
     __name__ = __qualname__
 
-    @validate_call
-    def __init__(self, fields: Fields) -> None:
+    def __init__(self, fields: Any) -> None:
+        # fields is dict[Literal['frame_idx'], InstanceOf[IntegerType]] - not supported by @validate_call in Python 3.10
         self._fields = fields
 
     def __call__(self, path: PathLike[str]) -> pl.DataFrame:

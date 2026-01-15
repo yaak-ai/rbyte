@@ -1,6 +1,12 @@
+from __future__ import annotations
+
 from collections.abc import Callable
+from typing import TypeVar
 
 from optree import PyTree, tree_broadcast_map
+
+T = TypeVar("T")
+U = TypeVar("U")
 
 
 class TreeBroadcastMapper:
@@ -8,7 +14,7 @@ class TreeBroadcastMapper:
 
     __name__ = __qualname__
 
-    def __call__[T, U](  # noqa: PLR0913
+    def __call__(  # noqa: PLR0913
         self,
         *,
         func: Callable[..., U],

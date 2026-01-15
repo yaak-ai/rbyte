@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import os
 from collections.abc import Iterator
 from functools import cached_property
-from typing import TypeAlias, final
+from typing import TypeAlias, Union, final
 
 import polars as pl
 from optree import tree_map
@@ -23,7 +25,7 @@ from xxhash import xxh3_64_hexdigest as digest
 logger = get_logger(__name__)
 
 
-Fields: TypeAlias = "dict[str, InstanceOf[DataType] | None]"
+Fields: TypeAlias = "dict[str, Union[InstanceOf[DataType], None]]"
 
 
 def scantree(path: str) -> Iterator[str]:
