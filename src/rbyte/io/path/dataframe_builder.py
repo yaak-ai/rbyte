@@ -94,8 +94,8 @@ class PathDataFrameBuilder:
             .unnest("groups")
             .drop_nulls()
             .select(self._config.fields.keys())
-            .cast(self._schema, strict=True)
-            .collect()
+            .cast(self._schema, strict=True)  # ty:ignore[invalid-argument-type]
+            .collect()  # ty:ignore[invalid-return-type]
         )
 
     @cached_property

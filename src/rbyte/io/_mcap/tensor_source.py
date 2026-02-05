@@ -103,7 +103,7 @@ class McapTensorSource(TensorSource[int]):
         match indexes:
             case Sequence():
                 arrays: dict[int, npt.ArrayLike] = {}
-                message_indexes = (self._message_indexes[idx] for idx in indexes)
+                message_indexes = (self._message_indexes[idx] for idx in indexes)  # ty:ignore[invalid-argument-type]
                 indexes_by_chunk_start_offset = mit.map_reduce(
                     zip(indexes, message_indexes, strict=True),
                     keyfunc=lambda x: x[1].chunk_start_offset,

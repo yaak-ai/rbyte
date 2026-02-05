@@ -36,7 +36,15 @@ generate-config:
         --output yaml \
         --strict
 
-test *ARGS: build generate-config
+generate-test-data-yaak-mp4-frame-mappings:
+    #!/usr/bin/env nu
+    ls -f tests/data/yaak/**/*.mp4 | get name | par-each { |video|
+        let output = $"($video).frames.json";
+        print $"creating: ($output)";
+        ffprobe -hide_banner -loglevel fatal -i $video -show_frames -show_entries frame=pts,duration,key_frame -of json | save -f $output;
+    }
+
+test *ARGS: build generate-config generate-test-data-yaak-mp4-frame-mappings
     uv run --all-extras pytest --capture=no -v {{ ARGS }}
 
 notebook FILE *ARGS: sync generate-config
@@ -53,6 +61,10 @@ _visualize *ARGS:
 
 [group('scripts')]
 visualize dataset *ARGS: generate-config
+    #!/usr/bin/env nu
+    match "{{ dataset }}" {
+        "yaak" => { just generate-test-data-yaak-mp4-frame-mappings }
+    }
     just _visualize dataset={{ dataset }} ++data_dir={{ justfile_directory() }}/tests/data/{{ dataset }} {{ ARGS }}
 
 [group('scripts')]

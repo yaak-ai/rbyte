@@ -22,6 +22,10 @@ streams:
       (@=drive@):
         _target_: rbyte.io.TorchCodecFrameSource
         source: ${data_dir}/(@=drive@)/(@=camera@).pii.mp4
+        custom_frame_mappings: ${data_dir}/(@=drive@)/(@=camera@).pii.mp4.frames.json
+        transforms:
+          - _target_: torchcodec.transforms.Resize
+            size: [324, 576]
 
 samples:
   inputs:

@@ -146,7 +146,7 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
 
         for timeline, config in self._schema.time_columns.items():
             kwargs: dict[str, Any] = {}
-            for k, k_data in config.model_extra.items():
+            for k, k_data in config.model_extra.items():  # ty:ignore[possibly-missing-attribute]
                 v = (
                     torch
                     .atleast_1d(data[*k_data][column_indices].flatten())  # ty: ignore[invalid-argument-type]
