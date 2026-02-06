@@ -12,6 +12,7 @@ wheels/
 # generated
 config/*
 !config/_templates
+tests/data/yaak/**/*.frames.json
 
 **/*_pb2.py
 **/*_pb2.pyi

@@ -86,5 +86,5 @@ class DataFrameGroupByDynamic:
             )
             .agg(self._agg)
             .drop(self._index_column_tmp)
-            .collect()
+            .collect()  # ty:ignore[invalid-return-type]
         )

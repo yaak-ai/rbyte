@@ -203,7 +203,7 @@ class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
         )
 
         return (
-            results[output_name].output
+            results[output_name].output  # ty:ignore[invalid-argument-type]
             if results
             else load_outputs(output_name, run_folder=samples.run_folder)  # ty: ignore[invalid-argument-type]
         )

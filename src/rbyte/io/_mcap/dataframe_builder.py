@@ -117,7 +117,7 @@ class McapDataFrameBuilder:
                         dmt.decoded_message, message_fields
                     )
                 ) is not None:
-                    row_df = row_df.hstack(message_df)
+                    row_df = message_df.hstack(row_df)
 
                 rows[dmt.channel.topic].append(row_df)
 
@@ -143,7 +143,7 @@ class McapDataFrameBuilder:
                     .unnest(cs.struct(), separator=".")
                     .select(fields.keys())
                     .cast(df_schema)
-                ).collect()
+                ).collect()  # ty:ignore[invalid-return-type]
 
             case _:
                 return pl.from_dict({

@@ -22,14 +22,14 @@ __all__: list[str] = [
 ]
 
 
-try:
+try:  # noqa: RUF067
     from .hdf5 import Hdf5DataFrameBuilder, Hdf5TensorSource
 except ImportError:
     pass
 else:
     __all__ += ["Hdf5DataFrameBuilder", "Hdf5TensorSource"]
 
-try:
+try:  # noqa: RUF067
     from ._mcap import (
         JsonMcapDecoderFactory,
         McapDataFrameBuilder,
@@ -46,14 +46,14 @@ else:
         "ProtobufMcapDecoderFactory",
     ]
 
-try:
+try:  # noqa: RUF067
     from .video import TorchCodecFrameSource, VideoDataFrameBuilder
 except (ImportError, RuntimeError):
     pass
 else:
     __all__ += ["TorchCodecFrameSource", "VideoDataFrameBuilder"]
 
-try:
+try:  # noqa: RUF067
     from .yaak.metadata import YaakMetadataDataFrameBuilder
 except ImportError:
     pass
@@ -61,7 +61,7 @@ else:
     __all__ += ["YaakMetadataDataFrameBuilder"]
 
 
-try:
+try:  # noqa: RUF067
     from .geo import WaypointBuilder
 except ImportError:
     pass

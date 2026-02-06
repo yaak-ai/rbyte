@@ -25,9 +25,9 @@ def test_PathDataFrameBuilder() -> None:  # noqa: N802
 
     builder = PathDataFrameBuilder(
         fields={"car": pl.String(), "drive": None, "camera": CAMERA_ENUM},
-        pattern=r"(?<car>[^/]+)/(?<drive>[^/]+)/(?<camera>\w+)\.pii\.mp4",
+        pattern=r"(?<car>[^/]+)/(?<drive>[^/]+)/(?<camera>\w+)\.pii\.mp4$",
     )
-    assert builder.__pipefunc_hash__() == "9f8f175d5d4541be"
+    assert builder.__pipefunc_hash__() == "fbdd8b0111ed61bf"
 
     df = builder(path)
 

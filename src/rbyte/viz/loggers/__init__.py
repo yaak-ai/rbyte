@@ -2,7 +2,7 @@ from .console_logger import ConsoleLogger
 
 __all__ = ["ConsoleLogger"]
 
-try:
+try:  # noqa: RUF067
     from .rerun_logger import RerunLogger
 except ImportError:
     pass

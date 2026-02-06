@@ -16,17 +16,19 @@
           with pkgs;
           mkShell {
             packages = [
+              nushell
               git
               git-lfs
               uv
               ytt
               just
               skim
+              ffmpeg-headless
             ];
 
             shellHook = lib.strings.concatLines [
               (lib.optionalString stdenv.isDarwin "export DYLD_FALLBACK_LIBRARY_PATH=${
-                pkgs.lib.makeLibraryPath [ pkgs.ffmpeg_7-headless ]
+                lib.makeLibraryPath [ ffmpeg-headless ]
               }")
             ];
           };

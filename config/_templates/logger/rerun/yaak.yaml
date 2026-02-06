@@ -35,8 +35,8 @@ schema:
       _target_: rerun.Image.from_fields
       format:
         _target_: rerun.components.ImageFormat
-        height: 1080
-        width: 1920
+        height: 324
+        width: 576
         color_model: RGB
         channel_datatype: u8
   #@ end
