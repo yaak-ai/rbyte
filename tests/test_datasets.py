@@ -51,7 +51,7 @@ def test_yaak_dataset(dataset: Dataset) -> None:
 
             assert waypoints_normalized.shape[2:] == (10, 2), "invalid waypoints shape"
 
-            assert not (waypoints_normalized == 0.0).all(), "waypoints are all zero"
+            assert not (waypoints_normalized == 0.0).all(), "waypoints are all zero"  # noqa: RUF069
 
             atol_relative = 1
             relative_distances = torch.linalg.norm(
@@ -60,7 +60,9 @@ def test_yaak_dataset(dataset: Dataset) -> None:
 
             # since we duplicate waypoints at the end of the ride
             relative_distances = torch.where(
-                relative_distances != 0.0, relative_distances, 10.0
+                relative_distances != 0.0,  # noqa: RUF069
+                relative_distances,
+                10.0,
             )
 
             assert torch.allclose(

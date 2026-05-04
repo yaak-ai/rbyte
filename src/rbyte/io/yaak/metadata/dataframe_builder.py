@@ -16,7 +16,7 @@ from tqdm import tqdm
 from xxhash import xxh3_64_hexdigest as digest
 
 from rbyte.config import PickleableImportString
-from rbyte.io.yaak.proto import sensor_pb2
+from rbyte.io.yaak.proto.sensor_pb2 import ImageMetadata
 
 from .message_iterator import YaakMetadataMessageIterator
 
@@ -81,7 +81,7 @@ class YaakMetadataDataFrameBuilder:
                 for msg, schema in self._fields.items()
             }
 
-        if (df := dfs.pop((k := sensor_pb2.ImageMetadata.__name__), None)) is not None:
+        if (df := dfs.pop((k := ImageMetadata.__name__), None)) is not None:
             dfs |= {
                 ".".join((k, *map(str, k_partition))): df_partition
                 for k_partition, df_partition in df.partition_by(

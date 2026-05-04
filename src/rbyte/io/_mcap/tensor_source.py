@@ -123,7 +123,7 @@ class McapTensorSource(TensorSource[int]):
                         stream.read(message_index.message_start_offset - stream.count)
                         message = Message.read(stream, message_index.message_length)
                         decoded_message = self._message_decoder(message.data)
-                        arrays[index] = self._decoder(decoded_message.data)
+                        arrays[index] = self._decoder(decoded_message.data)  # ty:ignore[invalid-assignment]
 
                 tensors = [torch.from_numpy(arrays[idx]) for idx in indexes]  # ty: ignore[invalid-argument-type]
 
@@ -140,9 +140,6 @@ class McapTensorSource(TensorSource[int]):
                 array = self._decoder(decoded_message.data)
 
                 return torch.from_numpy(array)
-
-            case _:
-                raise ValueError
 
     @override
     def __len__(self) -> int:

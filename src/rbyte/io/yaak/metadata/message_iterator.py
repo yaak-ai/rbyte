@@ -9,7 +9,8 @@ from pydantic import InstanceOf, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 
-from rbyte.io.yaak.proto import can_pb2, sensor_pb2
+from rbyte.io.yaak.proto.can_pb2 import VehicleMotion, VehicleState
+from rbyte.io.yaak.proto.sensor_pb2 import DriveSessionInfo, Gnss, ImageMetadata
 
 logger = get_logger(__name__)
 
@@ -22,10 +23,11 @@ class YaakMetadataMessageIterator(Iterator[tuple[type[Message], bytes]]):
     """An iterator over a metadata file(-like object) producing messages."""
 
     MESSAGE_TYPES: ClassVar[dict[int, type[Message]]] = {
-        0: sensor_pb2.Gnss,
-        4: sensor_pb2.ImageMetadata,
-        7: can_pb2.VehicleMotion,
-        8: can_pb2.VehicleState,
+        0: Gnss,
+        4: ImageMetadata,
+        6: DriveSessionInfo,
+        7: VehicleMotion,
+        8: VehicleState,
     }
 
     FILE_HEADER_VERSION: int = 1

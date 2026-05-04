@@ -108,13 +108,14 @@ class McapDataFrameBuilder:
                 )
 
                 row_df = pl.DataFrame(
-                    [getattr(dmt.message, field) for field in special_fields],
-                    schema=special_fields,
+                    [getattr(dmt.message, field) for field in special_fields],  # ty:ignore[not-iterable]
+                    schema=special_fields,  # ty:ignore[invalid-argument-type]
                 )
 
                 if (
                     message_df := self._build_message_df(
-                        dmt.decoded_message, message_fields
+                        dmt.decoded_message,
+                        message_fields,  # ty:ignore[invalid-argument-type]
                     )
                 ) is not None:
                     row_df = message_df.hstack(row_df)
@@ -142,13 +143,13 @@ class McapDataFrameBuilder:
                     .lazy()
                     .unnest(cs.struct(), separator=".")
                     .select(fields.keys())
-                    .cast(df_schema)
+                    .cast(df_schema)  # ty:ignore[invalid-argument-type]
                 ).collect()  # ty:ignore[invalid-return-type]
 
             case _:
                 return pl.from_dict({
                     field: attrgetter(field)(message) for field in fields
-                }).cast(df_schema)
+                }).cast(df_schema)  # ty:ignore[invalid-argument-type]
 
     @cached_property
     def _decoder_factories_instantiated(self) -> tuple[DecoderFactory, ...]:

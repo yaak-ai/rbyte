@@ -3,10 +3,12 @@ from collections.abc import Callable, Iterable, Sequence
 from functools import cached_property
 from math import prod
 from typing import Annotated, Any, Literal, cast, override
+from uuid import UUID
 
 import rerun as rr
 import rerun.blueprint as rrb
 import torch
+import torch.nn.functional as F  # noqa: N812
 from cachetools import Cache, cachedmethod
 from einops import rearrange
 from hydra.utils import get_method
@@ -95,7 +97,9 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
         self,
         *,
         application_id: str,
+        recording_id: str | UUID | None = None,
         recording_name: str | tuple[str, ...],
+        entity_path_format: str = "{}",
         schema: Schema,
         spawn: bool = True,
         port: int = 9876,
@@ -108,12 +112,14 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
     ) -> None:
         super().__init__()
 
-        self._application_id: str = application_id
-        self._recording_name: str | tuple[str, ...] = recording_name
-        self._schema: Schema = schema
-        self._spawn: bool = spawn
-        self._port: int = port
-        self._blueprint: rrb.BlueprintLike | None = blueprint
+        self._application_id = application_id
+        self._recording_id = recording_id
+        self._recording_name = recording_name
+        self._entity_path_format = entity_path_format
+        self._schema = schema
+        self._spawn = spawn
+        self._port = port
+        self._blueprint: rrb.BlueprintLike | None = blueprint  # ty:ignore[invalid-assignment]
 
         self._recordings: Cache[str, rr.RecordingStream] = Cache(maxsize=math.inf)
 
@@ -121,16 +127,25 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
     def recordings(self) -> Cache[str, rr.RecordingStream]:
         return self._recordings
 
+    def _entity_path(self, path: str) -> str:
+        return self._entity_path_format.format(path)
+
     @cachedmethod(lambda self: self._recordings)
     def _get_recording(self, name: str) -> rr.RecordingStream:
-        recording = rr.RecordingStream(self._application_id)
+        recording = rr.RecordingStream(
+            application_id=self._application_id, recording_id=self._recording_id
+        )
         if self._spawn:
             recording.spawn(port=self._port, default_blueprint=self._blueprint)
 
         recording.send_recording_name(name)
 
         for path, items in self._schema.static.items():
-            recording.log(path, *(item.instantiate() for item in items), static=True)
+            recording.log(
+                self._entity_path(path),
+                *(item.instantiate() for item in items),
+                static=True,
+            )
 
         return recording
 
@@ -146,7 +161,7 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
 
         for timeline, config in self._schema.time_columns.items():
             kwargs: dict[str, Any] = {}
-            for k, k_data in config.model_extra.items():  # ty:ignore[possibly-missing-attribute]
+            for k, k_data in config.model_extra.items():  # ty:ignore[unresolved-attribute]
                 v = (
                     torch
                     .atleast_1d(data[*k_data][column_indices].flatten())  # ty: ignore[invalid-argument-type]
@@ -158,10 +173,10 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
             yield config.instantiate(timeline=timeline, **kwargs)
 
     @classmethod
-    def _build_component_columns(  # noqa: C901, PLR0912
+    def _build_component_columns(  # noqa: C901, PLR0912, PLR0915
         cls, config: ComponentColumnSchemaItem, data: TensorDict
     ) -> rr.ComponentColumnList:
-        kwargs = TensorDict({k: data[*v] for k, v in config.model_extra.items()})  # ty: ignore[possibly-missing-attribute]
+        kwargs = TensorDict({k: data[*v] for k, v in config.model_extra.items()})  # ty:ignore[unresolved-attribute]
         lengths: list[int] | None = None
 
         with bound_contextvars(target=config.target):
@@ -219,12 +234,39 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
                             raise NotImplementedError(msg)
 
                 case rr.Points3D.columns:
+                    # NOTE: pad (x, y) points to (x, y, 0) so we get ViewCoordinates
+                    # (unavailable for 2D views: https://github.com/rerun-io/rerun/issues/1387)
                     match tensor := kwargs.get(key := "positions"):
+                        case Tensor(shape=(2,)):
+                            kwargs[key] = F.pad(tensor, (0, 1), value=0)
+
                         case Tensor(shape=(3,)):
                             pass
 
+                        case Tensor(shape=(*batch_dims, n, 2)):
+                            kwargs[key] = rearrange(
+                                F.pad(tensor, (0, 1), value=0), "... n d -> (... n) d"
+                            )
+                            lengths = [n] * prod(batch_dims)
+
                         case Tensor(shape=(*batch_dims, n, 3)):
                             kwargs[key] = rearrange(tensor, "... n d -> (... n) d")
+                            lengths = [n] * prod(batch_dims)
+
+                        case _:
+                            logger.error(
+                                (msg := "shape not supported"),
+                                key=key,
+                                shape=tensor.shape,
+                            )
+                            raise NotImplementedError(msg)
+
+                case rr.GeoPoints.columns:
+                    match tensor := kwargs.get(key := "positions"):
+                        case Tensor(shape=(2,)):
+                            pass
+
+                        case Tensor(shape=(*batch_dims, n, 2)):
                             lengths = [n] * prod(batch_dims)
 
                         case _:
@@ -257,10 +299,7 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
     def _log(self, data: TensorDict) -> None:
         time_columns: dict[Indices | None, list[rr.TimeColumn]] = {}
 
-        for (
-            entity_path,
-            component_column_configs,
-        ) in self._schema.component_columns.items():
+        for path, component_column_configs in self._schema.component_columns.items():
             for column_config in component_column_configs:
                 component_columns = self._build_component_columns(column_config, data)
 
@@ -270,7 +309,7 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
                     )
 
                 rr.send_columns(
-                    entity_path=entity_path,
+                    entity_path=self._entity_path(path),
                     indexes=time_columns[indices],
                     columns=component_columns,
                 )
