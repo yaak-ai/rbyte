@@ -267,6 +267,7 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
                             pass
 
                         case Tensor(shape=(*batch_dims, n, 2)):
+                            kwargs[key] = rearrange(tensor, "... n d -> (... n) d")
                             lengths = [n] * prod(batch_dims)
 
                         case _:
