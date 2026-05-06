@@ -405,7 +405,7 @@ WHERE len("meta/ImageMetadata.cam_front_left/frame_idx") == 6
                     ],  # ty:ignore[unknown-argument]
                 )
                 for input_id in drive_queries
-            },
+            },  # ty:ignore[invalid-argument-type]
         )
         for camera in cameras
     }

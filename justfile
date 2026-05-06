@@ -17,7 +17,7 @@ sync:
 setup: sync
     git submodule update --init --recursive --force --remote
     git lfs pull
-    uvx prek@latest install
+    uvx prek@latest install --overwrite
 
 build:
     uv build

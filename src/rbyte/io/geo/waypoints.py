@@ -50,5 +50,5 @@ class WaypointBuilder:
             .join(lf, on=self._index_column, how="left")
             .drop(self._index_column)
             .collect()
-            .head(-(self._length - 1))
+            .head(-(self._length - 1))  # ty:ignore[unresolved-attribute]
         )

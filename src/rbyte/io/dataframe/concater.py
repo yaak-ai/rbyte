@@ -39,7 +39,7 @@ class DataFrameConcater:
 
                 return self._fn([
                     v.lazy().with_columns(
-                        pl.lit(k).cast(key_enum).alias(self._key_column)
+                        pl.lit(k).cast(key_enum).alias(self._key_column)  # ty:ignore[invalid-argument-type]
                     )
-                    for k, v in zip(keys, values, strict=True)  # ty: ignore[invalid-argument-type]
+                    for k, v in zip(keys, values, strict=True)  # ty: ignore[invalid-argument-type, not-iterable]
                 ]).collect()

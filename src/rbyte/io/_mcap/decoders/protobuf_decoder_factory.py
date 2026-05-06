@@ -37,7 +37,7 @@ class ProtobufMcapDecoderFactory(McapDecoderFactory):
             and schema.encoding == SchemaEncoding.Protobuf
         ):
             message_type = self._get_message_type(schema)
-            handler = self._handler_pool.get_for_message(message_type.DESCRIPTOR)
+            handler = self._handler_pool.get_for_message(message_type.DESCRIPTOR)  # ty:ignore[invalid-argument-type]
 
             def decoder(data: bytes) -> pl.DataFrame:
                 record_batch = handler.list_to_record_batch([data])

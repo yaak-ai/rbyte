@@ -17,7 +17,7 @@ logger = get_logger(__name__)
 
 def _validate_query(query: str) -> str:
     match duckdb.extract_statements(query):
-        case [Statement(type=StatementType.SELECT)]:  # ty: ignore[unresolved-attribute]
+        case [Statement(type=StatementType.SELECT)]:
             pass
 
         case _:

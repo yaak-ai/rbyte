@@ -142,17 +142,17 @@ class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
                 stream_data = {stream_id: [] for stream_id in self.streams}  # ty: ignore[not-iterable]
 
                 for sample, input_id in zip(data, meta["input_id"], strict=True):
-                    for stream_id, stream_config in self.streams.items():  # ty: ignore[possibly-missing-attribute]
+                    for stream_id, stream_config in self.streams.items():  # ty:ignore[unresolved-attribute]
                         stream_index = sample[stream_config.index].tolist()
                         source = self._get_source(stream_id, input_id)
                         stream_data[stream_id].append(source[stream_index])
 
                 stream_data = {k: torch.stack(v) for k, v in stream_data.items()}
 
-                if data.is_locked:  # ty: ignore[possibly-missing-attribute]
+                if data.is_locked:  # ty:ignore[unresolved-attribute]
                     data = data.clone(recurse=True)  # ty: ignore[unknown-argument]
 
-                data = data.update(stream_data, inplace=False)  # ty: ignore[possibly-missing-attribute]
+                data = data.update(stream_data, inplace=False)  # ty:ignore[unresolved-attribute]
 
             case True, None:
                 msg = "`include_streams` is True but no streams specified"

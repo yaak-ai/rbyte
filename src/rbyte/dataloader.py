@@ -26,9 +26,7 @@ class BatchIndexableDataset(Protocol):
 class MapAndCollate[T]:
     @validate_call
     def __init__(
-        self,
-        dataset: InstanceOf[BatchIndexableDataset],
-        collate_fn: Callable[[...], Any],
+        self, dataset: InstanceOf[BatchIndexableDataset], collate_fn: Callable[..., Any]
     ) -> None:
         self._dataset = dataset
         self._collate_fn = collate_fn
@@ -49,7 +47,7 @@ class TorchDataNodeDataLoader[T](Iterable[T], Sized):
         batch_size: int = 1,
         shuffle: bool | None = None,
         num_workers: PositiveInt = 1,
-        collate_fn: Callable[[...], Any] | None = None,
+        collate_fn: Callable[..., Any] | None = None,
         pin_memory: bool = False,
         pin_memory_device: str = "",
         drop_last: bool = False,
