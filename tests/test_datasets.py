@@ -1,19 +1,37 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 
 import dill  # noqa: S403
 import more_itertools as mit
+import polars as pl
 import pytest
 import torch
 from pytest_lazy_fixtures import lf
 from structlog import get_logger
+from tensordict import TensorDict
 from torch import Tensor
 
 from rbyte import Dataset
+from rbyte.config import HydraConfig, StreamConfig
 
 logger = get_logger(__name__)
+
+
+class _CountingTensorSource:
+    instances = 0
+
+    def __init__(self) -> None:
+        type(self).instances += 1
+        self.instance_id = type(self).instances
+
+    def __getitem__(self, indexes: int | Sequence[int]) -> Tensor:
+        return torch.as_tensor(indexes)
+
+    def __len__(self) -> int:
+        return 1
 
 
 @pytest.mark.parametrize("dataset", [lf("yaak_dataset"), lf("yaak_dataset_pydantic")])
@@ -268,6 +286,37 @@ def test_save_and_load(dataset: Dataset, tmp_path: Path) -> None:
 )
 def test_pickle(dataset: Dataset) -> None:
     assert dill.pickles(dataset, exact=True, safe=True)
+
+
+def test_stream_source_cache_is_thread_local() -> None:
+    _CountingTensorSource.instances = 0
+    dataset = Dataset(
+        data=TensorDict({"stream": torch.tensor([0])}, batch_size=[1]),
+        meta=pl.DataFrame({"input_id": ["input"]}),
+        streams={
+            "stream": StreamConfig(
+                index="stream",
+                sources={"input": HydraConfig(target=_CountingTensorSource)},
+            )
+        },
+    )
+
+    main_first = dataset._get_source("stream", "input")  # noqa: SLF001
+    main_second = dataset._get_source("stream", "input")  # noqa: SLF001
+
+    def get_worker_sources() -> tuple[object, object]:
+        return (
+            dataset._get_source("stream", "input"),  # noqa: SLF001
+            dataset._get_source("stream", "input"),  # noqa: SLF001
+        )
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        worker_first, worker_second = executor.submit(get_worker_sources).result()
+
+    assert main_first is main_second
+    assert worker_first is worker_second
+    assert worker_first is not main_first
+    assert _CountingTensorSource.instances == 2  # noqa: PLR2004
 
 
 @pytest.mark.parametrize(

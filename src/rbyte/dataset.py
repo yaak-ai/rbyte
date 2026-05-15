@@ -1,14 +1,13 @@
-import math
 from collections.abc import Sequence
 from concurrent.futures import Executor
 from enum import StrEnum, auto, unique
 from io import BytesIO
+from threading import local
 from typing import TYPE_CHECKING, Annotated, Any, Self, override
 
 import checkedframe as cf
 import polars as pl
 import torch
-from cachetools import Cache, cachedmethod
 from optree import tree_map
 from pipefunc.map import load_outputs
 from pydantic import (
@@ -36,6 +35,10 @@ if TYPE_CHECKING:
 __all__ = ["Dataset"]
 
 logger = get_logger(__name__)
+
+
+class _StreamSourceThreadCache(local):
+    sources: dict[tuple[str, str], TensorSource]
 
 
 @unique
@@ -82,7 +85,7 @@ class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
         self._streams = streams
 
         if self._streams is not None:
-            self._stream_source_cache = Cache(maxsize=math.inf)
+            self._stream_source_cache = _StreamSourceThreadCache()
 
     @classmethod
     @validate_call
@@ -171,13 +174,30 @@ class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
 
         return Batch(data=data, meta=meta).auto_batch_size_(1)
 
-    @cachedmethod(lambda self: self._stream_source_cache)
     def _get_source(self, stream_id: str, input_id: str) -> TensorSource:
-        if self.streams is None:
+        streams = self.streams
+        if streams is None:
             msg = "streams not specified"
             raise RuntimeError(msg)
 
-        return self.streams[stream_id].sources[input_id].instantiate()
+        key = (stream_id, input_id)
+        cache = self._get_stream_source_cache()
+
+        try:
+            return cache[key]
+        except KeyError:
+            source = streams[stream_id].sources[input_id].instantiate()
+            cache[key] = source
+
+            return source
+
+    def _get_stream_source_cache(self) -> dict[tuple[str, str], TensorSource]:
+        try:
+            return self._stream_source_cache.sources
+        except AttributeError:
+            self._stream_source_cache.sources = {}
+
+            return self._stream_source_cache.sources
 
     @classmethod
     def _build_samples(

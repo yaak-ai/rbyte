@@ -1,6 +1,6 @@
 [project]
 name = "rbyte"
-version = "0.35.0"
+version = "0.36.0"
 description = "Multimodal PyTorch dataset library"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
@@ -29,7 +29,7 @@ dependencies = [
   "polars>=1.40.1",
   "pydantic>=2.13.3",
   "structlog>=25.5.0",
-  "tensordict>=0.11.0",  # https://github.com/pytorch/tensordict/issues/1440
+  "tensordict>=0.12.3",
   "torch",
   "torchdata>=0.11.0",
   "tqdm>=4.67.1",
@@ -50,10 +50,10 @@ hdf5 = ["h5py>=3.14.0"]
 jpeg = ["simplejpeg>=1.9.0"]
 mcap = ["mcap>=1.3.1", "mcap-protobuf-support>=0.5.4", "protobuf"]
 protos = ["grpcio-tools==1.71.0", "protoletariat>=3.3.10"]
-video = ["torchcodec>=0.10.0"]
+video = ["torchcodec>=0.12.0"]
 visualize = [
   "einops>=0.8.2",
-  "rerun-sdk[notebook]>=0.31.4",
+  "rerun-sdk[notebook]>=0.32.0",
 ]
 yaak = ["ptars==0.0.5", "protobuf"]
 
@@ -147,23 +147,3 @@ schema.strict = false
 
 [tool.ty.rules]
 unused-ignore-comment = "warn"
-
-[tool.uv.sources]
-torch = [
-  { index = "pytorch-cpu", marker = "sys_platform != 'linux'" },
-  { index = "pytorch-cu128", marker = "sys_platform == 'linux'" },
-]
-torchcodec = [
-  { index = "pytorch-cpu", marker = "sys_platform != 'linux'" },
-  { index = "pytorch-cu128", marker = "sys_platform == 'linux'" },
-]
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-[[tool.uv.index]]
-name = "pytorch-cu128"
-url = "https://download.pytorch.org/whl/cu128"
-explicit = true
