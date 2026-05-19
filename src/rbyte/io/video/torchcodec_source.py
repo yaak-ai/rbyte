@@ -27,7 +27,7 @@ class SeekMode(StrEnum):
 
 @unique
 class CudaBackend(StrEnum):
-    BETA = auto()
+    NVDEC = auto()
     FFMPEG = auto()
 
 
@@ -52,16 +52,12 @@ class TorchCodecFrameSource(TensorSource[int]):
     ) -> None:
         super().__init__()
 
-        if cuda_backend is None:
-            match device, torch.get_default_device():
-                case (torch.device(type="cuda"), _) | (None, torch.device(type="cuda")):
-                    cuda_backend = CudaBackend.BETA
-
-                case _:
-                    cuda_backend = CudaBackend.FFMPEG
-
         with (
-            set_cuda_backend(cuda_backend),
+            (
+                nullcontext()
+                if cuda_backend is None
+                else set_cuda_backend(cuda_backend.value)
+            ),
             (
                 nullcontext()
                 if custom_frame_mappings is None
