@@ -41,7 +41,8 @@ repo = "https://github.com/yaak-ai/rbyte"
 
 [project.scripts]
 rbyte-benchmark-dataloader = "rbyte.scripts.benchmark_dataloader:main"
-rbyte-visualize = "rbyte.scripts.visualize:main"
+rbyte-save-dataset = "rbyte.scripts.save_dataset:main"
+rbyte-visualize-dataset = "rbyte.scripts.visualize_dataset:main"
 
 [project.optional-dependencies]
 build = ["hatchling>=1.27.0"]

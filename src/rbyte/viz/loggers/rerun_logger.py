@@ -1,5 +1,5 @@
 import math
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Iterable, Sequence
 from functools import cached_property
 from math import prod
 from typing import Annotated, Any, Literal, cast, override
@@ -11,15 +11,7 @@ import torch
 import torch.nn.functional as F  # noqa: N812
 from cachetools import Cache, cachedmethod
 from einops import rearrange
-from hydra.utils import get_method
-from pydantic import (
-    AfterValidator,
-    BeforeValidator,
-    Field,
-    InstanceOf,
-    RootModel,
-    validate_call,
-)
+from pydantic import AfterValidator, Field, InstanceOf, RootModel, validate_call
 from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 from tensordict import TensorClass, TensorDict
@@ -32,24 +24,18 @@ from .base import Logger
 logger = get_logger(__name__)
 
 
-class MethodHydraConfig[T](HydraConfig[T]):
-    target: Annotated[Callable[..., T], BeforeValidator(get_method)] = Field(
-        alias="_target_"
-    )
-
-
 class TimeColumnSchemaItem(HydraConfig[rr.TimeColumn]):
     dtype: str | None = Field(default=None, exclude=True)
 
 
-class StaticSchemaItem(MethodHydraConfig[rr.AsComponents]):
+class StaticSchemaItem(HydraConfig[rr.AsComponents]):
     static: Literal[True] = Field(exclude=True)
 
 
 Indices = tuple[int, ...] | tuple[str, ...]
 
 
-class ComponentColumnSchemaItem(MethodHydraConfig[rr.ComponentColumnList]):
+class ComponentColumnSchemaItem(HydraConfig[rr.ComponentColumnList]):
     indices: Indices | None = Field(default=None, exclude=True)
 
 
@@ -105,8 +91,7 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
         port: int = 9876,
         blueprint: InstanceOf[rrb.BlueprintLike]
         | Annotated[
-            MethodHydraConfig[rrb.BlueprintLike],
-            AfterValidator(MethodHydraConfig.instantiate),
+            HydraConfig[rrb.BlueprintLike], AfterValidator(HydraConfig.instantiate)
         ]
         | None = None,
     ) -> None:

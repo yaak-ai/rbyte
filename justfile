@@ -52,7 +52,7 @@ notebook FILE *ARGS: sync generate-config
 
 [group('scripts')]
 _visualize *ARGS:
-    uv run rbyte-visualize \
+    uv run rbyte-visualize-dataset \
         --config-path {{ justfile_directory() }}/config \
         --config-name visualize.yaml \
         hydra/hydra_logging=disabled \
@@ -74,6 +74,15 @@ visualize-all: generate-config
     just visualize mimicgen
     just visualize nuscenes
     just visualize carla_garage
+
+[group('scripts')]
+save *ARGS:
+    uv run rbyte-save-dataset \
+        --config-path {{ justfile_directory() }}/config \
+        --config-name save.yaml \
+        hydra/hydra_logging=disabled \
+        hydra/job_logging=disabled \
+        {{ ARGS }}
 
 benchmark-dataloader *ARGS: generate-config
     uv run rbyte-benchmark-dataloader \
