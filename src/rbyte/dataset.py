@@ -2,12 +2,13 @@ from collections.abc import Sequence
 from concurrent.futures import Executor
 from enum import StrEnum, auto, unique
 from io import BytesIO
+from operator import itemgetter
 from threading import local
 from typing import TYPE_CHECKING, Annotated, Any, Self, override
 
 import checkedframe as cf
+import more_itertools as mit
 import polars as pl
-import torch
 from optree import tree_map
 from pipefunc.map import load_outputs
 from pydantic import (
@@ -31,6 +32,7 @@ from rbyte.types import Batch, BatchMeta, TensorSource
 
 if TYPE_CHECKING:
     from pipefunc._pipeline._types import OUTPUT_TYPE
+    from torch import Tensor
 
 __all__ = ["Dataset"]
 
@@ -137,25 +139,51 @@ class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
         include_streams: bool | None = None,
         include_meta: bool = True,
     ) -> Batch:
-        data = self.data[index]  # ty: ignore[invalid-argument-type]
-        meta = self.meta[index]
+        batch_data: TensorDict = self.data[index]  # ty: ignore[invalid-argument-type, invalid-assignment]
+        meta: pl.DataFrame = self.meta[index]
 
         match include_streams, self.streams:
             case None | True, dict():
-                stream_data = {stream_id: [] for stream_id in self.streams}  # ty: ignore[not-iterable]
+                stream_data = {}
 
-                for sample, input_id in zip(data, meta["input_id"], strict=True):
-                    for stream_id, stream_config in self.streams.items():  # ty:ignore[unresolved-attribute]
-                        stream_index = sample[stream_config.index].tolist()
+                for stream_id, stream_config in self.streams.items():  # ty:ignore[unresolved-attribute]
+                    stream_indexes = list(
+                        zip(
+                            meta["input_id"],
+                            batch_data[stream_config.index].tolist(),
+                            strict=True,
+                        )
+                    )
+
+                    grouped_stream_indexes = mit.map_reduce(
+                        stream_indexes, keyfunc=itemgetter(0), valuefunc=itemgetter(1)
+                    )
+
+                    stream_items: dict[str, dict[int, Tensor]] = {}
+                    for input_id, group_indexes in grouped_stream_indexes.items():
+                        unique_indexes = sorted(set(mit.collapse(group_indexes)))
                         source = self._get_source(stream_id, input_id)
-                        stream_data[stream_id].append(source[stream_index])
+                        source_items = source[unique_indexes]
 
-                stream_data = {k: torch.stack(v) for k, v in stream_data.items()}
+                        stream_items[input_id] = dict(
+                            zip(unique_indexes, source_items, strict=True)
+                        )
 
-                if data.is_locked:  # ty:ignore[unresolved-attribute]
-                    data = data.clone(recurse=True)  # ty: ignore[unknown-argument]
+                    stream_batches = []
+                    for input_id, input_stream_index in stream_indexes:
+                        input_stream_items = stream_items[input_id]
+                        stream_batches.append(
+                            [input_stream_items[i] for i in input_stream_index]
+                            if isinstance(input_stream_index, Sequence)
+                            else input_stream_items[input_stream_index]
+                        )
 
-                data = data.update(stream_data, inplace=False)  # ty:ignore[unresolved-attribute]
+                    stream_data[stream_id] = stream_batches
+
+                if batch_data.is_locked:
+                    batch_data = batch_data.clone(recurse=True)
+
+                batch_data = batch_data.update(stream_data, inplace=False)
 
             case True, None:
                 msg = "`include_streams` is True but no streams specified"
@@ -164,7 +192,7 @@ class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
             case _:
                 pass
 
-        meta = (
+        batch_meta = (
             BatchMeta.from_dict({
                 k: NonTensorStack(*v) for k, v in meta.to_dict().items()
             })
@@ -172,7 +200,7 @@ class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
             else None
         )
 
-        return Batch(data=data, meta=meta).auto_batch_size_(1)
+        return Batch(data=batch_data, meta=batch_meta).auto_batch_size_(1)
 
     def _get_source(self, stream_id: str, input_id: str) -> TensorSource:
         streams = self.streams

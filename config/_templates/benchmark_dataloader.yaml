@@ -8,9 +8,8 @@ dataloader:
   dataset: ${dataset}
   shuffle: false
   batch_size: 64
-  num_workers: 1
+  num_workers: ???
   collate_fn:
-    _target_: rbyte.types.Batch.to_dict
-    _partial_: true
-  pin_memory: true
+    _target_: hydra.utils.get_method
+    path: rbyte.dataloader.collate_identity
   multiprocessing_context: forkserver

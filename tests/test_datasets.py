@@ -2,7 +2,7 @@ from collections.abc import Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
-from typing import cast
+from typing import ClassVar, cast
 
 import dill  # noqa: S403
 import more_itertools as mit
@@ -22,16 +22,59 @@ logger = get_logger(__name__)
 
 class _CountingTensorSource:
     instances = 0
+    calls: ClassVar[list[int | list[int]]] = []
 
     def __init__(self) -> None:
         type(self).instances += 1
         self.instance_id = type(self).instances
 
     def __getitem__(self, indexes: int | Sequence[int]) -> Tensor:
+        call = list(indexes) if isinstance(indexes, Sequence) else indexes
+        type(self).calls.append(call)  # ty:ignore[invalid-argument-type]
+
         return torch.as_tensor(indexes)
 
     def __len__(self) -> int:
         return 1
+
+
+def test_get_batch_deduplicates_stream_source_indexes() -> None:
+    _CountingTensorSource.instances = 0
+    _CountingTensorSource.calls = []
+    dataset = Dataset(
+        data=TensorDict({"stream": torch.tensor([2, 2, 3, 2])}, batch_size=[4]),
+        meta=pl.DataFrame({"input_id": ["A", "A", "B", "A"]}),
+        streams={
+            "stream": StreamConfig(
+                index="stream",
+                sources={
+                    "A": HydraConfig(target=_CountingTensorSource),
+                    "B": HydraConfig(target=_CountingTensorSource),
+                },
+            )
+        },
+    )
+
+    index = [0, 1, 2, 3]
+    match (batch := dataset.get_batch(index)).to_dict():
+        case {
+            "data": {"stream": Tensor(shape=[4], data=data), **data_rest},
+            "meta": {"input_id": ["A", "A", "B", "A"], **meta_rest},
+            **batch_rest,
+        } if data.tolist() == [2, 2, 3, 2] and not any((
+            batch_rest,
+            data_rest,
+            meta_rest,
+        )):
+            pass
+
+        case _:
+            logger.error(msg := "invalid batch structure", batch=batch)
+
+            raise AssertionError(msg)
+
+    assert _CountingTensorSource.calls == [[2], [3]]
+    assert _CountingTensorSource.instances == 2  # noqa: PLR2004
 
 
 @pytest.mark.parametrize("dataset", [lf("yaak_dataset"), lf("yaak_dataset_pydantic")])
@@ -290,6 +333,7 @@ def test_pickle(dataset: Dataset) -> None:
 
 def test_stream_source_cache_is_thread_local() -> None:
     _CountingTensorSource.instances = 0
+    _CountingTensorSource.calls = []
     dataset = Dataset(
         data=TensorDict({"stream": torch.tensor([0])}, batch_size=[1]),
         meta=pl.DataFrame({"input_id": ["input"]}),
