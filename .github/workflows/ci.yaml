@@ -10,49 +10,43 @@ on:
   workflow_dispatch:
 
 env:
-  UV_NO_SOURCES: "1"
+  UV_CACHE_DIR: /tmp/.uv-cache
 
 jobs:
   ci:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: nix develop -c bash --noprofile --norc -eo pipefail {0}
+
     steps:
-      - name: setup ssh
-        uses: webfactory/ssh-agent@v0.9.1
+      - uses: webfactory/ssh-agent@v0.10.0
         with:
           ssh-private-key: ${{ secrets.YAAK_IDL_REPO_SSH_KEY }}
 
-      - name: checkout
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
           persist-credentials: false
           lfs: true
 
-      - name: setup just
-        uses: extractions/setup-just@v3
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - uses: DeterminateSystems/flake-checker-action@main
 
-      - name: setup uv
-        uses: astral-sh/setup-uv@v7
+      - run: uv lock
+
+      - uses: actions/cache@v5
         with:
-          version: "latest"
-          enable-cache: true
+          path: /tmp/.uv-cache
+          key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+            uv-${{ runner.os }}
 
       - run: uv sync --all-extras --group check --group test
       - run: just build
       - run: just check
-
-      - name: git lfs checkout
-        run: git lfs checkout
-
-      - name: setup ytt
-        uses: carvel-dev/setup-action@v2
-        with:
-          only: ytt
-
-      - name: setup nu
-        uses: hustcer/setup-nu@v3
-
-      - name: install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
-
+      - run: git lfs checkout
       - run: just test
+      - run: uv cache prune --ci

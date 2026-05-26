@@ -21,7 +21,7 @@ sync:
 setup: sync
     git submodule update --init --recursive --force --remote
     git lfs pull
-    uvx prek@latest install --overwrite
+    prek install --overwrite
 
 build:
     uv build
@@ -32,7 +32,7 @@ check:
     uv run ty check
 
 prek *ARGS: build
-    uvx prek@latest --all-files {{ ARGS }}
+    prek --all-files {{ ARGS }}
 
 [script]
 generate-config:
