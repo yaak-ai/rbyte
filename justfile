@@ -1,3 +1,7 @@
+set shell := ["nu", "-c"]
+set script-interpreter := ["nu"]
+set lazy
+
 export PYTHONOPTIMIZE := "1"
 export HATCH_BUILD_CLEAN := "1"
 export HYDRA_FULL_ERROR := "1"
@@ -17,7 +21,7 @@ sync:
 setup: sync
     git submodule update --init --recursive --force --remote
     git lfs pull
-    uvx prek@latest install --overwrite
+    prek install --overwrite
 
 build:
     uv build
@@ -28,16 +32,19 @@ check:
     uv run ty check
 
 prek *ARGS: build
-    uvx prek@latest --all-files {{ ARGS }}
+    prek --all-files {{ ARGS }}
 
+[script]
 generate-config:
-    ytt --file {{ justfile_directory() }}/config/_templates \
-        --output-files {{ justfile_directory() }}/config \
-        --output yaml \
+    (
+    ytt --file {{ justfile_directory() }}/config/_templates
+        --output-files {{ justfile_directory() }}/config
+        --output yaml
         --strict
+    )
 
+[script]
 generate-test-data-yaak-mp4-frame-mappings:
-    #!/usr/bin/env nu
     ls -f tests/data/yaak/**/*.mp4 | get name | par-each { |video|
         let output = $"($video).frames.json";
         print $"creating: ($output)";
@@ -50,24 +57,24 @@ test *ARGS: build generate-config generate-test-data-yaak-mp4-frame-mappings
 notebook FILE *ARGS: sync generate-config
     uv run --all-extras --with=jupyter,jupyterlab-vim,rerun-notebook jupyter lab {{ FILE }} {{ ARGS }}
 
-[group('scripts')]
+[script]
 _visualize *ARGS:
-    uv run rbyte-visualize \
-        --config-path {{ justfile_directory() }}/config \
-        --config-name visualize.yaml \
-        hydra/hydra_logging=disabled \
-        hydra/job_logging=disabled \
+    (
+    uv run rbyte-visualize
+        --config-path {{ justfile_directory() }}/config
+        --config-name visualize.yaml
+        hydra/hydra_logging=disabled
+        hydra/job_logging=disabled
         {{ ARGS }}
+    )
 
-[group('scripts')]
+[script]
 visualize dataset *ARGS: generate-config
-    #!/usr/bin/env nu
     match "{{ dataset }}" {
         "yaak" => { just generate-test-data-yaak-mp4-frame-mappings }
     }
     just _visualize dataset={{ dataset }} ++data_dir={{ justfile_directory() }}/tests/data/{{ dataset }} {{ ARGS }}
 
-[group('scripts')]
 visualize-all: generate-config
     just visualize yaak
     just visualize zod batch_size=1
@@ -75,13 +82,16 @@ visualize-all: generate-config
     just visualize nuscenes
     just visualize carla_garage
 
+[script]
 benchmark-dataloader *ARGS: generate-config
-    uv run rbyte-benchmark-dataloader \
-        --config-path {{ justfile_directory() }}/config \
-        --config-name benchmark_dataloader.yaml \
-        hydra/hydra_logging=disabled \
-        hydra/job_logging=disabled \
+    (
+    uv run rbyte-benchmark-dataloader
+        --config-path {{ justfile_directory() }}/config
+        --config-name benchmark_dataloader.yaml
+        hydra/hydra_logging=disabled
+        hydra/job_logging=disabled
         {{ ARGS }}
+    )
 
 rerun *ARGS:
     uv run rerun --serve-web {{ ARGS }}
