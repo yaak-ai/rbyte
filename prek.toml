@@ -1,0 +1,89 @@
+# Configuration file for `prek`, a git hook framework written in Rust.
+# See https://prek.j178.dev for more information.
+#:schema https://www.schemastore.org/prek.json
+
+[[repos]]
+repo = "builtin"
+hooks = [
+  { id = "trailing-whitespace" },
+  { id = "check-added-large-files" },
+]
+
+[[repos]]
+repo = "https://github.com/abravalheri/validate-pyproject"
+rev = "v0.25"
+hooks = [
+  { id = "validate-pyproject" },
+]
+
+[[repos]]
+repo = "https://github.com/asottile/pyupgrade"
+rev = "v3.21.2"
+hooks = [
+  { id = "pyupgrade" },
+]
+
+[[repos]]
+repo = "https://github.com/astral-sh/uv-pre-commit"
+rev = "0.11.22"
+hooks = [
+  { id = "uv-lock" },
+]
+
+[[repos]]
+repo = "https://github.com/astral-sh/ruff-pre-commit"
+rev = "v0.15.18"
+hooks = [
+  { id = "ruff-check", args = ["--fix"] },
+  { id = "ruff-format" },
+]
+
+[[repos]]
+repo = "https://github.com/astral-sh/ty-pre-commit"
+rev = "v0.0.51"
+hooks = [
+  { id = "ty" },
+]
+
+[[repos]]
+repo = "https://github.com/tombi-toml/tombi-pre-commit"
+rev = "v1.1.3"
+hooks = [
+  { id = "tombi-format" },
+  { id = "tombi-lint" },
+]
+
+[[repos]]
+repo = "https://github.com/kynan/nbstripout"
+rev = "0.9.1"
+hooks = [
+  { id = "nbstripout" },
+]
+
+[[repos]]
+repo = "https://github.com/codespell-project/codespell"
+rev = "v2.4.2"
+hooks = [
+  { id = "codespell" },
+]
+
+[[repos]]
+repo = "https://github.com/hukkin/mdformat"
+rev = "1.0.0"
+hooks = [
+  { id = "mdformat", additional_dependencies = ["mdformat-gfm"] },
+]
+
+[[repos]]
+repo = "local"
+hooks = [
+  {
+    id = "just-format",
+    name = "just-format",
+    language = "system",
+    stages = ["pre-commit"],
+    entry = "just --fmt --unstable",
+    pass_filenames = false,
+    always_run = true
+  }
+]

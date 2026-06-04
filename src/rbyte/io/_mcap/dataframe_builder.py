@@ -103,19 +103,18 @@ class McapDataFrameBuilder:
             ):
                 schema = self._fields[dmt.channel.topic]
                 message_fields, special_fields = map(
-                    dict,  # ty:ignore[invalid-argument-type]
+                    dict,
                     mit.partition(lambda kv: kv[0] in SpecialField, schema.items()),
                 )
 
                 row_df = pl.DataFrame(
-                    [getattr(dmt.message, field) for field in special_fields],  # ty:ignore[not-iterable]
-                    schema=special_fields,  # ty:ignore[invalid-argument-type]
+                    [getattr(dmt.message, field) for field in special_fields],
+                    schema=special_fields,
                 )
 
                 if (
                     message_df := self._build_message_df(
-                        dmt.decoded_message,
-                        message_fields,  # ty:ignore[invalid-argument-type]
+                        dmt.decoded_message, message_fields
                     )
                 ) is not None:
                     row_df = message_df.hstack(row_df)
@@ -144,7 +143,7 @@ class McapDataFrameBuilder:
                     .unnest(cs.struct(), separator=".")
                     .select(fields.keys())
                     .cast(df_schema)  # ty:ignore[invalid-argument-type]
-                ).collect()  # ty:ignore[invalid-return-type]
+                ).collect()
 
             case _:
                 return pl.from_dict({

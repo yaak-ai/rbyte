@@ -27,9 +27,8 @@ build:
     uv build
 
 check:
-    uv run ruff format --check
-    uv run ruff check
-    uv run ty check
+    uv format
+    uv check
 
 prek *ARGS: build
     prek --all-files {{ ARGS }}

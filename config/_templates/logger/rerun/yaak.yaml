@@ -14,41 +14,49 @@ recording_name: [meta, input_id]
 schema:
   (@=cameras[0]@)/time_stamp:
     _target_: rerun.TimeColumn
-    timestamp: [data, "meta/ImageMetadata.(@=cameras[0]@)/time_stamp"]
+    columns:
+      timestamp: [data, "meta/ImageMetadata.(@=cameras[0]@)/time_stamp"]
     dtype: datetime64[us]
 
   safety_score/time_stamp:
     _target_: rerun.TimeColumn
-    timestamp: [data, mcap//ai/safety_score/clip.end_timestamp]
+    columns:
+      timestamp: [data, mcap//ai/safety_score/clip.end_timestamp]
     dtype: datetime64[us]
 
   #@ for camera in cameras:
   (@=camera@)/frame_idx:
     _target_: rerun.TimeColumn
-    sequence: [data, "meta/ImageMetadata.(@=camera@)/frame_idx"]
+    columns:
+      sequence: [data, "meta/ImageMetadata.(@=camera@)/frame_idx"]
 
   (@=camera@):
     - _target_: rerun.Image.columns
-      buffer: [data, (@=camera@)]
+      columns:
+        buffer: [data, (@=camera@)]
 
     - static: true
       _target_: rerun.Image.from_fields
-      format:
-        _target_: rerun.components.ImageFormat
-        height: 324
-        width: 576
-        color_model: RGB
-        channel_datatype: u8
+      fields:
+        format:
+          _target_: rerun.components.ImageFormat
+          height: 324
+          width: 576
+          color_model: RGB
+          channel_datatype: u8
   #@ end
 
   speed:
     - _target_: rerun.Scalars.columns
-      scalars: [data, meta/VehicleMotion/speed]
+      columns:
+        scalars: [data, meta/VehicleMotion/speed]
 
   safety_score/score:
     - _target_: rerun.Scalars.columns
-      scalars: [data, mcap//ai/safety_score/score]
+      columns:
+        scalars: [data, mcap//ai/safety_score/score]
 
   waypoints:
     - _target_: rerun.Points2D.columns
-      positions: [data, waypoints/waypoints_normalized]
+      columns:
+        positions: [data, waypoints/waypoints_normalized]

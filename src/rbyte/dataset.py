@@ -103,7 +103,7 @@ class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
         data = TensorDict(
             sample_df.select(pl.exclude(MetaSchema.columns()).to_physical()).to_torch(
                 return_type="dict"
-            )
+            )  # ty:ignore[invalid-argument-type]
         )
 
         meta = sample_df.select(MetaSchema.columns()).rechunk()
@@ -146,7 +146,7 @@ class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
             case None | True, dict():
                 stream_data = {}
 
-                for stream_id, stream_config in self.streams.items():  # ty:ignore[unresolved-attribute]
+                for stream_id, stream_config in self.streams.items():
                     stream_indexes = list(
                         zip(
                             meta["input_id"],
