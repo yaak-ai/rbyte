@@ -1,23 +1,28 @@
+import ast
 import math
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Sequence
+from dataclasses import dataclass
 from functools import cached_property
 from math import prod
+from types import EllipsisType
 from typing import Annotated, Any, Literal, cast, override
 from uuid import UUID
 
+import more_itertools as mit
 import rerun as rr
 import rerun.blueprint as rrb
 import torch
 import torch.nn.functional as F  # noqa: N812
 from cachetools import Cache, cachedmethod
 from einops import rearrange
-from hydra.utils import get_method
 from pydantic import (
     AfterValidator,
-    BeforeValidator,
+    BaseModel,
+    ConfigDict,
     Field,
     InstanceOf,
     RootModel,
+    model_validator,
     validate_call,
 )
 from structlog import get_logger
@@ -32,25 +37,226 @@ from .base import Logger
 logger = get_logger(__name__)
 
 
-class MethodHydraConfig[T](HydraConfig[T]):
-    target: Annotated[Callable[..., T], BeforeValidator(get_method)] = Field(
-        alias="_target_"
-    )
+type _TensorIndex = int | slice | EllipsisType | tuple[_TensorIndex, ...] | None
+
+
+class TensorIndex(RootModel[object]):
+    @property
+    def raw(self) -> _TensorIndex:
+        return cast(_TensorIndex, self.root)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _validate_model(cls, value: object) -> _TensorIndex:
+        if isinstance(value, cls):
+            return value.raw
+
+        return cls.parse(value)
+
+    @classmethod
+    def parse(cls, value: object) -> _TensorIndex:
+        match value:
+            case None:
+                return ()
+
+            case str():
+                return cls._parse_string(value)
+
+            case _:
+                return cls._validate_value(value)
+
+    @classmethod
+    def _parse_string(cls, index: str) -> _TensorIndex:
+        try:
+            expression = ast.parse(f"_value{index}", mode="eval")
+        except SyntaxError as exc:
+            msg = f"unsupported tensor selector index syntax: {index!r}"
+            raise ValueError(msg) from exc
+
+        match expression.body:
+            case ast.Subscript(value=ast.Name(id="_value"), slice=slice_node):
+                return cls._parse_ast(slice_node, index)
+
+            case _:
+                msg = f"tensor selector index must be a bracket expression: {index!r}"
+                raise ValueError(msg)
+
+    @classmethod
+    def _validate_value(cls, value: object) -> _TensorIndex:
+        match value:
+            case None | int() | EllipsisType():
+                return value
+
+            case slice(start=(int() | None), stop=(int() | None), step=(int() | None)):
+                return value
+
+            case tuple():
+                return tuple(cls._validate_value(x) for x in value)
+
+            case _:
+                msg = f"unsupported tensor selection index value: {value!r}"
+                raise ValueError(msg)
+
+    @classmethod
+    def _parse_ast(
+        cls, node: ast.expr | None, source: str, *, slice_bound: bool = False
+    ) -> _TensorIndex:
+        if node is None:
+            if slice_bound:
+                return None
+            node = ast.Constant(value=None)
+            msg = (
+                f"unsupported tensor selection index syntax: {source!r}; "
+                f"node={ast.dump(node, include_attributes=False)}"
+            )
+            raise ValueError(msg)
+
+        if (value := cls._parse_ast_int(node)) is not None:
+            return value
+
+        if slice_bound:
+            msg = (
+                f"unsupported tensor selection index syntax: {source!r}; "
+                f"node={ast.dump(node, include_attributes=False)}"
+            )
+            raise ValueError(msg)
+
+        match node:
+            case ast.Tuple(elts=elts):
+                result = tuple(cls._parse_ast(elt, source) for elt in elts)
+
+            case ast.Slice(lower=lower, upper=upper, step=step):
+                result = slice(
+                    cls._parse_ast(lower, source, slice_bound=True),
+                    cls._parse_ast(upper, source, slice_bound=True),
+                    cls._parse_ast(step, source, slice_bound=True),
+                )
+
+            case ast.Constant(value=None):
+                result = None
+
+            case ast.Constant(value=value) if value is Ellipsis:
+                result = Ellipsis
+
+            case ast.Name(id="Ellipsis"):
+                result = Ellipsis
+
+            case _:
+                msg = (
+                    f"unsupported tensor selection index syntax: {source!r}; "
+                    f"node={ast.dump(node, include_attributes=False)}"
+                )
+                raise ValueError(msg)
+
+        return result
+
+    @staticmethod
+    def _parse_ast_int(node: ast.expr) -> int | None:
+        match node:
+            case ast.Constant(value=value) if type(value) is int:
+                return value
+
+            case ast.UnaryOp(op=ast.USub(), operand=ast.Constant(value=value)) if (
+                type(value) is int
+            ):
+                return -value
+
+            case _:
+                return None
+
+
+class TensorSelector(BaseModel):
+    path: tuple[str, ...]
+    index: TensorIndex = Field(default_factory=lambda: TensorIndex.model_validate(None))
+
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
+    def select(self, data: TensorDict) -> Tensor:
+        return data[*self.path][self.index.raw]  # ty:ignore[invalid-argument-type, invalid-return-type]
+
+    @model_validator(mode="before")
+    @classmethod
+    def _validate_model(cls, value: object) -> object:
+        if isinstance(value, list | tuple):
+            return {"path": value}
+
+        return value
 
 
 class TimeColumnSchemaItem(HydraConfig[rr.TimeColumn]):
+    columns: dict[str, TensorSelector] = Field(exclude=True)
     dtype: str | None = Field(default=None, exclude=True)
 
+    model_config = ConfigDict(extra="forbid")
 
-class StaticSchemaItem(MethodHydraConfig[rr.AsComponents]):
+
+class StaticSchemaItem(HydraConfig[rr.AsComponents]):
     static: Literal[True] = Field(exclude=True)
+    fields: dict[str, Any] = Field(default_factory=dict, exclude=True)
+
+    model_config = ConfigDict(extra="forbid")
 
 
-Indices = tuple[int, ...] | tuple[str, ...]
+class DynamicTimeIndex(BaseModel):
+    path: tuple[str, ...]
+
+    model_config = ConfigDict(extra="forbid")
 
 
-class ComponentColumnSchemaItem(MethodHydraConfig[rr.ComponentColumnList]):
-    indices: Indices | None = Field(default=None, exclude=True)
+class StaticTimeIndex(BaseModel):
+    index: TensorIndex
+
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
+
+type TimeIndex = DynamicTimeIndex | StaticTimeIndex
+
+
+class ComponentColumnSchemaItem(HydraConfig[rr.ComponentColumnList]):
+    columns: dict[str, TensorSelector] = Field(exclude=True)
+    time_index: TimeIndex | None = Field(default=None, exclude=True)
+
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
+
+@dataclass(frozen=True)
+class TimeColumnBundle:
+    columns: list[rr.TimeColumn]
+    row_count: int
+
+
+type NormalizedTensorIndex = int | tuple[object, ...]
+type TimeIndexCacheKey = tuple[tuple[str, ...] | None, NormalizedTensorIndex]
+
+
+def _normalize_tensor_index(index: _TensorIndex) -> NormalizedTensorIndex:
+    match index:
+        case int() as value:
+            return value
+
+        case slice(start=start, stop=stop, step=step):
+            return ("slice", start, stop, step)
+
+        case EllipsisType():
+            return ("ellipsis",)
+
+        case None:
+            return ("none",)
+
+        case tuple() as values:
+            return tuple(_normalize_tensor_index(value) for value in values)
+
+
+def _time_index_cache_key(time_index: TimeIndex | None) -> TimeIndexCacheKey:
+    match time_index:
+        case None:
+            return (None, ())
+
+        case DynamicTimeIndex(path=path):
+            return (path, ())
+
+        case StaticTimeIndex(index=index):
+            return (None, _normalize_tensor_index(index.raw))
 
 
 class Schema(
@@ -105,8 +311,7 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
         port: int = 9876,
         blueprint: InstanceOf[rrb.BlueprintLike]
         | Annotated[
-            MethodHydraConfig[rrb.BlueprintLike],
-            AfterValidator(MethodHydraConfig.instantiate),
+            HydraConfig[rrb.BlueprintLike], AfterValidator(HydraConfig.instantiate)
         ]
         | None = None,
     ) -> None:
@@ -143,141 +348,184 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
         for path, items in self._schema.static.items():
             recording.log(
                 self._entity_path(path),
-                *(item.instantiate() for item in items),
+                *(item.instantiate(**item.fields) for item in items),
                 static=True,
             )
 
         return recording
 
     def _build_time_columns(
-        self, data: TensorDict, indices: Indices | None = None
-    ) -> Iterable[rr.TimeColumn]:
-        column_indices = (
-            data[*indices]
-            if isinstance(indices, tuple)
-            and all(isinstance(idx, str) for idx in indices)
-            else indices
-        )
+        self, data: TensorDict, time_index: TimeIndex | None = None
+    ) -> TimeColumnBundle:
+        columns: list[rr.TimeColumn] = []
+        row_counts: set[int] = set()
+        time_columns = self._schema.time_columns
 
-        for timeline, config in self._schema.time_columns.items():
+        for timeline, config in time_columns.items():
             kwargs: dict[str, Any] = {}
-            for k, k_data in config.model_extra.items():  # ty:ignore[unresolved-attribute]
-                v = (
-                    torch
-                    .atleast_1d(data[*k_data][column_indices].flatten())  # ty: ignore[invalid-argument-type]
-                    .cpu()
-                    .numpy()
-                )
+            for k, selector in config.columns.items():
+                match time_index:
+                    case DynamicTimeIndex(path=path):
+                        values = selector.select(data)[
+                            TensorSelector(path=path).select(data)
+                        ]
+                    case StaticTimeIndex(index=index):
+                        values = selector.select(data)[index.raw]
+                    case _:
+                        values = selector.select(data)
+
+                flattened_values = torch.atleast_1d(values.cpu().flatten())
+                row_counts.add(flattened_values.numel())
+                v = flattened_values.numpy()
                 kwargs[k] = v if (dtype := config.dtype) is None else v.astype(dtype)
 
-            yield config.instantiate(timeline=timeline, **kwargs)
+            columns.append(config.instantiate(timeline=timeline, **kwargs))
+
+        row_count = mit.only(row_counts)
+        if row_count is None:
+            msg = "time columns must contain at least one tensor selection"
+            raise ValueError(msg)
+
+        return TimeColumnBundle(columns=columns, row_count=row_count)
 
     @classmethod
     def _build_component_columns(  # noqa: C901, PLR0912, PLR0915
-        cls, config: ComponentColumnSchemaItem, data: TensorDict
+        cls,
+        config: ComponentColumnSchemaItem,
+        data: TensorDict,
+        row_count: int | None = None,
     ) -> rr.ComponentColumnList:
-        kwargs = TensorDict({k: data[*v] for k, v in config.model_extra.items()})  # ty:ignore[unresolved-attribute]
+        kwargs = TensorDict({
+            k: selector.select(data) for k, selector in config.columns.items()
+        })
         lengths: list[int] | None = None
 
         with bound_contextvars(target=config.target):
-            match cast(Any, config.target):
+            match config.target:
                 case rr.Image.columns:
-                    match tensor := kwargs.get(key := "buffer"):
+                    match value := kwargs[key := "buffer"]:
                         case Tensor(shape=(*_batch_dims, 3, _h, _w)):
                             kwargs[key] = rearrange(
-                                tensor, "... c h w -> (...) (h w c)"
+                                value, "... c h w -> (...) (h w c)"
                             ).view(uint8)
 
                         case Tensor(shape=(*_batch_dims, _h, _w, 3)):
                             kwargs[key] = rearrange(
-                                tensor, "... h w c -> (...) (h w c)"
+                                value, "... h w c -> (...) (h w c)"
                             ).view(uint8)
 
                         case _:
                             logger.error(
                                 (msg := "shape not supported"),
                                 key=key,
-                                shape=tensor.shape,
+                                shape=value.shape,
                             )
                             raise NotImplementedError(msg)
 
                 case rr.DepthImage.columns:
-                    match tensor := kwargs.get(key := "buffer"):
+                    match value := kwargs[key := "buffer"]:
                         case Tensor(shape=(*_, _h, _w)):
                             kwargs[key] = rearrange(
-                                tensor, "... h w -> (...) (h w)"
+                                value, "... h w -> (...) (h w)"
                             ).view(torch.uint8)
 
                         case _:
                             logger.error(
                                 (msg := "shape not supported"),
                                 key=key,
-                                shape=tensor.shape,
+                                shape=value.shape,
                             )
                             raise NotImplementedError(msg)
 
                 case rr.Points2D.columns:
-                    match tensor := kwargs.get(key := "positions"):
+                    match value := kwargs[key := "positions"]:
                         case Tensor(shape=(2,)):
                             pass
 
-                        case Tensor(shape=(*batch_dims, n, 2)):
-                            kwargs[key] = rearrange(tensor, "... n d -> (... n) d")
-                            lengths = [n] * prod(batch_dims)
+                        case Tensor(shape=(*batch_dims, points, 2)):
+                            kwargs[key] = rearrange(value, "... n d -> (... n) d")
+                            lengths = partition_lengths(
+                                batch_dims,
+                                instances_per_row=points,
+                                row_count=row_count,
+                            )
 
                         case _:
                             logger.error(
                                 (msg := "shape not supported"),
                                 key=key,
-                                shape=tensor.shape,
+                                shape=value.shape,
                             )
                             raise NotImplementedError(msg)
+
+                case rr.LineStrips3D.columns:
+                    match tensor := atleast_nd_left(
+                        value := kwargs[key := "strips"],  # ty:ignore[invalid-argument-type]
+                        3,
+                    ):
+                        case Tensor(shape=(*batch_dims, points, _, 2 | 3 as dim)):
+                            kwargs[key] = rearrange(
+                                # https://github.com/rerun-io/rerun/issues/1387
+                                F.pad(tensor, (0, 3 - dim), value=0),
+                                "... segments dim -> (...) segments dim",
+                            )
+                            lengths = partition_lengths(
+                                batch_dims,
+                                instances_per_row=points,
+                                row_count=row_count,
+                            )
+
+                        case _:
+                            logger.error("not implemented", key=key, value=value)
+                            raise NotImplementedError
 
                 case rr.Points3D.columns:
-                    # NOTE: pad (x, y) points to (x, y, 0) so we get ViewCoordinates
-                    # (unavailable for 2D views: https://github.com/rerun-io/rerun/issues/1387)
-                    match tensor := kwargs.get(key := "positions"):
-                        case Tensor(shape=(2,)):
-                            kwargs[key] = F.pad(tensor, (0, 1), value=0)
-
-                        case Tensor(shape=(3,)):
-                            pass
-
-                        case Tensor(shape=(*batch_dims, n, 2)):
+                    match tensor := atleast_nd_left(
+                        value := kwargs[key := "positions"],  # ty:ignore[invalid-argument-type]
+                        3,
+                    ):
+                        case Tensor(shape=(*batch_dims, points, 2 | 3 as dim)):
                             kwargs[key] = rearrange(
-                                F.pad(tensor, (0, 1), value=0), "... n d -> (... n) d"
+                                # https://github.com/rerun-io/rerun/issues/1387
+                                F.pad(tensor, (0, 3 - dim), value=0),
+                                "... points dim -> (...) points dim",
                             )
-                            lengths = [n] * prod(batch_dims)
-
-                        case Tensor(shape=(*batch_dims, n, 3)):
-                            kwargs[key] = rearrange(tensor, "... n d -> (... n) d")
-                            lengths = [n] * prod(batch_dims)
+                            lengths = partition_lengths(
+                                batch_dims,
+                                instances_per_row=points,
+                                row_count=row_count,
+                            )
 
                         case _:
-                            logger.error(
-                                (msg := "shape not supported"),
-                                key=key,
-                                shape=tensor.shape,
-                            )
-                            raise NotImplementedError(msg)
+                            logger.error("not implemented", key=key, value=value)
+                            raise NotImplementedError
 
                 case rr.GeoPoints.columns:
-                    match tensor := kwargs.get(key := "positions"):
+                    match value := kwargs[key := "positions"]:
                         case Tensor(shape=(2,)):
                             pass
 
-                        case Tensor(shape=(*batch_dims, n, 2)):
-                            kwargs[key] = rearrange(tensor, "... n d -> (... n) d")
-                            lengths = [n] * prod(batch_dims)
+                        case Tensor(shape=(*batch_dims, points, 2)):
+                            kwargs[key] = rearrange(value, "... n d -> (... n) d")
+                            lengths = partition_lengths(
+                                batch_dims,
+                                instances_per_row=points,
+                                row_count=row_count,
+                            )
 
                         case _:
-                            logger.error(
-                                (msg := "shape not supported"),
-                                key=key,
-                                shape=tensor.shape,
-                            )
-                            raise NotImplementedError(msg)
+                            raise NotImplementedError
 
+                case rr.Scalars.columns:
+                    match torch.atleast_1d(value := kwargs[key := "scalars"]):
+                        case Tensor(shape=(*batch_dims, dim)):
+                            lengths = partition_lengths(
+                                batch_dims, instances_per_row=dim, row_count=row_count
+                            )
+
+                        case _:
+                            logger.error("not implemented", key=key, value=value)
+                            raise NotImplementedError
                 case _:
                     pass
 
@@ -298,19 +546,54 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
                         self._log(data_elem)
 
     def _log(self, data: TensorDict) -> None:
-        time_columns: dict[Indices | None, list[rr.TimeColumn]] = {}
+        time_column_cache: dict[TimeIndexCacheKey, TimeColumnBundle] = {}
 
         for path, component_column_configs in self._schema.component_columns.items():
             for column_config in component_column_configs:
-                component_columns = self._build_component_columns(column_config, data)
-
-                if (indices := column_config.indices) not in time_columns:
-                    time_columns[indices] = list(
-                        self._build_time_columns(data, indices)
+                cache_key = _time_index_cache_key(column_config.time_index)
+                if cache_key not in time_column_cache:
+                    time_column_cache[cache_key] = self._build_time_columns(
+                        data, column_config.time_index
                     )
+
+                time_column_bundle = time_column_cache[cache_key]
+                component_columns = self._build_component_columns(
+                    column_config, data, row_count=time_column_bundle.row_count
+                )
 
                 rr.send_columns(
                     entity_path=self._entity_path(path),
-                    indexes=time_columns[indices],
+                    indexes=time_column_bundle.columns,
                     columns=component_columns,
                 )
+
+
+def atleast_nd_left[T](x: torch.Tensor, n: int) -> torch.Tensor:
+    return x.reshape((1,) * max(0, n - x.ndim) + tuple(x.shape))
+
+
+def partition_lengths(
+    batch_dims: Sequence[int], *, instances_per_row: int, row_count: int | None
+) -> list[int]:
+    if row_count is None:
+        return [instances_per_row] * prod(batch_dims)
+
+    total_instances = prod(batch_dims) * instances_per_row
+    if row_count == 0:
+        if total_instances == 0:
+            return []
+
+        msg = (
+            "component instance count must be divisible by time row count: "
+            f"{total_instances=} {row_count=}"
+        )
+        raise ValueError(msg)
+
+    if total_instances % row_count != 0:
+        msg = (
+            "component instance count must be divisible by time row count: "
+            f"{total_instances=} {row_count=}"
+        )
+        raise ValueError(msg)
+
+    return [total_instances // row_count] * row_count

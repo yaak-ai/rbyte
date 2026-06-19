@@ -1,9 +1,11 @@
+from collections.abc import Callable
 from concurrent.futures import Executor
 from copy import deepcopy
+from inspect import ismethod
 from pathlib import Path
-from typing import Any, Literal, Self, override
+from typing import Any, ClassVar, Literal, Self, override
 
-from hydra.utils import instantiate
+from hydra.utils import get_object, instantiate
 from pipefunc import Pipeline
 from pipefunc._pipeline._types import OUTPUT_TYPE
 from pydantic import (
@@ -12,7 +14,10 @@ from pydantic import (
     Field,
     ImportString,
     InstanceOf,
+    SerializationInfo,
     TypeAdapter,
+    field_serializer,
+    field_validator,
     model_validator,
 )
 
@@ -20,7 +25,7 @@ from rbyte.types import TensorSource
 
 
 class HydraConfig[T](BaseModel):
-    target: ImportString[type[T]] = Field(
+    target: type[T] | Callable[..., T] = Field(
         serialization_alias="_target_", validation_alias="_target_"
     )
     recursive: bool = Field(alias="_recursive_", default=True)
@@ -29,10 +34,45 @@ class HydraConfig[T](BaseModel):
     )
     partial: bool = Field(alias="_partial_", default=False)
 
-    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(
+        frozen=True,
+        extra="allow",
+        validate_assignment=True,
+        populate_by_name=True,
+        serialize_by_alias=True,
+    )
 
     def instantiate(self, **kwargs: object) -> T:
         return instantiate(self.model_dump(by_alias=True), **kwargs)
+
+    @field_validator("target", mode="before")
+    @classmethod
+    def resolve_target(cls, target: object) -> object:
+        if isinstance(target, str):
+            try:
+                target = get_object(target)
+            except Exception as e:
+                msg = f"unable to resolve Hydra target {target!r}"
+                raise ValueError(msg) from e
+
+        return target
+
+    @field_serializer("target", when_used="always")
+    def serialize_target(self, target: object, _info: SerializationInfo) -> str:  # noqa: PLR6301
+        if (
+            ismethod(target)
+            and isinstance(target.__self__, type)
+            and isinstance(target.__name__, str)
+        ):
+            return f"{target.__self__.__module__}.{target.__self__.__qualname__}.{target.__name__}"  # noqa: E501
+
+        if isinstance(target, type) or callable(target):
+            module = getattr(target, "__module__", None)
+            qualname = getattr(target, "__qualname__", None)
+            if isinstance(module, str) and isinstance(qualname, str):
+                return f"{module}.{qualname}"
+
+        return ImportString._serialize(target)  # noqa: SLF001
 
 
 class PickleableImportString[T](BaseModel):

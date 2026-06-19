@@ -16,28 +16,33 @@ schema:
   #@ topic = camera_topics.values()[0]
   (@=topic@)/log_time:
     _target_: rerun.TimeColumn
-    timestamp: [data, "(@=topic@)/log_time"]
+    columns:
+      timestamp: [data, "(@=topic@)/log_time"]
     dtype: datetime64[ns]
 
   #@ for/end topic in camera_topics.values():
   (@=topic@)/_idx_:
     _target_: rerun.TimeColumn
-    sequence: [data, "(@=topic@)/_idx_"]
+    columns:
+      sequence: [data, "(@=topic@)/_idx_"]
 
   #@ for/end camera in camera_topics.keys():
   (@=camera@):
     - _target_: rerun.Image.columns
-      buffer: [data, (@=camera@)]
+      columns:
+        buffer: [data, (@=camera@)]
 
     - static: true
       _target_: rerun.Image.from_fields
-      format:
-        _target_: rerun.components.ImageFormat
-        height: 900
-        width: 1600
-        color_model: RGB
-        channel_datatype: u8
+      fields:
+        format:
+          _target_: rerun.components.ImageFormat
+          height: 900
+          width: 1600
+          color_model: RGB
+          channel_datatype: u8
 
   /odom/vel.x:
     - _target_: rerun.Scalars.columns
-      scalars: [data, /odom/vel.x]
+      columns:
+        scalars: [data, /odom/vel.x]

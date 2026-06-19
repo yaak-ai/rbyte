@@ -7,44 +7,53 @@ recording_name: [meta, input_id]
 schema:
   camera_front_blur_meta/timestamp:
     _target_: rerun.TimeColumn
-    timestamp: [data, camera_front_blur_meta/timestamp]
+    columns:
+      timestamp: [data, camera_front_blur_meta/timestamp]
     dtype: datetime64[ns]
 
   lidar_velodyne_meta/timestamp:
     _target_: rerun.TimeColumn
-    timestamp: [data, lidar_velodyne_meta/timestamp]
+    columns:
+      timestamp: [data, lidar_velodyne_meta/timestamp]
     dtype: datetime64[ns]
 
   vehicle_data/ego_vehicle_controls/timestamp:
     _target_: rerun.TimeColumn
-    timestamp: [data, vehicle_data/ego_vehicle_controls/timestamp/nanoseconds/value]
+    columns:
+      timestamp: [data, vehicle_data/ego_vehicle_controls/timestamp/nanoseconds/value]
     dtype: datetime64[ns]
 
   camera_front_blur:
     - _target_: rerun.Image.columns
-      buffer: [data, camera_front_blur]
+      columns:
+        buffer: [data, camera_front_blur]
 
     - static: true
       _target_: rerun.Image.from_fields
-      format:
-        _target_: rerun.components.ImageFormat
-        height: 2168
-        width: 3848
-        color_model: RGB
-        channel_datatype: u8
+      fields:
+        format:
+          _target_: rerun.components.ImageFormat
+          height: 2168
+          width: 3848
+          color_model: RGB
+          channel_datatype: u8
 
   lidar_velodyne:
     - _target_: rerun.Points3D.columns
-      positions: [data, lidar_velodyne]
+      columns:
+        positions: [data, lidar_velodyne]
 
   acceleration_pedal:
     - _target_: rerun.Scalars.columns
-      scalars: [data, vehicle_data/ego_vehicle_controls/acceleration_pedal/ratio/unitless/value]
+      columns:
+        scalars: [data, vehicle_data/ego_vehicle_controls/acceleration_pedal/ratio/unitless/value]
 
   steering_wheel_angle:
     - _target_: rerun.Scalars.columns
-      scalars: [data, vehicle_data/ego_vehicle_controls/steering_wheel_angle/angle/radians/value]
+      columns:
+        scalars: [data, vehicle_data/ego_vehicle_controls/steering_wheel_angle/angle/radians/value]
 
   speed:
     - _target_: rerun.Scalars.columns
-      scalars: [data, vehicle_data/satellite/speed/meters_per_second/value]
+      columns:
+        scalars: [data, vehicle_data/satellite/speed/meters_per_second/value]

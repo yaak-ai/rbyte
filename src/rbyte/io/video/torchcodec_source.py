@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from contextlib import nullcontext
 from enum import StrEnum, auto, unique
-from typing import Annotated, final, override
+from typing import Annotated, Literal, final, override
 
 import torch
 from pydantic import AfterValidator, FilePath, InstanceOf, validate_call
@@ -47,6 +47,7 @@ class TorchCodecFrameSource(TensorSource[int]):
         seek_mode: SeekMode = SeekMode.EXACT,
         transforms: Sequence[InstanceOf[DecoderTransform] | InstanceOf[Module]]
         | None = None,
+        output_dtype: InstanceOf[torch.dtype] | Literal["auto"] = torch.uint8,
         custom_frame_mappings: FilePath | None = None,
         cuda_backend: CudaBackend | None = None,
     ) -> None:
@@ -72,6 +73,7 @@ class TorchCodecFrameSource(TensorSource[int]):
                 device=device,
                 seek_mode=seek_mode.value,
                 transforms=transforms,
+                output_dtype=output_dtype,
                 custom_frame_mappings=f_custom_frame_mappings,  # ty:ignore[invalid-argument-type]
             )
 

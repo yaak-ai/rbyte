@@ -1,68 +1,77 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable?shallow=1";
-    flake-utils.url = "github:numtide/flake-utils?shallow=1";
   };
 
-  outputs =
-    { nixpkgs, flake-utils, ... }:
-    flake-utils.lib.eachDefaultSystem (
-      system:
+  outputs = { nixpkgs, ... }: {
+    devShells.x86_64-linux.default =
+      with import nixpkgs { system = "x86_64-linux"; };
       let
-        pkgs = nixpkgs.legacyPackages.${system};
-        python = pkgs.python312;
-        ffmpeg =
-          if pkgs.stdenv.isLinux then
-            pkgs.ffmpeg_8-headless.override {
-              withHeadlessDeps = false;
-              buildFfmpeg = true;
-              buildFfprobe = true;
-              buildAvcodec = true;
-              buildAvdevice = true;
-              buildAvfilter = true;
-              buildAvformat = true;
-              buildAvutil = true;
-              buildSwresample = true;
-              buildSwscale = true;
-              withPixelutils = true;
-              withHardcodedTables = true;
-              withSafeBitstreamReader = true;
-            }
-          else
-            pkgs.ffmpeg-headless;
+        uvLibraryPath = lib.makeLibraryPath [
+          stdenv.cc.cc.lib
+          zlib
+          openssl
+          libffi
+          ffmpeg
+        ];
+        uvWrapped = writeShellScriptBin "uv" ''
+          export LD_LIBRARY_PATH="${uvLibraryPath}''${NIX_LD_LIBRARY_PATH:+:''${NIX_LD_LIBRARY_PATH}}"
+          exec ${lib.getExe uv} "$@"
+        '';
       in
-      {
-        devShells.default =
-          with pkgs;
-          mkShell {
-            packages = [
-              nushell
-              git
-              git-lfs
-              uv
-              ytt
-              just
-              prek
-              skim
-              python
-              ffmpeg
-            ];
+      mkShell {
+        packages = [
+          nushell
+          git
+          git-lfs
+          uvWrapped
+          ytt
+          just
+          prek
+          skim
+          ffmpeg
+        ];
 
-            shellHook =
-              let
-                libraryPath = lib.makeLibraryPath [
-                  ffmpeg
-                  stdenv.cc.cc.lib
-                ];
-                libraryPathEnvVar = if stdenv.isDarwin then "DYLD_FALLBACK_LIBRARY_PATH" else "LD_LIBRARY_PATH";
-              in
-              lib.strings.concatLines [
-                "export UV_PYTHON=${python}/bin/python"
-                "export UV_NO_MANAGED_PYTHON=1"
-                "export UV_PYTHON_DOWNLOADS=never"
-                "export ${libraryPathEnvVar}=${libraryPath}\${${libraryPathEnvVar}:+:${"$"}${libraryPathEnvVar}}"
-              ];
-          };
-      }
-    );
+        env = {
+          UV_PYTHON = "${python312}/bin/python";
+          UV_NO_MANAGED_PYTHON = "1";
+          UV_PYTHON_DOWNLOADS = "never";
+        };
+      };
+
+    devShells.aarch64-darwin.default =
+      with import nixpkgs { system = "aarch64-darwin"; };
+      let
+        uvLibraryPath = lib.makeLibraryPath [
+          stdenv.cc.cc.lib
+          zlib
+          openssl
+          libffi
+          ffmpeg
+        ];
+        uvWrapped = writeShellScriptBin "uv" ''
+          export DYLD_FALLBACK_LIBRARY_PATH="${uvLibraryPath}''${DYLD_FALLBACK_LIBRARY_PATH:+:''${DYLD_FALLBACK_LIBRARY_PATH}}"
+          exec ${lib.getExe uv} "$@"
+        '';
+      in
+      mkShell {
+        packages = [
+          nushell
+          git
+          git-lfs
+          uvWrapped
+          ytt
+          just
+          prek
+          skim
+          ffmpeg
+        ];
+
+        env = {
+          UV_PYTHON = "${python312}/bin/python";
+          UV_NO_MANAGED_PYTHON = "1";
+          UV_PYTHON_DOWNLOADS = "never";
+        };
+      };
+  };
 }
