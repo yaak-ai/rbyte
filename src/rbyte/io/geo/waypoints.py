@@ -25,21 +25,21 @@ class WaypointBuilder:
         self._length = length
         self._columns = columns
 
-    def __call__(self, input: pl.DataFrame) -> pl.DataFrame:
+    def __call__(self, input: pl.LazyFrame) -> pl.DataFrame:
         return self._build(input)
 
     @cached_property
     def _index_column(self) -> str:
         return uuid4().hex
 
-    def _build(self, input: pl.DataFrame) -> pl.DataFrame:
-        lf = input.lazy()
-        lf = pl.concat([lf] + [lf.tail(1)] * (self._length - 1)).with_row_index(
-            self._index_column
-        )
+    def _build(self, input: pl.LazyFrame) -> pl.DataFrame:
+        input = input.lazy()
+        with_last_repeated = pl.concat(
+            [input] + [input.tail(1)] * (self._length - 1)
+        ).with_row_index(self._index_column)
 
         return (
-            lf
+            with_last_repeated
             .rolling(
                 self._index_column,
                 period=f"{self._length}i",
@@ -47,7 +47,7 @@ class WaypointBuilder:
                 closed="left",
             )
             .agg(st.geom(self._columns.points).st.collect().alias(self._columns.output))
-            .join(lf, on=self._index_column, how="left")
+            .join(with_last_repeated, on=self._index_column, how="left")
             .drop(self._index_column)
             .collect()
             .head(-(self._length - 1))

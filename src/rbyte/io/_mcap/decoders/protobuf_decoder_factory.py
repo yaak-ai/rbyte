@@ -24,7 +24,6 @@ logger = get_logger(__name__)
 
 class ProtobufMcapDecoderFactory(McapDecoderFactory):
     def __init__(self) -> None:
-        self._handler_pool: HandlerPool = HandlerPool()
         self._message_type_cache: LRUCache[bytes, type[Message]] = LRUCache(maxsize=32)
 
     @override
@@ -37,7 +36,8 @@ class ProtobufMcapDecoderFactory(McapDecoderFactory):
             and schema.encoding == SchemaEncoding.Protobuf
         ):
             message_type = self._get_message_type(schema)
-            handler = self._handler_pool.get_for_message(message_type.DESCRIPTOR)  # ty:ignore[invalid-argument-type]
+            handler_pool = HandlerPool([message_type.DESCRIPTOR.file])  # ty:ignore[unresolved-attribute]
+            handler = handler_pool.get_for_message(message_type.DESCRIPTOR)
 
             def decoder(data: bytes) -> pl.DataFrame:
                 record_batch = handler.list_to_record_batch([data])
