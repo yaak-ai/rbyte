@@ -8,16 +8,16 @@ class TreeBroadcastMapper:
 
     __name__ = __qualname__
 
-    def __call__[T, U](  # noqa: PLR0913
+    def __call__(  # noqa: PLR0913
         self,
         *,
-        func: Callable[..., U],
-        left: PyTree[T],
-        right: PyTree[T],
-        is_leaf: Callable[[T], bool] | None = None,
+        func: Callable,
+        left: PyTree,
+        right: PyTree,
+        is_leaf: Callable[..., bool] | None = None,
         none_is_leaf: bool = False,
         namespace: str = "",
-    ) -> PyTree[U]:
+    ) -> PyTree:
         return tree_broadcast_map(
             func,
             left,

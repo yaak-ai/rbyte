@@ -27,7 +27,8 @@ build:
     uv build
 
 check:
-    uv format
+    uv format --check
+    uv run --group check ruff check
     uv check
 
 prek *ARGS: build
@@ -51,7 +52,7 @@ generate-test-data-yaak-mp4-frame-mappings:
     }
 
 test *ARGS: build generate-config generate-test-data-yaak-mp4-frame-mappings
-    uv run --all-extras pytest --capture=no -v {{ ARGS }}
+    uv run --all-extras --group test pytest --capture=no -v {{ ARGS }}
 
 notebook FILE *ARGS: sync generate-config
     uv run --all-extras --with=jupyter,jupyterlab-vim,rerun-notebook jupyter lab {{ FILE }} {{ ARGS }}
@@ -59,7 +60,9 @@ notebook FILE *ARGS: sync generate-config
 [script]
 _visualize *ARGS:
     (
-    uv run rbyte-visualize
+    uv run
+        --extra visualize
+        rbyte-visualize
         --config-path {{ justfile_directory() }}/config
         --config-name visualize.yaml
         hydra/hydra_logging=disabled

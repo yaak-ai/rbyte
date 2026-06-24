@@ -24,9 +24,9 @@ class DataFrameIndexer:
     def __call__(self, input: PyTree[pl.DataFrame]) -> PyTree[pl.DataFrame]:
         return tree_map(self._index, input)
 
-    def _index(self, df: pl.DataFrame) -> pl.DataFrame:
-        df = df.with_row_index(name=self._name, offset=self._offset)
+    def _index(self, df: pl.LazyFrame) -> pl.DataFrame:
+        df = df.lazy().with_row_index(name=self._name, offset=self._offset)
         if self._dtype is not None:
             df = df.cast(dtypes={self._name: self._dtype})
 
-        return df
+        return df.collect()

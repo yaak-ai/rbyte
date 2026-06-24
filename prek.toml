@@ -25,14 +25,14 @@ hooks = [
 
 [[repos]]
 repo = "https://github.com/astral-sh/uv-pre-commit"
-rev = "0.11.22"
+rev = "0.11.24"
 hooks = [
   { id = "uv-lock" },
 ]
 
 [[repos]]
 repo = "https://github.com/astral-sh/ruff-pre-commit"
-rev = "v0.15.18"
+rev = "v0.15.19"
 hooks = [
   { id = "ruff-check", args = ["--fix"] },
   { id = "ruff-format" },
@@ -40,14 +40,14 @@ hooks = [
 
 [[repos]]
 repo = "https://github.com/astral-sh/ty-pre-commit"
-rev = "v0.0.51"
+rev = "v0.0.53"
 hooks = [
   { id = "ty" },
 ]
 
 [[repos]]
 repo = "https://github.com/tombi-toml/tombi-pre-commit"
-rev = "v1.1.3"
+rev = "v1.1.5"
 hooks = [
   { id = "tombi-format" },
   { id = "tombi-lint" },

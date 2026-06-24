@@ -51,10 +51,10 @@ class YaakMetadataDataFrameBuilder:
             return result
 
     def _build(self, path: PathLike[str]) -> dict[str, pl.DataFrame]:
-        with Path(path).open("rb") as f_, mmap(f_.fileno(), 0, access=ACCESS_READ) as f:
-            handler_pool = HandlerPool()
+        message_types = frozenset(field.obj for field in self._fields)
+        handler_pool = HandlerPool([mt.DESCRIPTOR.file for mt in message_types])  # ty:ignore[unresolved-attribute]
 
-            message_types = {k.obj for k in self._fields}
+        with Path(path).open("rb") as f_, mmap(f_.fileno(), 0, access=ACCESS_READ) as f:
             messages = mit.bucket(
                 YaakMetadataMessageIterator(f, message_types=message_types),
                 key=itemgetter(0),
@@ -66,7 +66,7 @@ class YaakMetadataDataFrameBuilder:
                     pl.DataFrame,
                     pl.from_arrow(
                         data=handler_pool
-                        .get_for_message(msg.obj.DESCRIPTOR)  # ty: ignore[invalid-argument-type]
+                        .get_for_message(msg.obj.DESCRIPTOR)
                         .list_to_record_batch([
                             msg_data
                             for (_, msg_data) in tqdm(

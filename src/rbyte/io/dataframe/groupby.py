@@ -57,7 +57,7 @@ class DataFrameGroupByDynamic:
                     *(pl.col(k).gather_every(v) for k, v in gather_every.items()),
                 ]
 
-    def __call__(self, input: pl.DataFrame) -> pl.DataFrame:
+    def __call__(self, input: pl.LazyFrame) -> pl.DataFrame:
         result = self._build(input)
         logger.debug(
             "grouped", index_column=self._index_column_name, length=len(result)
@@ -69,7 +69,7 @@ class DataFrameGroupByDynamic:
     def _index_column_tmp(self) -> str:
         return uuid4().hex
 
-    def _build(self, input: pl.DataFrame) -> pl.DataFrame:
+    def _build(self, input: pl.LazyFrame) -> pl.DataFrame:
         return (
             input
             .lazy()
