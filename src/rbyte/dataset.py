@@ -56,7 +56,7 @@ if not set(MetaColumn).issubset(MetaSchema.columns()):
     raise ValueError
 
 
-class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
+class Dataset(TorchDataset[Batch]):  # ruff:ignore[eq-without-hash]
     __slots__ = ("_data", "_meta", "_stream_source_cache", "_streams")
 
     @validate_call
@@ -126,7 +126,7 @@ class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
     def __getitem__(self, index: int) -> Batch:
         return self.get_batch([index])[0]  # ty: ignore[invalid-return-type]
 
-    def __getitems__(self, index: Sequence[int]) -> Batch:  # noqa: PLW3201
+    def __getitems__(self, index: Sequence[int]) -> Batch:  # ruff:ignore[bad-dunder-method-name]
         return self.get_batch(index)
 
     def __len__(self) -> int:
@@ -249,6 +249,10 @@ class Dataset(TorchDataset[Batch]):  # noqa: PLW1641
         results = pipeline.map(
             executor=executor, **samples.model_dump(exclude={"pipeline", "executor"})
         )
+
+        if pipeline.profile:
+            logger.debug("pipeline profiling stats:")
+            pipeline.print_profiling_stats()
 
         return (
             results[output_name].output  # ty:ignore[invalid-argument-type]

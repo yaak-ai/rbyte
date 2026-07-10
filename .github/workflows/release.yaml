@@ -20,20 +20,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: setup ssh
-        uses: webfactory/ssh-agent@v0.9.1
+      - uses: actions/checkout@v7
         with:
-          ssh-private-key: ${{ secrets.YAAK_IDL_REPO_SSH_KEY }}
-
-      - name: checkout
-        uses: actions/checkout@v6
-        with:
-          submodules: recursive
           persist-credentials: false
           fetch-depth: 0
 
-      - name: build and inspect
-        uses: hynek/build-and-inspect-python-package@v2
+      - uses: hynek/build-and-inspect-python-package@v2
         with:
           attest-build-provenance-github: "true"
 
@@ -44,7 +36,7 @@ jobs:
     needs: build
 
     steps:
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           name: Packages
           path: dist

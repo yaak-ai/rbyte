@@ -19,7 +19,7 @@ def collate_identity[T](x: T) -> T:
 
 @runtime_checkable
 class BatchIndexableDataset(Protocol):
-    def __getitems__(self, index: Sequence[int]) -> object: ...  # noqa: PLW3201
+    def __getitems__(self, index: Sequence[int]) -> object: ...  # ruff:ignore[bad-dunder-method-name]
     def __len__(self) -> int: ...
 
 
@@ -40,7 +40,7 @@ class TorchDataNodeDataLoader[T](Iterable[T], Sized):
     """https://meta-pytorch.org/data/main/migrate_to_nodes_from_utils.html"""
 
     @validate_call
-    def __init__(  # noqa: PLR0913
+    def __init__(  # ruff:ignore[too-many-arguments]
         self,
         *,
         dataset: InstanceOf[BatchIndexableDataset],

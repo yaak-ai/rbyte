@@ -7,6 +7,7 @@ import polars as pl
 import pytest
 from hydra import compose, initialize
 from hydra.utils import instantiate
+from m2df import MessageType
 from makefun import with_signature
 from pipefunc import PipeFunc, Pipeline
 from structlog import get_logger
@@ -19,10 +20,11 @@ from rbyte.io import (
     DuckDBDataFrameQuery,
     McapDataFrameBuilder,
     ProtobufMcapDecoderFactory,
+    RouteMatchedWaypointGenerator,
     TorchCodecFrameSource,
     TreeBroadcastMapper,
+    TreeItemGetter,
     VideoDataFrameBuilder,
-    WaypointBuilder,
     YaakMetadataDataFrameBuilder,
 )
 from rbyte.io.dataframe.aligner import (
@@ -48,12 +50,7 @@ def _build_dataset(name: str) -> Dataset:
     return instantiate(cfg.dataset)
 
 
-# TODO: cleaner way of doing this while preserving fixture caching?  # noqa: FIX002
-@pytest.fixture(scope="session")
-def carla_garage_dataset() -> Dataset:
-    return _build_dataset("carla_garage")
-
-
+# TODO: cleaner way of doing this while preserving fixture caching?  # ruff:ignore[line-contains-todo]
 @pytest.fixture(scope="session")
 def mimicgen_dataset() -> Dataset:
     return _build_dataset("mimicgen")
@@ -78,7 +75,7 @@ def zod_dataset() -> Dataset:
 def yaak_dataset_pydantic() -> Dataset:
     data_dir = DATA_DIR / "yaak"
     drive_queries: dict[str, str] = {
-        "Niro098-HQ/2024-06-18--13-39-54": "SELECT * FROM self WHERE time_stamp BETWEEN TIMESTAMP('2024-06-18 13:39:55') AND TIMESTAMP('2024-06-18 13:40:15')"  # noqa: E501
+        "Niro098-HQ/2024-06-18--13-39-54": "SELECT * FROM self WHERE time_stamp BETWEEN TIMESTAMP('2024-06-18 13:39:55') AND TIMESTAMP('2024-06-18 13:40:15')"  # ruff:ignore[line-too-long]
     }
     cameras = ["cam_front_left", "cam_left_backward", "cam_right_backward"]
 
@@ -88,7 +85,7 @@ def yaak_dataset_pydantic() -> Dataset:
             "meta_path": [data_dir / i / "metadata.log" for i in drive_queries],
             "meta_query": list(drive_queries.values()),
             "mcap_path": [data_dir / i / "ai.mcap" for i in drive_queries],
-            "waypoints_path": [data_dir / i / "waypoints.json" for i in drive_queries],
+            "route_path": [data_dir / i / "map-matched.json" for i in drive_queries],
         }
         | {
             f"{camera}_path": [
@@ -107,8 +104,8 @@ def yaak_dataset_pydantic() -> Dataset:
                     output_name="meta_raw",
                     mapspec="meta_path[i] -> meta_raw[i]",
                     func=YaakMetadataDataFrameBuilder(
-                        fields={  # ty: ignore[invalid-argument-type]
-                            "rbyte.io.yaak.proto.sensor_pb2.ImageMetadata": {
+                        messages={
+                            MessageType.ImageMetadata: {
                                 "time_stamp": pl.Datetime(),
                                 "frame_idx": pl.Int32(),
                                 "camera_name": pl.Enum((
@@ -122,14 +119,15 @@ def yaak_dataset_pydantic() -> Dataset:
                                     "cam_rear",
                                 )),
                             },
-                            "rbyte.io.yaak.proto.can_pb2.VehicleMotion": {
+                            MessageType.VehicleMotion: {
                                 "time_stamp": pl.Datetime(),
                                 "speed": pl.Float32(),
                             },
-                            "rbyte.io.yaak.proto.sensor_pb2.Gnss": {
+                            MessageType.Gnss: {
                                 "time_stamp": pl.Datetime(),
-                                "latitude": pl.Float32(),
-                                "longitude": pl.Float32(),
+                                "latitude": pl.Float64(),
+                                "longitude": pl.Float64(),
+                                "heading": pl.Float64(),
                             },
                         }
                     ),
@@ -165,31 +163,79 @@ def yaak_dataset_pydantic() -> Dataset:
                     ),
                 ),
                 PipeFunc(
-                    output_name="waypoints_raw",
-                    mapspec="waypoints_path[i] -> waypoints_raw[i]",
-                    func=with_signature("build_waypoints(*, waypoints_path)")(
+                    renames={"mapping": "meta_raw"},
+                    output_name="gnss",
+                    mapspec="meta_raw[i] -> gnss[i]",
+                    func=TreeItemGetter(key_path=("Gnss",)),
+                ),
+                PipeFunc(
+                    output_name="route",
+                    mapspec="route_path[i] -> route[i]",
+                    func=with_signature("build_route(*, route_path)")(
                         DuckDBDataFrameQuery(
                             extensions=["spatial"],
                             config={"TimeZone": "UTC"},
                             query="""
-SELECT TO_TIMESTAMP(timestamp)::TIMESTAMP as timestamp,
-   heading,
-   ST_AsWKB(
-       ST_Transform(geom, 'EPSG:4326', 'EPSG:25832', always_xy := true)) AS geometry
-FROM ST_Read($waypoints_path)
+WITH coordinates AS (
+  SELECT coordinate, ordinality
+  FROM read_json_auto($route_path),
+       UNNEST(features[1].geometry.coordinates) WITH ORDINALITY
+         AS coordinates(coordinate, ordinality)
+),
+route_metric AS (
+  SELECT
+    ST_Transform(
+      ST_Point(coordinate[1], coordinate[2]),
+      'EPSG:4326', 'EPSG:25832', always_xy := true
+    ) AS geom,
+    ordinality
+  FROM coordinates
+)
+SELECT
+  ST_X(geom) AS easting,
+  ST_Y(geom) AS northing
+FROM route_metric
+ORDER BY ordinality
 """,
                         )
                     ),
                 ),
                 PipeFunc(
-                    renames={"input": "waypoints_raw"},
+                    output_name="gnss_metric",
+                    mapspec="gnss[i] -> gnss_metric[i]",
+                    func=with_signature("build_gnss_metric(*, gnss)")(
+                        DuckDBDataFrameQuery(
+                            extensions=["spatial"],
+                            config={"TimeZone": "UTC"},
+                            query="""
+WITH projected AS (
+  SELECT
+    * EXCLUDE (latitude, longitude),
+    ST_Transform(
+      ST_Point(longitude, latitude),
+      'EPSG:4326', 'EPSG:25832', always_xy := true
+    ) AS geom
+  FROM gnss
+)
+SELECT
+  time_stamp,
+  ST_X(geom) AS easting,
+  ST_Y(geom) AS northing,
+  heading
+FROM projected
+ORDER BY time_stamp
+""",
+                        )
+                    ),
+                ),
+                PipeFunc(
+                    renames={"gnss": "gnss_metric"},
                     output_name="waypoints",
-                    mapspec="waypoints_raw[i] -> waypoints[i]",
-                    func=WaypointBuilder(
-                        length=10,
-                        columns=WaypointBuilder.Columns(
-                            points="geometry", output="waypoints"
-                        ),
+                    mapspec="route[i], gnss_metric[i] -> waypoints[i]",
+                    func=RouteMatchedWaypointGenerator(
+                        config=RouteMatchedWaypointGenerator.Config(
+                            waypoint_offsets_m=(1, 11, 21, 31, 41, 51, 61, 71, 81, 91)
+                        )
                     ),
                 ),
                 PipeFunc(
@@ -222,17 +268,6 @@ FROM ST_Read($waypoints_path)
                                             speed=InterpColumnAlignConfig()
                                         ),
                                     ),
-                                    "Gnss": AlignConfig(
-                                        key="time_stamp",
-                                        columns=OrderedDict(
-                                            latitude=AsofColumnAlignConfig(
-                                                strategy="nearest", tolerance="500ms"
-                                            ),
-                                            longitude=AsofColumnAlignConfig(
-                                                strategy="nearest", tolerance="500ms"
-                                            ),
-                                        ),
-                                    ),
                                 }),
                                 "mcap": OrderedDict({
                                     "/ai/safety_score": AlignConfig(
@@ -248,12 +283,18 @@ FROM ST_Read($waypoints_path)
                                     )
                                 }),
                                 "waypoints": AlignConfig(
-                                    key="timestamp",
+                                    key="time_stamp",
                                     columns=OrderedDict({
+                                        "easting": AsofColumnAlignConfig(
+                                            strategy="nearest"
+                                        ),
+                                        "northing": AsofColumnAlignConfig(
+                                            strategy="nearest"
+                                        ),
                                         "heading": AsofColumnAlignConfig(
                                             strategy="nearest"
                                         ),
-                                        "waypoints": AsofColumnAlignConfig(
+                                        "waypoints/position": AsofColumnAlignConfig(
                                             strategy="nearest"
                                         ),
                                     }),
@@ -269,7 +310,7 @@ FROM ST_Read($waypoints_path)
                         + " -> filtered[i]"
                     ),
                     func=with_signature(
-                        "filter(*, aligned, cam_front_left_meta, cam_left_backward_meta, cam_right_backward_meta)"  # noqa: E501
+                        "filter(*, aligned, cam_front_left_meta, cam_left_backward_meta, cam_right_backward_meta)"  # ruff:ignore[line-too-long]
                     )(
                         DuckDBDataFrameQuery(
                             extensions=["spatial"],
@@ -278,11 +319,18 @@ WITH
   base_data AS (
     SELECT
       *,
-      ST_Transform(
-        ST_Point("meta/Gnss/longitude", "meta/Gnss/latitude"),
-        'EPSG:4326', 'EPSG:25832', always_xy := true
-      ) AS ego_geom,
-      ST_GeomFromWKB("waypoints/waypoints") AS waypoints_geom
+      ST_Point("waypoints/easting", "waypoints/northing") AS ego_geom,
+      ST_Collect(
+        (
+          SELECT list(
+            ST_Point(position[1], position[2])
+            ORDER BY ordinality
+          )
+          FROM UNNEST(
+            CAST(aligned."waypoints/waypoints/position" AS DOUBLE[][])
+          ) WITH ORDINALITY AS waypoint(position, ordinality)
+        )
+      ) AS waypoints_geom
     FROM
       aligned
       SEMI JOIN cam_front_left_meta
@@ -301,6 +349,10 @@ WITH
   normalized_geometries AS (
     SELECT
       *,
+      ST_Transform(
+        waypoints_geom,
+        'EPSG:25832', 'EPSG:4326', always_xy := true
+      ) AS wgs84_waypoints_geom,
       ST_Rotate(
         ST_Translate(
           waypoints_geom,
@@ -315,6 +367,7 @@ WITH
 SELECT
   * EXCLUDE (
     waypoints_geom,
+    wgs84_waypoints_geom,
     normalized_waypoints_geom
   ),
   (
@@ -326,7 +379,17 @@ SELECT
       )
     FROM
       UNNEST(ST_Dump(normalized_waypoints_geom)) AS p(point_struct)
-  ) AS "waypoints/waypoints_normalized"
+  ) AS "waypoints/xy_normalized",
+  (
+    SELECT
+      list(
+        [ST_Y(p.point_struct.geom), ST_X(p.point_struct.geom)]
+        ORDER BY
+          p.point_struct.path
+      )
+    FROM
+      UNNEST(ST_Dump(wgs84_waypoints_geom)) AS p(point_struct)
+  ) AS "waypoints/WGS84"
 FROM
   normalized_geometries
 WHERE
@@ -373,8 +436,10 @@ SELECT
         AS "mcap//ai/safety_score/score",
    "waypoints/heading"::FLOAT[6]
         AS "waypoints/heading",
-   "waypoints/waypoints_normalized"::FLOAT[2][10][6]
-        AS "waypoints/waypoints_normalized"
+   "waypoints/xy_normalized"::FLOAT[2][10][6]
+        AS "waypoints/xy_normalized",
+   "waypoints/WGS84"::DOUBLE[2][10][6]
+        AS "waypoints/WGS84"
 FROM samples
 WHERE len("meta/ImageMetadata.cam_front_left/frame_idx") == 6
 """
@@ -396,16 +461,16 @@ WHERE len("meta/ImageMetadata.cam_front_left/frame_idx") == 6
             sources={
                 input_id: HydraConfig(
                     target=TorchCodecFrameSource,
-                    source=(data_dir / input_id / f"{camera}.pii.mp4").as_posix(),  # ty: ignore[unknown-argument]
+                    source=(data_dir / input_id / f"{camera}.pii.mp4").as_posix(),
                     custom_frame_mappings=(
                         data_dir / input_id / f"{camera}.pii.mp4.frames.json"
-                    ).as_posix(),  # ty:ignore[unknown-argument]
+                    ).as_posix(),
                     transforms=[
                         {"_target_": "torchcodec.transforms.Resize", "size": [324, 576]}
-                    ],  # ty:ignore[unknown-argument]
+                    ],
                 )
                 for input_id in drive_queries
-            },  # ty:ignore[invalid-argument-type]
+            },
         )
         for camera in cameras
     }
@@ -413,7 +478,7 @@ WHERE len("meta/ImageMetadata.cam_front_left/frame_idx") == 6
     return Dataset.from_config(samples=samples, streams=streams)
 
 
-@pytest.fixture(params=["carla_garage", "mimicgen", "nuscenes", "yaak", "zod"])
+@pytest.fixture(params=["mimicgen", "nuscenes", "yaak", "zod"])
 def rerun_logger(request: pytest.FixtureRequest) -> RerunLogger:
     name = request.param
     with initialize(version_base=None, config_path=f"{CONFIG_PATH}/logger/rerun"):

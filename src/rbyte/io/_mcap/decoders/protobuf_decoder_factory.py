@@ -51,7 +51,7 @@ class ProtobufMcapDecoderFactory(McapDecoderFactory):
         cache=lambda self: self._message_type_cache,
         key=lambda _, schema: hash(schema.data),
     )
-    def _get_message_type(self, schema: Schema) -> type[Message]:  # noqa: PLR6301
+    def _get_message_type(self, schema: Schema) -> type[Message]:  # ruff:ignore[no-self-use]
         fds = FileDescriptorSet.FromString(schema.data)
         pool = DescriptorPool()  # ty: ignore[possibly-missing-implicit-call]
         descriptor_by_name = mit.map_reduce(

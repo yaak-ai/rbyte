@@ -12,7 +12,7 @@ import more_itertools as mit
 import rerun as rr
 import rerun.blueprint as rrb
 import torch
-import torch.nn.functional as F  # noqa: N812
+import torch.nn.functional as F  # ruff:ignore[lowercase-imported-as-non-lowercase]
 from cachetools import Cache, cachedmethod
 from einops import rearrange
 from pydantic import (
@@ -43,7 +43,7 @@ type _TensorIndex = int | slice | EllipsisType | tuple[_TensorIndex, ...] | None
 class TensorIndex(RootModel[object]):
     @property
     def raw(self) -> _TensorIndex:
-        return cast(_TensorIndex, self.root)
+        return cast("_TensorIndex", self.root)
 
     @model_validator(mode="before")
     @classmethod
@@ -246,6 +246,9 @@ def _normalize_tensor_index(index: _TensorIndex) -> NormalizedTensorIndex:
         case tuple() as values:
             return tuple(_normalize_tensor_index(value) for value in values)
 
+    msg = f"unsupported tensor index: {index!r}"
+    raise TypeError(msg)
+
 
 def _time_index_cache_key(time_index: TimeIndex | None) -> TimeIndexCacheKey:
     match time_index:
@@ -299,7 +302,7 @@ class Schema(
 
 class RerunLogger(Logger[TensorDict | TensorClass]):
     @validate_call
-    def __init__(  # noqa: PLR0913
+    def __init__(  # ruff:ignore[too-many-arguments]
         self,
         *,
         application_id: str,
@@ -389,7 +392,7 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
         return TimeColumnBundle(columns=columns, row_count=row_count)
 
     @classmethod
-    def _build_component_columns(  # noqa: C901, PLR0912, PLR0915
+    def _build_component_columns(  # ruff:ignore[complex-structure, too-many-branches, too-many-statements]
         cls,
         config: ComponentColumnSchemaItem,
         data: TensorDict,

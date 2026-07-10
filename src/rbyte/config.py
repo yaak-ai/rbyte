@@ -58,13 +58,13 @@ class HydraConfig[T](BaseModel):
         return target
 
     @field_serializer("target", when_used="always")
-    def serialize_target(self, target: object, _info: SerializationInfo) -> str:  # noqa: PLR6301
+    def serialize_target(self, target: object, _info: SerializationInfo) -> str:  # ruff:ignore[no-self-use]
         if (
             ismethod(target)
             and isinstance(target.__self__, type)
             and isinstance(target.__name__, str)
         ):
-            return f"{target.__self__.__module__}.{target.__self__.__qualname__}.{target.__name__}"  # noqa: E501
+            return f"{target.__self__.__module__}.{target.__self__.__qualname__}.{target.__name__}"  # ruff:ignore[line-too-long]
 
         if isinstance(target, type) or callable(target):
             module = getattr(target, "__module__", None)
@@ -72,7 +72,7 @@ class HydraConfig[T](BaseModel):
             if isinstance(module, str) and isinstance(qualname, str):
                 return f"{module}.{qualname}"
 
-        return ImportString._serialize(target)  # noqa: SLF001
+        return ImportString._serialize(target)  # ruff:ignore[private-member-access]
 
 
 class PickleableImportString[T](BaseModel):

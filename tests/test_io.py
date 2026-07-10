@@ -1,11 +1,13 @@
 from pathlib import Path
 
 import polars as pl
+from m2df import MessageType
 from polars.testing import assert_frame_equal
 
 from rbyte.io import PathDataFrameBuilder, YaakMetadataDataFrameBuilder
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
+TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "config" / "_templates"
 CAMERA_ENUM = pl.Enum(
     categories=[
         "cam_front_center",
@@ -20,7 +22,7 @@ CAMERA_ENUM = pl.Enum(
 )
 
 
-def test_PathDataFrameBuilder() -> None:  # noqa: N802
+def test_PathDataFrameBuilder() -> None:  # ruff:ignore[invalid-function-name]
     path = DATA_DIR / "yaak"
 
     builder = PathDataFrameBuilder(
@@ -45,29 +47,30 @@ def test_PathDataFrameBuilder() -> None:  # noqa: N802
     )
 
 
-def test_YaakMetadataDataFrameBuilder() -> None:  # noqa: N802
+def test_YaakMetadataDataFrameBuilder() -> None:  # ruff:ignore[invalid-function-name]
     path = DATA_DIR / "yaak" / "Niro098-HQ" / "2024-06-18--13-39-54" / "metadata.log"
 
     builder = YaakMetadataDataFrameBuilder(
-        fields={  # ty: ignore[invalid-argument-type]
-            "rbyte.io.yaak.proto.sensor_pb2.ImageMetadata": {
+        messages={
+            MessageType.ImageMetadata: {
                 "time_stamp": pl.Datetime(time_unit="us"),
                 "camera_name": CAMERA_ENUM,
             },
-            "rbyte.io.yaak.proto.sensor_pb2.Gnss": {
+            MessageType.Gnss: {
                 "time_stamp": pl.Datetime(time_unit="us"),
                 "latitude": pl.Float32(),
             },
-            "rbyte.io.yaak.proto.can_pb2.VehicleMotion": {
+            MessageType.VehicleMotion: {
                 "time_stamp": pl.Datetime(time_unit="us"),
                 "speed": None,
             },
         }
     )
 
-    assert builder.__pipefunc_hash__() == "83f4fddef74a39bc"
+    assert builder.__pipefunc_hash__() == "00f2bcc91542f647"
 
     dfs = builder(path)
+
     match dfs:
         case {
             "VehicleMotion": pl.DataFrame(

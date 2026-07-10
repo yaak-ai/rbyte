@@ -2,7 +2,7 @@ from .console_logger import ConsoleLogger
 
 __all__ = ["ConsoleLogger"]
 
-try:  # noqa: RUF067
+try:  # ruff:ignore[non-empty-init-module]
     from .rerun_logger import RerunLogger
 except ImportError:
     pass
