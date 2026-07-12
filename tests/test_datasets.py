@@ -48,8 +48,8 @@ def test_get_batch_deduplicates_stream_source_indexes() -> None:
             "stream": StreamConfig(
                 index="stream",
                 sources={
-                    "A": HydraConfig(target=_CountingTensorSource),
-                    "B": HydraConfig(target=_CountingTensorSource),
+                    "A": HydraConfig(target=_CountingTensorSource),  # ty: ignore[missing-argument]
+                    "B": HydraConfig(target=_CountingTensorSource),  # ty: ignore[missing-argument]
                 },
             )
         },
@@ -340,7 +340,7 @@ def test_stream_source_cache_is_thread_local() -> None:
         streams={
             "stream": StreamConfig(
                 index="stream",
-                sources={"input": HydraConfig(target=_CountingTensorSource)},
+                sources={"input": HydraConfig(target=_CountingTensorSource)},  # ty: ignore[missing-argument]
             )
         },
     )

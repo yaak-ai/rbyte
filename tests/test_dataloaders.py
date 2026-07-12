@@ -106,7 +106,7 @@ def test_rebuilds_if_group_appears_late(
     )
     # simulate a build that happened before the process group existed
     loader._built_distributed = False  # noqa: SLF001
-    loader._loader = object()  # noqa: SLF001
+    loader._loader = object()  # noqa: SLF001  # ty: ignore[invalid-assignment]
     assert len(loader) > 0
     assert loader._distributed_sampler is not None  # noqa: SLF001
 

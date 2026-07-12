@@ -394,18 +394,18 @@ WHERE len("meta/ImageMetadata.cam_front_left/frame_idx") == 6
         camera: StreamConfig(
             index=f"meta/ImageMetadata.{camera}/frame_idx",
             sources={
-                input_id: HydraConfig(
+                input_id: HydraConfig(  # ty: ignore[missing-argument]
                     target=TorchCodecFrameSource,
-                    source=(data_dir / input_id / f"{camera}.pii.mp4").as_posix(),  # ty: ignore[unknown-argument]
+                    source=(data_dir / input_id / f"{camera}.pii.mp4").as_posix(),
                     custom_frame_mappings=(
                         data_dir / input_id / f"{camera}.pii.mp4.frames.json"
-                    ).as_posix(),  # ty:ignore[unknown-argument]
+                    ).as_posix(),
                     transforms=[
                         {"_target_": "torchcodec.transforms.Resize", "size": [324, 576]}
-                    ],  # ty:ignore[unknown-argument]
+                    ],
                 )
                 for input_id in drive_queries
-            },  # ty:ignore[invalid-argument-type]
+            },
         )
         for camera in cameras
     }

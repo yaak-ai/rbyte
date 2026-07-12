@@ -118,7 +118,7 @@ class TorchDataNodeDataLoader[T](Iterable[T], Sized):
                 )
                 raise ValueError(msg)
             self._distributed_sampler = DistributedSampler(
-                self._dataset,  # pyright: ignore[reportArgumentType]
+                self._dataset,  # pyright: ignore[reportArgumentType]  # ty: ignore[invalid-argument-type]
                 shuffle=bool(self._shuffle),
                 drop_last=self._drop_last,
                 seed=self._seed,
@@ -133,7 +133,9 @@ class TorchDataNodeDataLoader[T](Iterable[T], Sized):
             )
 
         self._sampler = BatchSampler(
-            sampler, batch_size=self._batch_size, drop_last=self._drop_last
+            sampler,  # ty: ignore[invalid-argument-type]
+            batch_size=self._batch_size,
+            drop_last=self._drop_last,
         )
 
         node = tn.SamplerWrapper(self._sampler)
@@ -141,7 +143,7 @@ class TorchDataNodeDataLoader[T](Iterable[T], Sized):
             source=node,
             map_fn=MapAndCollate(self._dataset, self._collate_fn or default_collate),
             method=self._method,
-            **self._node_kwargs,  # pyright: ignore[reportArgumentType]
+            **self._node_kwargs,  # pyright: ignore[reportArgumentType]  # ty: ignore[invalid-argument-type]
         )
 
         if self._pin_memory:
@@ -149,7 +151,7 @@ class TorchDataNodeDataLoader[T](Iterable[T], Sized):
 
         node = tn.Prefetcher(
             node,
-            prefetch_factor=self._node_kwargs["num_workers"] * self._prefetch_factor,  # pyright: ignore[reportOperatorIssue]
+            prefetch_factor=self._node_kwargs["num_workers"] * self._prefetch_factor,  # pyright: ignore[reportOperatorIssue]  # ty: ignore[unsupported-operator]
         )
 
         self._loader = tn.Loader(node)
