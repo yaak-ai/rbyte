@@ -7,7 +7,7 @@ streams:
     index: camera_front_blur_meta/timestamp
     sources:
       000002_short:
-        _target_: rbyte.io.PathTensorSource
+        _target_: rbyte.streams.path.PathSource
         path: "${data_dir}/sequences/000002_short/camera_front_blur/000002_romeo_{:%Y-%m-%dT%H:%M:%S.%f}Z.jpg"
         index_transform:
           _target_: rbyte.utils.datetime_from_nanos
@@ -23,7 +23,7 @@ streams:
     index: lidar_velodyne_meta/timestamp
     sources:
       000002_short:
-        _target_: rbyte.io.NumpyTensorSource
+        _target_: rbyte.streams.numpy.NpySource
         path: "${data_dir}/sequences/000002_short/lidar_velodyne/000002_romeo_{:%Y-%m-%dT%H:%M:%S.%f}Z.npy"
         index_transform:
           _target_: rbyte.utils.datetime_from_nanos
@@ -37,13 +37,7 @@ samples:
     lidar_velodyne_path: ["${data_dir}/sequences/000002_short/lidar_velodyne"]
     vehicle_data_path: ["${data_dir}/sequences/000002_short/vehicle_data.hdf5"]
 
-  executor:
-    _target_: concurrent.futures.ProcessPoolExecutor
-    max_workers: 1
-    mp_context:
-      _target_: multiprocessing.get_context
-      method: forkserver
-
+  parallel: false
   pipeline:
     _target_: pipefunc.Pipeline
     validate_type_annotations: false
@@ -54,7 +48,7 @@ samples:
         output_name: camera_front_blur_meta
         mapspec: "${.renames.path}[i] -> ${.output_name}[i]"
         func:
-          _target_: rbyte.io.PathDataFrameBuilder
+          _target_: rbyte.samples.path.PathScanner
           pattern: 000002_romeo_(?<timestamp>.+)Z
           fields:
             timestamp:
@@ -67,7 +61,7 @@ samples:
         output_name: lidar_velodyne_meta
         mapspec: "${.renames.path}[i] -> ${.output_name}[i]"
         func:
-          _target_: rbyte.io.PathDataFrameBuilder
+          _target_: rbyte.samples.path.PathScanner
           pattern: "000002_romeo_(?<timestamp>.+)Z"
           fields:
             timestamp:
@@ -80,7 +74,7 @@ samples:
         output_name: vehicle_data
         mapspec: "${.renames.path}[i] -> ${.output_name}[i]"
         func:
-          _target_: rbyte.io.Hdf5DataFrameBuilder
+          _target_: rbyte.samples.hdf5.Hdf5Reader
           fields:
             ego_vehicle_controls:
               timestamp/nanoseconds/value:
@@ -104,7 +98,7 @@ samples:
           _target_: makefun.create_function
           func_signature: "align(*, camera_front_blur_meta, lidar_velodyne_meta, vehicle_data)"
           func_impl:
-            _target_: rbyte.io.DataFrameAligner
+            _target_: rbyte.samples.dataframe.DataFrameAligner
             separator: /
             fields:
               camera_front_blur_meta:
@@ -161,5 +155,5 @@ samples:
           values: filtered
         output_name: samples_aggregated
         func:
-          _target_: rbyte.io.DataFrameConcater
+          _target_: rbyte.samples.dataframe.DataFrameConcatenator
           key_column: input_id

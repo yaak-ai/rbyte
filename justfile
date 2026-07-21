@@ -8,7 +8,6 @@ export HYDRA_FULL_ERROR := "1"
 export TQDM_DISABLE := "1"
 export PYTHONBREAKPOINT := "patdb.debug"
 export PATDB_CODE_STYLE := "vim"
-export BETTER_EXCEPTIONS := "1"
 export LOVELY_TENSORS := "1"
 export RERUN_STRICT := "1"
 
@@ -32,9 +31,15 @@ prek *ARGS:
 
 [script]
 generate-config:
+    let config_dir = ({{ quote(justfile_directory()) }} | path join config)
+
+    glob ($config_dir | path join "*")
+    | where { |path| ($path | path basename) != "_templates" }
+    | each { |path| rm --recursive --force $path }
+
     (
-    ytt --file {{ justfile_directory() }}/config/_templates
-        --output-files {{ justfile_directory() }}/config
+    ytt --file ($config_dir | path join _templates)
+        --output-files $config_dir
         --output yaml
         --strict
     )
@@ -48,7 +53,7 @@ generate-test-data-yaak-mp4-frame-mappings:
     }
 
 test *ARGS: generate-config generate-test-data-yaak-mp4-frame-mappings
-    uv run --all-extras pytest --capture=no {{ quote(ARGS) }}
+    uv run --all-extras pytest -n auto {{ quote(ARGS) }}
 
 notebook FILE *ARGS: generate-config
     uv run --all-extras jupyter lab {{ quote(FILE) }} {{ quote(ARGS) }}

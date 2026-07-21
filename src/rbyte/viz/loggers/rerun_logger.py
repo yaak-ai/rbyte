@@ -1,11 +1,10 @@
 import ast
-import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from math import prod
 from types import EllipsisType
-from typing import Annotated, Any, Literal, cast, override
+from typing import Annotated, Any, Literal, override
 from uuid import UUID
 
 import more_itertools as mit
@@ -13,7 +12,6 @@ import rerun as rr
 import rerun.blueprint as rrb
 import torch
 import torch.nn.functional as F  # ruff:ignore[lowercase-imported-as-non-lowercase]
-from cachetools import Cache, cachedmethod
 from einops import rearrange
 from pydantic import (
     AfterValidator,
@@ -43,7 +41,7 @@ type _TensorIndex = int | slice | EllipsisType | tuple[_TensorIndex, ...] | None
 class TensorIndex(RootModel[object]):
     @property
     def raw(self) -> _TensorIndex:
-        return cast("_TensorIndex", self.root)
+        return self.root  # ty:ignore[invalid-return-type]
 
     @model_validator(mode="before")
     @classmethod
@@ -329,17 +327,21 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
         self._port = port
         self._blueprint: rrb.BlueprintLike | None = blueprint  # ty:ignore[invalid-assignment]
 
-        self._recordings: Cache[str, rr.RecordingStream] = Cache(maxsize=math.inf)
+        self._recordings: dict[str, rr.RecordingStream] = {}
 
     @property
-    def recordings(self) -> Cache[str, rr.RecordingStream]:
+    def recordings(self) -> dict[str, rr.RecordingStream]:
         return self._recordings
 
     def _entity_path(self, path: str) -> str:
         return self._entity_path_format.format(path)
 
-    @cachedmethod(lambda self: self._recordings)
     def _get_recording(self, name: str) -> rr.RecordingStream:
+        try:
+            return self._recordings[name]
+        except KeyError:
+            pass
+
         recording = rr.RecordingStream(
             application_id=self._application_id, recording_id=self._recording_id
         )
@@ -354,6 +356,8 @@ class RerunLogger(Logger[TensorDict | TensorClass]):
                 *(item.instantiate(**item.fields) for item in items),
                 static=True,
             )
+
+        self._recordings[name] = recording
 
         return recording
 

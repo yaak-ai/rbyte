@@ -20,7 +20,7 @@ streams:
     sources:
       #@ for/end drive in drive_queries:
       (@=drive@):
-        _target_: rbyte.io.TorchCodecFrameSource
+        _target_: rbyte.streams.video.TorchCodecVideoSource
         source: ${data_dir}/(@=drive@)/(@=camera@).pii.mp4
         custom_frame_mappings: ${data_dir}/(@=drive@)/(@=camera@).pii.mp4.frames.json
         transforms:
@@ -54,13 +54,7 @@ samples:
       #@ for/end drive in drive_queries:
       - ${data_dir}/(@=drive@)/(@=camera@).pii.mp4
 
-  executor:
-    _target_: concurrent.futures.ProcessPoolExecutor
-    max_workers: 1
-    mp_context:
-      _target_: multiprocessing.get_context
-      method: forkserver
-
+  parallel: false
   pipeline:
     _target_: pipefunc.Pipeline
     validate_type_annotations: false
@@ -71,7 +65,7 @@ samples:
         output_name: meta_raw
         mapspec: "${.renames.path}[i] -> ${.output_name}[i]"
         func:
-          _target_: rbyte.io.YaakMetadataDataFrameBuilder
+          _target_: rbyte.samples.yaak.YaakMetadataReader
           messages:
             ImageMetadata:
               time_stamp:
@@ -122,7 +116,7 @@ samples:
         output_name: meta
         mapspec: "${.renames.left}[i], ${.renames.right}[i] -> ${.output_name}[i]"
         func:
-          _target_: rbyte.io.TreeBroadcastMapper
+          _target_: rbyte.samples.tree.TreeBroadcastMap
         bound:
           func:
             _target_: hydra.utils.get_method
@@ -135,7 +129,7 @@ samples:
         output_name: (@=camera@)_meta
         mapspec: "${.renames.path}[i] -> ${.output_name}[i]"
         func:
-          _target_: rbyte.io.VideoDataFrameBuilder
+          _target_: rbyte.samples.video.VideoFrameIndexer
           fields:
             frame_idx:
               _target_: polars.Int32
@@ -146,8 +140,8 @@ samples:
         output_name: mcap
         mapspec: "${.renames.path}[i] -> ${.output_name}[i]"
         func:
-          _target_: rbyte.io.McapDataFrameBuilder
-          decoder_factories: [rbyte.io.ProtobufMcapDecoderFactory]
+          _target_: rbyte.samples.mcap.McapReader
+          decoder_factories: [rbyte.samples.mcap.ProtobufDecoderFactory]
           fields:
             /ai/safety_score:
               clip.end_timestamp:
@@ -163,7 +157,7 @@ samples:
         output_name: gnss
         mapspec: "${.renames.mapping}[i] -> ${.output_name}[i]"
         func:
-          _target_: rbyte.io.TreeItemGetter
+          _target_: rbyte.samples.tree.TreeSelector
           key_path: [Gnss]
 
       - _target_: pipefunc.PipeFunc
@@ -173,7 +167,7 @@ samples:
           _target_: makefun.create_function
           func_signature: "build_route(*, route_path)"
           func_impl:
-            _target_: rbyte.io.DuckDBDataFrameQuery
+            _target_: rbyte.samples.duckdb.DuckDBQuery
             extensions: [spatial]
             config:
               TimeZone: UTC
@@ -205,7 +199,7 @@ samples:
           _target_: makefun.create_function
           func_signature: "build_gnss_metric(*, gnss)"
           func_impl:
-            _target_: rbyte.io.DuckDBDataFrameQuery
+            _target_: rbyte.samples.duckdb.DuckDBQuery
             extensions: [spatial]
             config:
               TimeZone: UTC
@@ -233,7 +227,7 @@ samples:
         output_name: waypoints
         mapspec: "route[i], ${.renames.gnss}[i] -> ${.output_name}[i]"
         func:
-          _target_: rbyte.io.RouteMatchedWaypointGenerator
+          _target_: rbyte.samples.yaak.RouteWaypointGenerator
           config:
             waypoint_offsets_m: [1, 11, 21, 31, 41, 51, 61, 71, 81, 91]
             search:
@@ -254,7 +248,7 @@ samples:
           _target_: makefun.create_function
           func_signature: "align(*, meta, mcap, waypoints)"
           func_impl:
-            _target_: rbyte.io.DataFrameAligner
+            _target_: rbyte.samples.dataframe.DataFrameAligner
             separator: /
             fields:
               meta:
@@ -319,7 +313,7 @@ samples:
           _target_: makefun.create_function
           func_signature: "filter(*, aligned, cam_front_left_meta, cam_left_backward_meta, cam_right_backward_meta)"
           func_impl:
-            _target_: rbyte.io.DuckDBDataFrameQuery
+            _target_: rbyte.samples.duckdb.DuckDBQuery
             extensions: [spatial]
             query: |
               WITH
@@ -373,6 +367,7 @@ samples:
                 )
               SELECT
                 * EXCLUDE (
+                  ego_geom,
                   waypoints_geom,
                   WGS84_waypoints_geom,
                   normalized_waypoints_geom
@@ -406,7 +401,7 @@ samples:
         output_name: samples
         mapspec: "${.renames.input}[i] -> ${.output_name}[i]"
         func:
-          _target_: rbyte.io.DataFrameGroupByDynamic
+          _target_: rbyte.samples.dataframe.DataFrameDynamicGrouper
           index_column: meta/ImageMetadata.(@=cameras[0]@)/frame_idx
           every: 6i
           period: 6i
@@ -418,7 +413,7 @@ samples:
           _target_: makefun.create_function
           func_signature: "cast(*, samples)"
           func_impl:
-            _target_: rbyte.io.DuckDBDataFrameQuery
+            _target_: rbyte.samples.duckdb.DuckDBQuery
             query: |
               SELECT "meta/ImageMetadata.cam_front_left/time_stamp"::TIMESTAMP[6] AS "meta/ImageMetadata.cam_front_left/time_stamp",
                      "meta/ImageMetadata.cam_front_left/frame_idx"::INT32[6] AS "meta/ImageMetadata.cam_front_left/frame_idx",
@@ -439,5 +434,5 @@ samples:
           values: samples_cast
         output_name: samples_aggregated
         func:
-          _target_: rbyte.io.DataFrameConcater
+          _target_: rbyte.samples.dataframe.DataFrameConcatenator
           key_column: input_id

@@ -3,7 +3,7 @@ from pytest_lazy_fixtures import lf
 from torch.utils.data import DataLoader
 
 from rbyte import Dataset
-from rbyte.dataloader import TorchDataNodeDataLoader, collate_identity
+from rbyte.dataloader import NodeDataLoader, collate_identity
 
 
 @pytest.fixture
@@ -28,7 +28,7 @@ def torch_dataloader(dataset: Dataset, common_kwargs: dict[str, object]) -> Data
 @pytest.fixture(params=[pytest.param("process"), pytest.param("thread")])
 def torchdata_dataloader(
     dataset: Dataset, request: pytest.FixtureRequest, common_kwargs: dict[str, object]
-) -> TorchDataNodeDataLoader:
+) -> NodeDataLoader:
     match request.param:
         case "process":
             kwargs = {"multiprocessing_context": "forkserver", "method": "process"}
@@ -39,7 +39,7 @@ def torchdata_dataloader(
         case _:
             raise RuntimeError
 
-    return TorchDataNodeDataLoader(
+    return NodeDataLoader(
         dataset=dataset,
         **(common_kwargs | kwargs),  # ty:ignore[invalid-argument-type]
     )
@@ -47,7 +47,7 @@ def torchdata_dataloader(
 
 @pytest.mark.parametrize("dataset", [lf("yaak_dataset")])
 def test_dataloaders(
-    torch_dataloader: DataLoader, torchdata_dataloader: TorchDataNodeDataLoader
+    torch_dataloader: DataLoader, torchdata_dataloader: NodeDataLoader
 ) -> None:
     for left, right in zip(torch_dataloader, torchdata_dataloader, strict=True):
         assert (left == right).all()

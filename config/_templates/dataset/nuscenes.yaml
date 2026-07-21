@@ -20,7 +20,7 @@ streams:
     sources:
       #@ for/end input_id in inputs:
       (@=input_id@):
-        _target_: rbyte.io.McapTensorSource
+        _target_: rbyte.streams.mcap.McapSource
         path: "${data_dir}/(@=input_id@).mcap"
         topic: (@=topic@)
         decoder_factory: mcap_protobuf.decoder.DecoderFactory
@@ -41,13 +41,7 @@ samples:
       #@ for/end input_id in inputs:
       - "${data_dir}/(@=input_id@).mcap"
 
-  executor:
-    _target_: concurrent.futures.ProcessPoolExecutor
-    max_workers: 1
-    mp_context:
-      _target_: multiprocessing.get_context
-      method: forkserver
-
+  parallel: false
   pipeline:
     _target_: pipefunc.Pipeline
     validate_type_annotations: false
@@ -56,10 +50,10 @@ samples:
         output_name: data
         mapspec: "path[i] -> ${.output_name}[i]"
         func:
-          _target_: rbyte.io.McapDataFrameBuilder
+          _target_: rbyte.samples.mcap.McapReader
           decoder_factories:
-            - rbyte.io.ProtobufMcapDecoderFactory
-            - rbyte.io.JsonMcapDecoderFactory
+            - rbyte.samples.mcap.ProtobufDecoderFactory
+            - rbyte.samples.mcap.JsonDecoderFactory
           fields:
             #@ for/end topic in camera_topics.values():
             (@=topic@):
@@ -79,7 +73,7 @@ samples:
         output_name: indexed
         mapspec: "${.renames.input}[i] -> ${.output_name}[i]"
         func:
-          _target_: rbyte.io.DataFrameIndexer
+          _target_: rbyte.samples.dataframe.DataFrameRowIndexer
           name: _idx_
 
       - _target_: pipefunc.PipeFunc
@@ -91,7 +85,7 @@ samples:
           _target_: makefun.create_function
           func_signature: "align(input)"
           func_impl:
-            _target_: rbyte.io.DataFrameAligner
+            _target_: rbyte.samples.dataframe.DataFrameAligner
             separator: /
             fields:
               #@ topic = camera_topics.values()[0]
@@ -131,5 +125,5 @@ samples:
           values: samples
         output_name: samples_aggregated
         func:
-          _target_: rbyte.io.DataFrameConcater
+          _target_: rbyte.samples.dataframe.DataFrameConcatenator
           key_column: input_id

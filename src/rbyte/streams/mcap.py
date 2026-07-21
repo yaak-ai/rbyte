@@ -1,0 +1,170 @@
+from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass
+from functools import cached_property
+from mmap import ACCESS_READ, mmap
+from operator import itemgetter
+from typing import IO, final, override
+
+import more_itertools as mit
+import numpy.typing as npt
+import torch
+from mcap.data_stream import ReadDataStream
+from mcap.decoder import DecoderFactory
+from mcap.reader import SeekingReader
+from mcap.records import Channel, Chunk, ChunkIndex, Message
+from mcap.records import MessageIndex as McapMessageIndex
+from mcap.stream_reader import get_chunk_data_stream
+from pydantic import FilePath, ImportString, validate_call
+from structlog import get_logger
+from structlog.contextvars import bound_contextvars
+from torch import Tensor
+
+from rbyte.streams.base import StreamSource
+
+logger = get_logger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class MessageOffset:
+    chunk_start_offset: int
+    message_record_offset: int
+
+
+@final
+class McapSource(StreamSource[int]):
+    @validate_call
+    def __init__(
+        self,
+        path: FilePath,
+        topic: str,
+        decoder_factory: ImportString[type[DecoderFactory]],
+        decoder: Callable[[bytes], npt.ArrayLike],
+        validate_crcs: bool = False,  # ruff:ignore[boolean-type-hint-positional-argument, boolean-default-value-positional-argument]
+    ) -> None:
+        super().__init__()
+
+        with bound_contextvars(
+            path=path.as_posix(), topic=topic, message_decoder_factory=decoder_factory
+        ):
+            self._path = path
+            self._validate_crcs = validate_crcs
+
+            summary = SeekingReader(
+                stream=self._file,  # ty: ignore[invalid-argument-type]
+                validate_crcs=self._validate_crcs,
+            ).get_summary()
+
+            if summary is None:
+                logger.error(msg := "missing summary")
+                raise ValueError(msg)
+
+            self._channel: Channel = mit.one(
+                channel
+                for channel in summary.channels.values()
+                if channel.topic == topic
+            )
+
+            message_decoder = decoder_factory().decoder_for(
+                message_encoding=self._channel.message_encoding,
+                schema=summary.schemas[self._channel.schema_id],
+            )
+
+            if message_decoder is None:
+                logger.error(msg := "missing message decoder")
+                raise RuntimeError(msg)
+
+            self._message_decoder = message_decoder
+            self._chunk_indexes = tuple(
+                chunk_index
+                for chunk_index in summary.chunk_indexes
+                if self._channel.id in chunk_index.message_index_offsets
+            )
+            self._decoder = decoder
+            self._mmap = None
+
+    @property
+    def _file(self) -> mmap:
+        match getattr(self, "_mmap", None):
+            case mmap(closed=False):
+                pass
+
+            case None | mmap(closed=True):
+                with self._path.open("rb") as f:
+                    self._mmap = mmap(fileno=f.fileno(), length=0, access=ACCESS_READ)
+
+            case _:
+                raise RuntimeError
+
+        return self._mmap  # ty: ignore[invalid-return-type]
+
+    @override
+    def __getitem__(self, indexes: int | Sequence[int]) -> Tensor:
+        match indexes:
+            case Sequence():
+                arrays: dict[int, npt.ArrayLike] = {}
+                unique_indexes = dict.fromkeys(indexes)
+                message_indexes = (self._message_indexes[idx] for idx in unique_indexes)  # ty:ignore[invalid-argument-type]
+                indexes_by_chunk_start_offset = mit.map_reduce(
+                    zip(unique_indexes, message_indexes, strict=True),
+                    keyfunc=lambda x: x[1].chunk_start_offset,
+                )
+
+                for chunk_start_offset, chunk_indexes in sorted(
+                    indexes_by_chunk_start_offset.items(), key=itemgetter(0)
+                ):
+                    _ = self._file.seek(chunk_start_offset + 1 + 8)
+                    chunk = Chunk.read(ReadDataStream(self._file))  # ty: ignore[invalid-argument-type]
+                    stream, _ = get_chunk_data_stream(
+                        chunk, validate_crc=self._validate_crcs
+                    )
+                    for index, message_index in sorted(
+                        chunk_indexes, key=lambda x: x[1].message_record_offset
+                    ):
+                        stream.read(message_index.message_record_offset - stream.count)
+                        _ = stream.read1()
+                        message = Message.read(stream, length=stream.read8())
+                        decoded_message = self._message_decoder(message.data)
+                        arrays[index] = self._decoder(decoded_message.data)  # ty:ignore[invalid-assignment]
+
+                tensors = [torch.from_numpy(arrays[idx]) for idx in indexes]  # ty: ignore[invalid-argument-type]
+
+                return torch.stack(tensors)
+
+            case int():
+                message_index = self._message_indexes[indexes]
+                _ = self._file.seek(message_index.chunk_start_offset + 1 + 8)
+                chunk = Chunk.read(ReadDataStream(self._file))  # ty: ignore[invalid-argument-type]
+                stream, _ = get_chunk_data_stream(chunk, self._validate_crcs)
+                _ = stream.read(message_index.message_record_offset - stream.count)
+                _ = stream.read1()
+                message = Message.read(stream, length=stream.read8())
+                decoded_message = self._message_decoder(message.data)
+                array = self._decoder(decoded_message.data)
+
+                return torch.from_numpy(array)
+
+    @cached_property
+    def _message_indexes(self) -> Sequence[MessageOffset]:
+        return tuple(
+            self._build_message_indexes(
+                self._file,  # ty: ignore[invalid-argument-type]
+                chunk_indexes=self._chunk_indexes,
+                channel_id=self._channel.id,
+            )
+        )
+
+    @staticmethod
+    def _build_message_indexes(
+        f: IO[bytes], *, chunk_indexes: Iterable[ChunkIndex], channel_id: int
+    ) -> Iterable[MessageOffset]:
+        for chunk_index in chunk_indexes:
+            f.seek(chunk_index.message_index_offsets[channel_id] + 1 + 8)
+            yield from (
+                MessageOffset(
+                    chunk_start_offset=chunk_index.chunk_start_offset,
+                    message_record_offset=message_record_offset,
+                )
+                for _, message_record_offset in McapMessageIndex.read(
+                    ReadDataStream(f)
+                ).records
+            )

@@ -1,8 +1,4 @@
-from collections.abc import Sequence
-from typing import Protocol, runtime_checkable
-
 from tensordict import NonTensorStack, TensorClass, TensorDict
-from torch import Tensor
 
 
 class BatchMeta(TensorClass, autocast=True):
@@ -12,9 +8,3 @@ class BatchMeta(TensorClass, autocast=True):
 class Batch(TensorClass, autocast=True):
     data: TensorDict
     meta: BatchMeta | None = None
-
-
-@runtime_checkable
-class TensorSource[I](Protocol):
-    def __getitem__(self, indexes: I | Sequence[I]) -> Tensor: ...
-    def __len__(self) -> int: ...
