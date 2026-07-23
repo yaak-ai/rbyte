@@ -57,7 +57,7 @@ class Config(BaseModel):
     @field_serializer("fields", when_used="json")
     @staticmethod
     def _serialize_fields(fields: Fields) -> dict[str, str | None]:
-        return tree_map(DataType._string_repr, fields)  # ty: ignore[invalid-argument-type, invalid-return-type]  # noqa: SLF001
+        return tree_map(DataType._string_repr, fields)  # ty: ignore[invalid-argument-type, invalid-return-type]  # ruff:ignore[private-member-access]
 
 
 @final
@@ -67,7 +67,7 @@ class PathDataFrameBuilder:
     def __init__(self, *, fields: Fields, pattern: str) -> None:
         self._config = Config(fields=fields, pattern=pattern)
 
-    def __pipefunc_hash__(self) -> str:  # noqa: PLW3201
+    def __pipefunc_hash__(self) -> str:  # ruff:ignore[bad-dunder-method-name]
         return digest(self._config.model_dump_json())
 
     @validate_call

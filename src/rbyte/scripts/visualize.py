@@ -1,5 +1,5 @@
 from math import ceil
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import hydra
 import more_itertools as mit
@@ -7,14 +7,15 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig
 from tqdm import tqdm
 
-from rbyte import Dataset
-from rbyte.viz.loggers.base import Logger
+if TYPE_CHECKING:
+    from rbyte import Dataset
+    from rbyte.viz.loggers.base import Logger
 
 
 @hydra.main(version_base=None)
 def main(config: DictConfig) -> None:
-    logger = cast(Logger[Any], instantiate(config.logger))
-    dataset = cast(Dataset, instantiate(config.dataset))
+    logger = cast("Logger[Any]", instantiate(config.logger))
+    dataset = cast("Dataset", instantiate(config.dataset))
 
     dataset_len = len(dataset)
     batch_size = config.batch_size or dataset_len

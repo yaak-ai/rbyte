@@ -21,7 +21,7 @@ class DataFrameGroupByDynamic:
     __name__ = __qualname__
 
     @validate_call
-    def __init__(  # noqa: PLR0913
+    def __init__(  # ruff:ignore[too-many-arguments]
         self,
         *,
         index_column: str,

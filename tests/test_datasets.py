@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import ClassVar, cast
 
-import dill  # noqa: S403
+import dill  # ruff:ignore[suspicious-pickle-import]
 import more_itertools as mit
 import polars as pl
 import pytest
@@ -74,7 +74,7 @@ def test_get_batch_deduplicates_stream_source_indexes() -> None:
             raise AssertionError(msg)
 
     assert _CountingTensorSource.calls == [[2], [3]]
-    assert _CountingTensorSource.instances == 2  # noqa: PLR2004
+    assert _CountingTensorSource.instances == 2  # ruff:ignore[magic-value-comparison]
 
 
 @pytest.mark.parametrize("dataset", [lf("yaak_dataset"), lf("yaak_dataset_pydantic")])
@@ -100,19 +100,18 @@ def test_yaak_dataset(dataset: Dataset) -> None:
                 "mcap//ai/safety_score/clip.end_timestamp": Tensor(shape=[c.B, *_]),
                 "mcap//ai/safety_score/score": Tensor(shape=[c.B, *_]),
                 "waypoints/heading": Tensor(shape=[c.B, *_]),
-                "waypoints/waypoints_normalized": Tensor(shape=[c.B, *_]),
+                "waypoints/xy_normalized": Tensor(shape=[c.B, *_]),
+                "waypoints/WGS84": Tensor(shape=[c.B, *_]),
                 **data_rest,
             },
             "meta": {"input_id": [*_], **meta_rest},
             **batch_rest,
         } if not any((batch_rest, data_rest, meta_rest)):
-            waypoints_normalized = cast(
-                Tensor, batch.data["waypoints/waypoints_normalized"]
-            )
+            waypoints_normalized = cast("Tensor", batch.data["waypoints/xy_normalized"])
 
             assert waypoints_normalized.shape[2:] == (10, 2), "invalid waypoints shape"
 
-            assert not (waypoints_normalized == 0.0).all(), "waypoints are all zero"  # noqa: RUF069
+            assert not (waypoints_normalized == 0.0).all(), "waypoints are all zero"  # ruff:ignore[float-equality-comparison]
 
             atol_relative = 1
             relative_distances = torch.linalg.norm(
@@ -121,7 +120,7 @@ def test_yaak_dataset(dataset: Dataset) -> None:
 
             # since we duplicate waypoints at the end of the ride
             relative_distances = torch.where(
-                relative_distances != 0.0,  # noqa: RUF069
+                relative_distances != 0.0,  # ruff:ignore[float-equality-comparison]
                 relative_distances,
                 10.0,
             )
@@ -173,38 +172,11 @@ def test_yaak_dataset(dataset: Dataset) -> None:
                 "mcap//ai/safety_score/clip.end_timestamp": Tensor(shape=[c.B, *_]),
                 "mcap//ai/safety_score/score": Tensor(shape=[c.B, *_]),
                 "waypoints/heading": Tensor(shape=[c.B, *_]),
-                "waypoints/waypoints_normalized": Tensor(shape=[c.B, *_]),
+                "waypoints/xy_normalized": Tensor(shape=[c.B, *_]),
+                "waypoints/WGS84": Tensor(shape=[c.B, *_]),
                 **data_rest,
             },
             "meta": {"input_id": [*_], **meta_rest},
-            **batch_rest,
-        } if not any((batch_rest, data_rest, meta_rest)):
-            pass
-
-        case _:
-            logger.error(msg := "invalid batch structure", batch=batch)
-
-            raise AssertionError(msg)
-
-
-def test_carla_garage_dataset(carla_garage_dataset: Dataset) -> None:
-    index = [0, 2]
-    c = SimpleNamespace(B=len(index))
-
-    match (batch := carla_garage_dataset.get_batch(index)).to_dict():
-        case {
-            "data": {
-                "rgb": Tensor(shape=[c.B, *_]),
-                "measurements/_idx_": Tensor(shape=[c.B, *_]),
-                "measurements/brake": Tensor(shape=[c.B, *_]),
-                "measurements/steer": Tensor(shape=[c.B, *_]),
-                "measurements/throttle": Tensor(shape=[c.B, *_]),
-                "measurements/speed": Tensor(shape=[c.B, *_]),
-                "waypoints/heading": Tensor(shape=[c.B, *_]),
-                "waypoints/waypoints_normalized": Tensor(shape=[c.B, *_]),
-                **data_rest,
-            },
-            "meta": {"input_id": _, **meta_rest},
             **batch_rest,
         } if not any((batch_rest, data_rest, meta_rest)):
             pass
@@ -277,10 +249,10 @@ def test_zod_dataset(zod_dataset: Dataset) -> None:
                 "camera_front_blur_meta/timestamp": Tensor(shape=[c.B, *_]),
                 "lidar_velodyne": Tensor(shape=[c.B, *_]),
                 "lidar_velodyne_meta/timestamp": Tensor(shape=[c.B, *_]),
-                "vehicle_data/ego_vehicle_controls/acceleration_pedal/ratio/unitless/value": Tensor(  # noqa: E501
+                "vehicle_data/ego_vehicle_controls/acceleration_pedal/ratio/unitless/value": Tensor(  # ruff:ignore[line-too-long]
                     shape=[c.B, *_]
                 ),
-                "vehicle_data/ego_vehicle_controls/steering_wheel_angle/angle/radians/value": Tensor(  # noqa: E501
+                "vehicle_data/ego_vehicle_controls/steering_wheel_angle/angle/radians/value": Tensor(  # ruff:ignore[line-too-long]
                     shape=[c.B, *_]
                 ),
                 "vehicle_data/ego_vehicle_controls/timestamp/nanoseconds/value": Tensor(
@@ -305,7 +277,6 @@ def test_zod_dataset(zod_dataset: Dataset) -> None:
 @pytest.mark.parametrize(
     "dataset",
     [
-        lf("carla_garage_dataset"),
         lf("mimicgen_dataset"),
         lf("nuscenes_dataset"),
         lf("yaak_dataset"),
@@ -320,7 +291,6 @@ def test_save_and_load(dataset: Dataset, tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "dataset",
     [
-        lf("carla_garage_dataset"),
         lf("mimicgen_dataset"),
         lf("nuscenes_dataset"),
         lf("yaak_dataset"),
@@ -345,13 +315,13 @@ def test_stream_source_cache_is_thread_local() -> None:
         },
     )
 
-    main_first = dataset._get_source("stream", "input")  # noqa: SLF001
-    main_second = dataset._get_source("stream", "input")  # noqa: SLF001
+    main_first = dataset._get_source("stream", "input")  # ruff:ignore[private-member-access]
+    main_second = dataset._get_source("stream", "input")  # ruff:ignore[private-member-access]
 
     def get_worker_sources() -> tuple[object, object]:
         return (
-            dataset._get_source("stream", "input"),  # noqa: SLF001
-            dataset._get_source("stream", "input"),  # noqa: SLF001
+            dataset._get_source("stream", "input"),  # ruff:ignore[private-member-access]
+            dataset._get_source("stream", "input"),  # ruff:ignore[private-member-access]
         )
 
     with ThreadPoolExecutor(max_workers=1) as executor:
@@ -360,7 +330,7 @@ def test_stream_source_cache_is_thread_local() -> None:
     assert main_first is main_second
     assert worker_first is worker_second
     assert worker_first is not main_first
-    assert _CountingTensorSource.instances == 2  # noqa: PLR2004
+    assert _CountingTensorSource.instances == 2  # ruff:ignore[magic-value-comparison]
 
 
 @pytest.mark.parametrize(

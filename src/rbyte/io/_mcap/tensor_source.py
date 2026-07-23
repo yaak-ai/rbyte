@@ -40,7 +40,7 @@ class McapTensorSource(TensorSource[int]):
         topic: str,
         decoder_factory: ImportString[type[DecoderFactory]],
         decoder: Callable[[bytes], npt.ArrayLike],
-        validate_crcs: bool = False,  # noqa: FBT001, FBT002
+        validate_crcs: bool = False,  # ruff:ignore[boolean-type-hint-positional-argument, boolean-default-value-positional-argument]
     ) -> None:
         super().__init__()
 

@@ -34,7 +34,7 @@ class CudaBackend(StrEnum):
 @final
 class TorchCodecFrameSource(TensorSource[int]):
     @validate_call
-    def __init__(  # noqa: PLR0913
+    def __init__(  # ruff:ignore[too-many-arguments]
         self,
         *,
         source: FilePath | str,

@@ -7,7 +7,7 @@ from .dataframe import (
     DataFrameIndexer,
 )
 from .path import PathDataFrameBuilder, PathTensorSource
-from .tree import TreeBroadcastMapper
+from .tree import TreeBroadcastMapper, TreeItemGetter
 
 __all__: list[str] = [
     "DataFrameAligner",
@@ -19,17 +19,18 @@ __all__: list[str] = [
     "PathDataFrameBuilder",
     "PathTensorSource",
     "TreeBroadcastMapper",
+    "TreeItemGetter",
 ]
 
 
-try:  # noqa: RUF067
+try:  # ruff:ignore[non-empty-init-module]
     from .hdf5 import Hdf5DataFrameBuilder, Hdf5TensorSource
 except ImportError:
     pass
 else:
     __all__ += ["Hdf5DataFrameBuilder", "Hdf5TensorSource"]
 
-try:  # noqa: RUF067
+try:  # ruff:ignore[non-empty-init-module]
     from ._mcap import (
         JsonMcapDecoderFactory,
         McapDataFrameBuilder,
@@ -46,24 +47,16 @@ else:
         "ProtobufMcapDecoderFactory",
     ]
 
-try:  # noqa: RUF067
+try:  # ruff:ignore[non-empty-init-module]
     from .video import TorchCodecFrameSource, VideoDataFrameBuilder
 except (ImportError, RuntimeError):
     pass
 else:
     __all__ += ["TorchCodecFrameSource", "VideoDataFrameBuilder"]
 
-try:  # noqa: RUF067
-    from .yaak.metadata import YaakMetadataDataFrameBuilder
+try:  # ruff:ignore[non-empty-init-module]
+    from .yaak import RouteMatchedWaypointGenerator, YaakMetadataDataFrameBuilder
 except ImportError:
     pass
 else:
-    __all__ += ["YaakMetadataDataFrameBuilder"]
-
-
-try:  # noqa: RUF067
-    from .geo import WaypointBuilder
-except ImportError:
-    pass
-else:
-    __all__ += ["WaypointBuilder"]
+    __all__ += ["RouteMatchedWaypointGenerator", "YaakMetadataDataFrameBuilder"]

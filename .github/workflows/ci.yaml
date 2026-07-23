@@ -20,13 +20,8 @@ jobs:
         shell: nix develop -c bash --noprofile --norc -eo pipefail {0}
 
     steps:
-      - uses: webfactory/ssh-agent@v0.10.0
+      - uses: actions/checkout@v7
         with:
-          ssh-private-key: ${{ secrets.YAAK_IDL_REPO_SSH_KEY }}
-
-      - uses: actions/checkout@v6
-        with:
-          submodules: recursive
           persist-credentials: false
           lfs: true
 
@@ -34,7 +29,33 @@ jobs:
       - uses: DeterminateSystems/magic-nix-cache-action@main
       - uses: DeterminateSystems/flake-checker-action@main
 
+      - name: init nix devshell
+        run: "true"
+
+      - name: create private dependency token
+        id: private-deps
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.DEPENDENCY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEPENDENCY_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            ydks
+            idl-repo
+          permission-contents: read
+
+      - name: configure private git auth
+        run: |
+          gh auth setup-git
+          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+          git config --global --add url."https://github.com/".insteadOf "git@github.com:"
+        env:
+          GH_TOKEN: ${{ steps.private-deps.outputs.token }}
+
       - run: uv lock
+        env:
+          GH_TOKEN: ${{ steps.private-deps.outputs.token }}
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
 
       - uses: actions/cache@v5
         with:
@@ -45,6 +66,10 @@ jobs:
             uv-${{ runner.os }}
 
       - run: uv sync --all-extras --group check --group test
+        env:
+          GH_TOKEN: ${{ steps.private-deps.outputs.token }}
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+
       - run: just build
       - run: just check
       - run: git lfs checkout

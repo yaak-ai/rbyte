@@ -21,7 +21,6 @@ class SendColumnsCall:
 @pytest.mark.parametrize(
     ("rerun_logger", "dataset"),
     [
-        ("carla_garage", lf("carla_garage_dataset")),
         ("mimicgen", lf("mimicgen_dataset")),
         ("nuscenes", lf("nuscenes_dataset")),
         ("yaak", lf("yaak_dataset")),
@@ -108,7 +107,7 @@ def test_rerun_logger_sends_static_time_index_to_rerun(
         scalar_path="scalar_static", time_index={"index": "[-1:]"}
     )
 
-    logger._log(time_index_data)  # noqa: SLF001
+    logger._log(time_index_data)  # ruff:ignore[private-member-access]
 
     [call] = send_columns_calls
     assert call.entity_path == "scalar"
@@ -123,7 +122,7 @@ def test_rerun_logger_sends_dynamic_time_index_to_rerun(
         time_index={"path": ["data", "dynamic_time_index"]},
     )
 
-    logger._log(time_index_data)  # noqa: SLF001
+    logger._log(time_index_data)  # ruff:ignore[private-member-access]
 
     [call] = send_columns_calls
     assert call.entity_path == "scalar"

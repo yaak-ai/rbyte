@@ -31,6 +31,8 @@ def _validate_query(query: str) -> str:
 DuckDBQueryParameter = (
     str
     | Annotated[Path, AfterValidator(Path.as_posix)]
+    | int
+    | float
     | bool
     | datetime.timedelta
     | None

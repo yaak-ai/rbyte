@@ -13,7 +13,7 @@ from rbyte.types import TensorSource
 class Hdf5TensorSource(TensorSource[int]):
     @validate_call
     def __init__(self, path: FilePath, key: str) -> None:
-        self._dataset = cast(Dataset, File(path)[key])
+        self._dataset = cast("Dataset", File(path)[key])
 
     @override
     def __getitem__(self, indexes: int | Sequence[int]) -> Tensor:
