@@ -459,7 +459,7 @@ WHERE len("meta/ImageMetadata.cam_front_left/frame_idx") == 6
         camera: StreamConfig(
             index=f"meta/ImageMetadata.{camera}/frame_idx",
             sources={
-                input_id: HydraConfig(
+                input_id: HydraConfig(  # ty: ignore[missing-argument]
                     target=TorchCodecFrameSource,
                     source=(data_dir / input_id / f"{camera}.pii.mp4").as_posix(),
                     custom_frame_mappings=(
