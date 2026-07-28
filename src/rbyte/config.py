@@ -1,9 +1,8 @@
 from collections.abc import Callable
 from concurrent.futures import Executor
-from copy import deepcopy
 from inspect import ismethod
 from pathlib import Path
-from typing import Any, ClassVar, Literal, Self, override
+from typing import Any, ClassVar, Literal, Self
 
 from hydra.utils import get_object, instantiate
 from pipefunc import Pipeline
@@ -15,13 +14,12 @@ from pydantic import (
     ImportString,
     InstanceOf,
     SerializationInfo,
-    TypeAdapter,
     field_serializer,
     field_validator,
     model_validator,
 )
 
-from rbyte.types import TensorSource
+from rbyte.streams.base import StreamSource
 
 
 class HydraConfig[T](BaseModel):
@@ -75,35 +73,9 @@ class HydraConfig[T](BaseModel):
         return ImportString._serialize(target)  # ruff:ignore[private-member-access]
 
 
-class PickleableImportString[T](BaseModel):
-    obj: ImportString[T]
-    _path: str
-
-    model_config = ConfigDict(extra="allow", frozen=True, validate_assignment=True)
-
-    @model_validator(mode="before")
-    @classmethod
-    def _validate_model(cls, path: str) -> dict[str, str]:
-        return {"obj": path, "_path": path}
-
-    @override
-    def __getstate__(self) -> dict[Any, Any]:
-        state = deepcopy(super().__getstate__())
-        state["__dict__"].pop("obj")
-
-        return state
-
-    @override
-    def __setstate__(self, state: dict[Any, Any]) -> None:
-        state["__dict__"]["obj"] = TypeAdapter(ImportString[T]).validate_python(
-            state["__pydantic_extra__"]["_path"]
-        )
-        super().__setstate__(state)
-
-
 class StreamConfig(BaseModel):
     index: str | tuple[str, ...]
-    sources: dict[str, HydraConfig[TensorSource]]
+    sources: dict[str, HydraConfig[StreamSource]]
 
     model_config = ConfigDict(extra="forbid")
 

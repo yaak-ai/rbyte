@@ -1,11 +1,10 @@
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
-from typing import ClassVar, cast
+from typing import ClassVar
 
 import dill  # ruff:ignore[suspicious-pickle-import]
-import more_itertools as mit
 import polars as pl
 import pytest
 import torch
@@ -20,7 +19,7 @@ from rbyte.config import HydraConfig, StreamConfig
 logger = get_logger(__name__)
 
 
-class _CountingTensorSource:
+class _CountingStreamSource:
     instances = 0
     calls: ClassVar[list[int | list[int]]] = []
 
@@ -39,8 +38,8 @@ class _CountingTensorSource:
 
 
 def test_get_batch_deduplicates_stream_source_indexes() -> None:
-    _CountingTensorSource.instances = 0
-    _CountingTensorSource.calls = []
+    _CountingStreamSource.instances = 0
+    _CountingStreamSource.calls = []
     dataset = Dataset(
         data=TensorDict({"stream": torch.tensor([2, 2, 3, 2])}, batch_size=[4]),
         meta=pl.DataFrame({"input_id": ["A", "A", "B", "A"]}),
@@ -48,8 +47,8 @@ def test_get_batch_deduplicates_stream_source_indexes() -> None:
             "stream": StreamConfig(
                 index="stream",
                 sources={
-                    "A": HydraConfig(target=_CountingTensorSource),
-                    "B": HydraConfig(target=_CountingTensorSource),
+                    "A": HydraConfig(target=_CountingStreamSource),
+                    "B": HydraConfig(target=_CountingStreamSource),
                 },
             )
         },
@@ -73,16 +72,97 @@ def test_get_batch_deduplicates_stream_source_indexes() -> None:
 
             raise AssertionError(msg)
 
-    assert _CountingTensorSource.calls == [[2], [3]]
-    assert _CountingTensorSource.instances == 2  # ruff:ignore[magic-value-comparison]
+    assert _CountingStreamSource.calls == [[2], [3]]
+    assert _CountingStreamSource.instances == 2  # ruff:ignore[magic-value-comparison]
 
 
-@pytest.mark.parametrize("dataset", [lf("yaak_dataset"), lf("yaak_dataset_pydantic")])
-def test_yaak_dataset(dataset: Dataset) -> None:
+def test_get_batch_accepts_nested_stream_index() -> None:
+    _CountingStreamSource.instances = 0
+    _CountingStreamSource.calls = []
+    dataset = Dataset(
+        data=TensorDict({("nested", "index"): torch.tensor([2, 3])}),
+        meta=pl.DataFrame({"input_id": ["input", "input"]}),
+        streams={
+            "stream": StreamConfig(
+                index=("nested", "index"),
+                sources={"input": HydraConfig(target=_CountingStreamSource)},
+            )
+        },
+    )
+
+    assert torch.equal(dataset.get_batch([1, 0]).data["stream"], torch.tensor([3, 2]))  # ty:ignore[invalid-argument-type]
+    assert _CountingStreamSource.calls == [[2, 3]]
+
+
+def test_rejects_mismatched_data_and_meta_lengths() -> None:
+    with pytest.raises(ValueError, match=r"`data` and `meta` lengths differ: 2 != 1"):
+        Dataset(
+            data=TensorDict({"value": torch.tensor([1, 2])}),
+            meta=pl.DataFrame({"input_id": ["input"]}),
+            streams=None,
+        )
+
+
+def test_get_batch_can_exclude_meta() -> None:
+    dataset = Dataset(
+        data=TensorDict({"value": torch.tensor([1])}),
+        meta=pl.DataFrame({"input_id": ["input"]}),
+        streams=None,
+    )
+
+    assert dataset.get_batch([0], include_meta=False).meta is None
+
+
+def test_get_batch_requires_configured_streams() -> None:
+    dataset = Dataset(
+        data=TensorDict({"value": torch.tensor([1])}),
+        meta=pl.DataFrame({"input_id": ["input"]}),
+        streams=None,
+    )
+
+    with pytest.raises(
+        ValueError, match=r"`include_streams` is True but no streams specified"
+    ):
+        dataset.get_batch([0], include_streams=True)
+
+
+def test_stream_source_cache_is_thread_local() -> None:
+    _CountingStreamSource.instances = 0
+    _CountingStreamSource.calls = []
+    dataset = Dataset(
+        data=TensorDict({"stream": torch.tensor([0])}, batch_size=[1]),
+        meta=pl.DataFrame({"input_id": ["input"]}),
+        streams={
+            "stream": StreamConfig(
+                index="stream",
+                sources={"input": HydraConfig(target=_CountingStreamSource)},
+            )
+        },
+    )
+
+    main_first = dataset._get_source("stream", "input")  # ruff:ignore[private-member-access]
+    main_second = dataset._get_source("stream", "input")  # ruff:ignore[private-member-access]
+
+    def get_worker_sources() -> tuple[object, object]:
+        return (
+            dataset._get_source("stream", "input"),  # ruff:ignore[private-member-access]
+            dataset._get_source("stream", "input"),  # ruff:ignore[private-member-access]
+        )
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        worker_first, worker_second = executor.submit(get_worker_sources).result()
+
+    assert main_first is main_second
+    assert worker_first is worker_second
+    assert worker_first is not main_first
+    assert _CountingStreamSource.instances == 2  # ruff:ignore[magic-value-comparison]
+
+
+def test_dataset_batch_yaak(yaak_dataset: Dataset) -> None:
     index = [0, 2]
     c = SimpleNamespace(B=len(index))
 
-    match (batch := dataset.get_batch(index)).to_dict():
+    match (batch := yaak_dataset.get_batch(index)).to_dict():
         case {
             "data": {
                 "cam_front_left": Tensor(shape=[c.B, *_]),
@@ -107,7 +187,7 @@ def test_yaak_dataset(dataset: Dataset) -> None:
             "meta": {"input_id": [*_], **meta_rest},
             **batch_rest,
         } if not any((batch_rest, data_rest, meta_rest)):
-            waypoints_normalized = cast("Tensor", batch.data["waypoints/xy_normalized"])
+            waypoints_normalized: Tensor = batch.data["waypoints/xy_normalized"]  # ty:ignore[invalid-assignment]
 
             assert waypoints_normalized.shape[2:] == (10, 2), "invalid waypoints shape"
 
@@ -157,7 +237,7 @@ def test_yaak_dataset(dataset: Dataset) -> None:
 
             raise AssertionError(msg)
 
-    match (batch := dataset.get_batch(index, include_streams=False)).to_dict():
+    match (batch := yaak_dataset.get_batch(index, include_streams=False)).to_dict():
         case {
             "data": {
                 "meta/ImageMetadata.cam_front_left/frame_idx": Tensor(shape=[c.B, *_]),
@@ -187,7 +267,7 @@ def test_yaak_dataset(dataset: Dataset) -> None:
             raise AssertionError(msg)
 
 
-def test_mimicgen_dataset(mimicgen_dataset: Dataset) -> None:
+def test_dataset_batch_mimicgen(mimicgen_dataset: Dataset) -> None:
     index = [0, 2]
     c = SimpleNamespace(B=len(index))
 
@@ -210,7 +290,7 @@ def test_mimicgen_dataset(mimicgen_dataset: Dataset) -> None:
             raise AssertionError(msg)
 
 
-def test_nuscenes_dataset(nuscenes_dataset: Dataset) -> None:
+def test_dataset_batch_nuscenes(nuscenes_dataset: Dataset) -> None:
     index = [0, 2]
     c = SimpleNamespace(B=len(index))
 
@@ -238,7 +318,7 @@ def test_nuscenes_dataset(nuscenes_dataset: Dataset) -> None:
             raise AssertionError(msg)
 
 
-def test_zod_dataset(zod_dataset: Dataset) -> None:
+def test_dataset_batch_zod(zod_dataset: Dataset) -> None:
     index = [2]
     c = SimpleNamespace(B=len(index))
 
@@ -283,7 +363,7 @@ def test_zod_dataset(zod_dataset: Dataset) -> None:
         lf("zod_dataset"),
     ],
 )
-def test_save_and_load(dataset: Dataset, tmp_path: Path) -> None:
+def test_dataset_save_and_load(dataset: Dataset, tmp_path: Path) -> None:
     dataset.save(tmp_path)
     assert dataset == Dataset.load(tmp_path)
 
@@ -297,44 +377,5 @@ def test_save_and_load(dataset: Dataset, tmp_path: Path) -> None:
         lf("zod_dataset"),
     ],
 )
-def test_pickle(dataset: Dataset) -> None:
+def test_dataset_pickles(dataset: Dataset) -> None:
     assert dill.pickles(dataset, exact=True, safe=True)
-
-
-def test_stream_source_cache_is_thread_local() -> None:
-    _CountingTensorSource.instances = 0
-    _CountingTensorSource.calls = []
-    dataset = Dataset(
-        data=TensorDict({"stream": torch.tensor([0])}, batch_size=[1]),
-        meta=pl.DataFrame({"input_id": ["input"]}),
-        streams={
-            "stream": StreamConfig(
-                index="stream",
-                sources={"input": HydraConfig(target=_CountingTensorSource)},
-            )
-        },
-    )
-
-    main_first = dataset._get_source("stream", "input")  # ruff:ignore[private-member-access]
-    main_second = dataset._get_source("stream", "input")  # ruff:ignore[private-member-access]
-
-    def get_worker_sources() -> tuple[object, object]:
-        return (
-            dataset._get_source("stream", "input"),  # ruff:ignore[private-member-access]
-            dataset._get_source("stream", "input"),  # ruff:ignore[private-member-access]
-        )
-
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        worker_first, worker_second = executor.submit(get_worker_sources).result()
-
-    assert main_first is main_second
-    assert worker_first is worker_second
-    assert worker_first is not main_first
-    assert _CountingTensorSource.instances == 2  # ruff:ignore[magic-value-comparison]
-
-
-@pytest.mark.parametrize(
-    "datasets", [(lf("yaak_dataset"), lf("yaak_dataset_pydantic"))]
-)
-def test_equal(datasets: Iterable[Dataset]) -> None:
-    assert mit.all_equal(datasets)

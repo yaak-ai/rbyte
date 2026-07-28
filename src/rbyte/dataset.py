@@ -3,21 +3,16 @@ from concurrent.futures import Executor
 from enum import StrEnum, auto, unique
 from io import BytesIO
 from operator import itemgetter
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from threading import local
-from typing import TYPE_CHECKING, Annotated, Any, Self, override
+from typing import TYPE_CHECKING, Any, Self, override
 
-import checkedframe as cf
 import more_itertools as mit
 import polars as pl
 from optree import tree_map
 from pipefunc.map import load_outputs
-from pydantic import (
-    AfterValidator,
-    DirectoryPath,
-    InstanceOf,
-    TypeAdapter,
-    validate_call,
-)
+from pydantic import DirectoryPath, InstanceOf, TypeAdapter, validate_call
 from structlog import get_logger
 from tensordict import NonTensorStack, TensorDict
 from torch.utils.data import Dataset as TorchDataset
@@ -28,10 +23,10 @@ from rbyte.config import (
     PipelineInstanceConfig,
     StreamsConfig,
 )
-from rbyte.types import Batch, BatchMeta, TensorSource
+from rbyte.streams.base import StreamSource
+from rbyte.types import Batch, BatchMeta
 
 if TYPE_CHECKING:
-    from pipefunc._pipeline._types import OUTPUT_TYPE
     from torch import Tensor
 
 __all__ = ["Dataset"]
@@ -40,7 +35,7 @@ logger = get_logger(__name__)
 
 
 class _StreamSourceThreadCache(local):
-    sources: dict[tuple[str, str], TensorSource]
+    sources: dict[tuple[str, str], StreamSource]
 
 
 @unique
@@ -48,41 +43,55 @@ class MetaColumn(StrEnum):
     input_id = auto()
 
 
-class MetaSchema(cf.Schema):
-    input_id = cf.Union(cf.String(), cf.Enum())
-
-
-if not set(MetaColumn).issubset(MetaSchema.columns()):
-    raise ValueError
-
-
 class Dataset(TorchDataset[Batch]):  # ruff:ignore[eq-without-hash]
     __slots__ = ("_data", "_meta", "_stream_source_cache", "_streams")
+
+    @staticmethod
+    def _validate_meta(meta: pl.DataFrame) -> None:
+        input_id = MetaColumn.input_id
+        if input_id not in meta.schema:
+            msg = "`meta` must contain an `input_id` column"
+            raise ValueError(msg)
+        if meta.get_column(input_id).has_nulls():
+            msg = "`meta.input_id` must not contain nulls"
+            raise ValueError(msg)
+        if (dtype := meta.schema[input_id]).base_type() not in {pl.String, pl.Enum}:
+            msg = f"`meta.input_id` must have String or Enum dtype, got {dtype}"
+            raise ValueError(msg)
 
     @validate_call
     def __init__(
         self,
         *,
         data: InstanceOf[TensorDict],
-        meta: Annotated[InstanceOf[pl.DataFrame], AfterValidator(MetaSchema.validate)],
+        meta: InstanceOf[pl.DataFrame],
         streams: StreamsConfig | None,
     ) -> None:
         super().__init__()
+        self._validate_meta(meta)
+        data.auto_batch_size_(1)
+
+        if (data_length := len(data)) != (meta_length := len(meta)):
+            msg = f"`data` and `meta` lengths differ: {data_length} != {meta_length}"
+            logger.error(msg, data_length=data_length, meta_length=meta_length)
+
+            raise ValueError(msg)
+
         if streams is not None and (
             missing_stream_indexes := (
                 {stream_config.index for stream_config in streams.values()}
-                - (data_keys := set(data.keys()))
+                - (data_keys := set(data.keys(include_nested=True, leaves_only=True)))
             )
         ):
             logger.error(
                 msg := "`data` missing stream indexes",
-                data_keys=sorted(data_keys),
-                indexes=sorted(missing_stream_indexes),
+                data_keys=sorted(data_keys, key=str),
+                indexes=sorted(missing_stream_indexes, key=str),
             )
 
             raise ValueError(msg)
 
-        self._data = data.auto_batch_size_(1).share_memory_().lock_()
+        self._data = data.share_memory_().lock_()
         self._meta = meta
         self._streams = streams
 
@@ -98,15 +107,15 @@ class Dataset(TorchDataset[Batch]):  # ruff:ignore[eq-without-hash]
         streams: StreamsConfig | None = None,
     ) -> Self:
         sample_df = cls._build_samples(samples)
-        sample_df = MetaSchema.validate(sample_df)
+        cls._validate_meta(sample_df)
 
         data = TensorDict(
-            sample_df.select(pl.exclude(MetaSchema.columns()).to_physical()).to_torch(
+            sample_df.select(pl.exclude(MetaColumn.input_id).to_physical()).to_torch(
                 return_type="dict"
             )  # ty:ignore[invalid-argument-type]
         )
 
-        meta = sample_df.select(MetaSchema.columns()).rechunk()
+        meta = sample_df.select(MetaColumn.input_id).rechunk()
 
         return cls(data=data, meta=meta, streams=streams)
 
@@ -202,7 +211,7 @@ class Dataset(TorchDataset[Batch]):  # ruff:ignore[eq-without-hash]
 
         return Batch(data=batch_data, meta=batch_meta).auto_batch_size_(1)
 
-    def _get_source(self, stream_id: str, input_id: str) -> TensorSource:
+    def _get_source(self, stream_id: str, input_id: str) -> StreamSource:
         streams = self.streams
         if streams is None:
             msg = "streams not specified"
@@ -219,7 +228,7 @@ class Dataset(TorchDataset[Batch]):  # ruff:ignore[eq-without-hash]
 
             return source
 
-    def _get_stream_source_cache(self) -> dict[tuple[str, str], TensorSource]:
+    def _get_stream_source_cache(self) -> dict[tuple[str, str], StreamSource]:
         try:
             return self._stream_source_cache.sources
         except AttributeError:
@@ -240,9 +249,11 @@ class Dataset(TorchDataset[Batch]):  # ruff:ignore[eq-without-hash]
 
             case PipelineHydraConfig():
                 pipeline = samples.pipeline.instantiate()
-                executor: Executor | dict[OUTPUT_TYPE, Executor] | None = tree_map(  # ty: ignore[invalid-assignment]
-                    HydraConfig[Executor].instantiate,
-                    samples.executor,  # ty: ignore[invalid-argument-type]
+                executor: Executor | dict[str | tuple[str, ...], Executor] | None = (  # ty: ignore[invalid-assignment]
+                    tree_map(
+                        HydraConfig[Executor].instantiate,
+                        samples.executor,  # ty: ignore[invalid-argument-type]
+                    )
                 )
 
         output_name = pipeline.unique_leaf_node.output_name
@@ -264,15 +275,28 @@ class Dataset(TorchDataset[Batch]):  # ruff:ignore[eq-without-hash]
     def save(self, path: DirectoryPath) -> None:
         logger.debug("saving dataset", dataset=self, path=path.resolve().as_posix())
 
-        self._data.memmap(
-            path / "data", copy_existing=True, existsok=True, robust_key=True
-        )
-        self._meta.write_parquet(path / "meta.parquet")
+        with TemporaryDirectory(dir=path.parent) as txn_dir:
+            txn_path = Path(txn_dir)
+            staged_path = txn_path / "staged"
+            previous_path = txn_path / "previous"
+            staged_path.mkdir()
 
-        if self._streams is not None:
-            streams_json = TypeAdapter(StreamsConfig).dump_json(self._streams)
-            with (path / "streams.json").open("wb") as f:
-                f.write(streams_json)
+            self._data.memmap(
+                staged_path / "data", copy_existing=True, existsok=True, robust_key=True
+            )
+            self._meta.write_parquet(staged_path / "meta.parquet")
+
+            if self._streams is not None:
+                streams_json = TypeAdapter(StreamsConfig).dump_json(self._streams)
+                with (staged_path / "streams.json").open("wb") as f:
+                    f.write(streams_json)
+
+            path.rename(previous_path)
+            try:
+                staged_path.rename(path)
+            except BaseException:
+                previous_path.rename(path)
+                raise
 
     @classmethod
     @validate_call

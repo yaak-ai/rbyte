@@ -1,5 +1,5 @@
 from math import ceil
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import hydra
 import more_itertools as mit
@@ -14,8 +14,8 @@ if TYPE_CHECKING:
 
 @hydra.main(version_base=None)
 def main(config: DictConfig) -> None:
-    logger = cast("Logger[Any]", instantiate(config.logger))
-    dataset = cast("Dataset", instantiate(config.dataset))
+    logger: Logger[Any] = instantiate(config.logger)
+    dataset: Dataset = instantiate(config.dataset)
 
     dataset_len = len(dataset)
     batch_size = config.batch_size or dataset_len
