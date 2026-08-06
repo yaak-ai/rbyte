@@ -16,6 +16,11 @@ from structlog import get_logger
 from structlog.contextvars import bound_contextvars
 
 from rbyte.io.nero.calibration import NeroArmsCalibration
+from rbyte.io.nero.disparity import (
+    DISPARITY_METADATA_PREFIX,
+    DISPARITY_TOPIC_PREFIX,
+    DisparityDeclaration,
+)
 from rbyte.io.nero.rotation import canonicalize_quat, quat_slerp, quat_to_matrix
 from rbyte.io.nero.schema import (
     CAMERAS,
@@ -94,6 +99,8 @@ class _Stream(NamedTuple):
 
 
 class _Camera(NamedTuple):
+    """Any `ImageFrameIndex` stream -- an mp4 camera or the disparity mkv."""
+
     frame_index: npt.NDArray[np.int32]
     stream: _Stream
 
@@ -147,6 +154,7 @@ class NeroArmsDataFrameBuilder:
     | column                        | dtype                        |
     |-------------------------------|------------------------------|
     | `frame_index.{camera}`        | `Int32`                      |
+    | `frame_index.disparity.{cam}` | `Int32`                      |
     | `state.pose`                  | `Array(Float32, (2, 46))`    |
     | `state.pose_rel_start`        | `Array(Float32, (2, 46))`    |
     | `action.future_state`         | `Array(Float32, (H, 2, 46))` |
@@ -165,6 +173,11 @@ class NeroArmsDataFrameBuilder:
 
     The last `action_horizon` rows of every episode are dropped: they have no
     full future chunk, and clamping or wrapping the chunk would fabricate data.
+
+    `disparity_cameras` (§21, empty by default) adds the depth stream's own
+    index columns and asserts the episode's declared stereo mode -- `subpixel`
+    false above all. The pixels themselves are decoded by
+    `rbyte.io.NeroArmsDisparityFrameSource`.
     """
 
     __name__ = __qualname__
@@ -182,6 +195,7 @@ class NeroArmsDataFrameBuilder:
         offset_percentile: NonNegativeFloat = 0.0,
         include_imu: bool = False,
         include_status_flags: bool = False,
+        disparity_cameras: Sequence[str] = (),
     ) -> None:
         if reference_camera not in cameras:
             logger.error(msg := "`reference_camera` not in `cameras`")
@@ -191,6 +205,7 @@ class NeroArmsDataFrameBuilder:
         self._cameras = tuple(cameras)
         self._reference_camera = reference_camera
         self._sides = tuple(sides)
+        self._disparity_cameras = tuple(disparity_cameras)
         self._action_horizon = action_horizon
         self._align_tolerance_ms = align_tolerance_ms
         self._camera_gap_tolerance_ms = camera_gap_tolerance_ms
@@ -223,11 +238,23 @@ class NeroArmsDataFrameBuilder:
         )
 
     @property
+    def _index_topics(self) -> dict[str, str]:
+        """Column key -> `ImageFrameIndex` topic, reference camera first.
+
+        §3/§21.4: every one of these is joined on **its own** `frame_index` --
+        the disparity stream may have a different frame count from the mp4s just
+        as the mp4s differ from each other.
+        """
+        return {
+            camera: f"{_IMAGE_TOPIC_PREFIX}{camera}" for camera in self._cameras
+        } | {
+            f"disparity.{camera}": f"{DISPARITY_TOPIC_PREFIX}{camera}"
+            for camera in self._disparity_cameras
+        }
+
+    @property
     def _topics(self) -> tuple[str, ...]:
-        topics = [
-            _TIMING_TOPIC,
-            *(f"{_IMAGE_TOPIC_PREFIX}{camera}" for camera in self._cameras),
-        ]
+        topics = [_TIMING_TOPIC, *self._index_topics.values()]
         for side in self._sides:
             topics += self._side_topics(side)
             if self._include_imu:
@@ -245,11 +272,20 @@ class NeroArmsDataFrameBuilder:
 
     # -------------------------------------------------------------------- read
 
-    def _read(self, path: Path) -> tuple[_Floats, _Ints]:
+    def _read(self, path: Path) -> tuple[_Floats, _Ints, dict[str, dict[str, str]]]:
         floats: _Floats = defaultdict(list)
         ints: _Ints = defaultdict(list)
+        metadata: dict[str, dict[str, str]] = {}
 
         with path.open("rb") as f:
+            reader = make_reader(f, decoder_factories=[DecoderFactory()])
+            # §17.1: per-episode declarations. Presence is declared, never
+            # inferred from topic absence.
+            metadata = {
+                record.name: record.metadata for record in reader.iter_metadata()
+            }
+
+            f.seek(0)
             reader = make_reader(f, decoder_factories=[DecoderFactory()])
             for _schema, channel, _message, decoded in reader.iter_decoded_messages(
                 topics=self._topics
@@ -294,7 +330,38 @@ class NeroArmsDataFrameBuilder:
                             decoded.host_arrival_time_ns,
                         ])
 
-        return floats, ints
+        return floats, ints, metadata
+
+    def _disparity_declarations(
+        self, metadata: dict[str, dict[str, str]], calibration: NeroArmsCalibration
+    ) -> dict[str, DisparityDeclaration]:
+        """§21.3/§21.4: the declared stereo mode, asserted, never inferred.
+
+        A missing record when disparity ingestion is switched on is a hard
+        failure -- falling back to the calibration block would be exactly the
+        §17.1 mistake of inferring presence from absence.
+        """
+        declarations: dict[str, DisparityDeclaration] = {}
+        for camera in self._disparity_cameras:
+            name = f"{DISPARITY_METADATA_PREFIX}{camera}"
+            if (record := metadata.get(name)) is None:
+                logger.error(
+                    msg := "§21.3: episode metadata does not declare the "
+                    "disparity stream; `max_disparity`/`subpixel`/"
+                    "`extended_disparity` must be declared, never inferred",
+                    record=name,
+                    available=sorted(metadata),
+                )
+
+                raise ValueError(msg)
+
+            declaration = DisparityDeclaration.from_mcap_metadata(record)
+            if (stereo := calibration.stereo.get(camera)) is not None:
+                declaration.check_against(stereo, camera=camera)
+
+            declarations[camera] = declaration
+
+        return declarations
 
     # ---------------------------------------------------------------- timebase
 
@@ -311,7 +378,10 @@ class NeroArmsDataFrameBuilder:
         # are published one-per-`timing.rgmp` sample, so the join is ordinal --
         # a single length mismatch would silently shift every pose.
         for topic, values in (*floats.items(), *ints.items()):
-            if topic.startswith(_IMAGE_TOPIC_PREFIX) or topic == _TIMING_TOPIC:
+            if (
+                topic.startswith((_IMAGE_TOPIC_PREFIX, DISPARITY_TOPIC_PREFIX))
+                or topic == _TIMING_TOPIC
+            ):
                 continue
 
             if len(values) != len(glove.device_ns):
@@ -328,8 +398,7 @@ class NeroArmsDataFrameBuilder:
 
     def _cameras_from(self, ints: _Ints) -> dict[str, _Camera]:
         cameras: dict[str, _Camera] = {}
-        for camera in self._cameras:
-            topic = f"{_IMAGE_TOPIC_PREFIX}{camera}"
+        for camera, topic in self._index_topics.items():
             if topic not in ints:
                 logger.error(msg := "missing camera topic", topic=topic)
 
@@ -487,7 +556,12 @@ class NeroArmsDataFrameBuilder:
     def _frame_index_columns(
         self, cameras: dict[str, _Camera], r: _Resampling, n: int
     ) -> dict[str, pl.Series]:
-        """Join every camera on its own `frame_index` (§3, dropped frames)."""
+        """Join every indexed stream on its own `frame_index` (§3, §21.4).
+
+        Covers the mp4 cameras and the disparity mkv identically -- the latter is
+        keyed `disparity.{camera}` and is not assumed to share a frame count with
+        anything.
+        """
         grid_ns = r.grid_ns[:n]
         columns: dict[str, pl.Series] = {}
         for camera, (frame_index, stream) in cameras.items():
@@ -522,9 +596,19 @@ class NeroArmsDataFrameBuilder:
 
     # ------------------------------------------------------------------- build
 
-    def _build(self, path: Path, calibration_path: Path) -> pl.DataFrame:
+    def _build(self, path: Path, calibration_path: Path) -> pl.DataFrame:  # noqa: PLR0914
         calibration = NeroArmsCalibration.from_path(calibration_path)
-        floats, ints = self._read(path)
+        floats, ints, metadata = self._read(path)
+        declarations = self._disparity_declarations(metadata, calibration)
+        if declarations:
+            logger.debug(
+                "disparity streams declared",
+                declarations={
+                    camera: declaration.model_dump(exclude_none=True)
+                    for camera, declaration in declarations.items()
+                },
+            )
+
         glove = self._glove(floats, ints)
         cameras = self._cameras_from(ints)
         resampling = self._resample(glove, cameras[self._reference_camera])

@@ -129,6 +129,30 @@
 #@ clip_length = 6
 #@ # §6.2: action == the chunk of future states [t+1 .. t+H].
 #@ action_horizon = 6
+
+#@ # §21 depth stream, OFF by default: no recording carries `base_disparity.mkv`
+#@ # yet. The mono intrinsics ARE now measured (§21.5: fx_mono 576.37 px @
+#@ # 1280x800, baseline 75.00 mm, MinZ 0.455 m), so `depth: true` works as soon
+#@ # as the recorder writes the stream -- provided `${data_dir}/calibration.yaml`
+#@ # carries the matching `stereo:` block; without it the depth streams fail
+#@ # loudly rather than emitting mis-scaled metres. `depth_output` may be set to
+#@ # "disparity" to ingest raw uint8 levels with no calibration at all. Flipping
+#@ # `depth` rewires the stream keys, the meta PipeFunc, the semi-join and the
+#@ # cast together -- never half of them.
+#@ depth = False
+#@ depth_output = "depth"          #! "depth" (metres) | "disparity" (uint8 levels)
+#@ depth_camera = "base"           #! §21.3: the overhead camera only
+#@ depth_file = depth_camera + "_disparity.mkv"
+#@ depth_index = "frame_index.disparity." + depth_camera
+
+#@ meta_names = [c + "_meta" for c in cameras]
+#@ if depth:
+#@   meta_names = meta_names + ["disparity_meta"]
+#@ end
+#@ meta_args = ", ".join(meta_names)
+#@ meta_mapspec = ", ".join([n + "[i]" for n in meta_names])
+#@ depth_join = 'SEMI JOIN disparity_meta ON nero."' + depth_index + '" = disparity_meta.frame_idx' if depth else ""
+#@ depth_cast = '"' + depth_index + '"::INT32[' + str(clip_length) + '] AS "' + depth_index + '",' if depth else ""
 ---
 _target_: rbyte.Dataset.from_config
 _recursive_: false
@@ -158,6 +182,32 @@ streams:
           - _target_: torchcodec.transforms.Resize
             size: #@ size
 
+  #@ if depth:
+  #@ # §21.4: joined on its **own** `frame_index`, never resized -- a resize
+  #@ # scales `fx` but not the stored disparity levels. Depth and its validity
+  #@ # mask are two streams over one file because an rbyte stream is one tensor;
+  #@ # `disparity == 0` is INVALID, not 0 m, so `depth.*` is unusable alone.
+  (@=depth_output@).(@=depth_camera@):
+    index: (@=depth_index@)
+    sources:
+      #@ for/end episode in episodes:
+      (@=episode@):
+        _target_: rbyte.io.NeroArmsDisparityFrameSource
+        source: ${data_dir}/(@=episode@)/(@=depth_file@)
+        output: (@=depth_output@)
+        camera: (@=depth_camera@)
+        calibration_path: ${data_dir}/calibration.yaml
+
+  depth_valid.(@=depth_camera@):
+    index: (@=depth_index@)
+    sources:
+      #@ for/end episode in episodes:
+      (@=episode@):
+        _target_: rbyte.io.NeroArmsDisparityFrameSource
+        source: ${data_dir}/(@=episode@)/(@=depth_file@)
+        output: valid
+  #@ end
+
 samples:
   inputs:
     input_id:
@@ -176,6 +226,12 @@ samples:
     (@=camera@)_path:
       #@ for/end episode in episodes:
       - ${data_dir}/(@=episode@)/(@=camera@).mp4
+
+    #@ if depth:
+    disparity_path:
+      #@ for/end episode in episodes:
+      - ${data_dir}/(@=episode@)/(@=depth_file@)
+    #@ end
 
   executor:
     _target_: concurrent.futures.ProcessPoolExecutor
@@ -205,6 +261,12 @@ samples:
             #@ for/end camera in cameras:
             - (@=camera@)
           reference_camera: (@=list(cameras)[0]@)
+          #! §21: adds `frame_index.disparity.{camera}` and asserts the episode's
+          #! declared stereo mode (`subpixel` must be false).
+          disparity_cameras:
+            #@ if depth:
+            - (@=depth_camera@)
+            #@ end
 
       #@ for/end camera in cameras:
       - _target_: pipefunc.PipeFunc
@@ -218,14 +280,27 @@ samples:
             frame_idx:
               _target_: polars.Int32
 
+      #@ if depth:
+      - _target_: pipefunc.PipeFunc
+        renames:
+          path: disparity_path
+        output_name: disparity_meta
+        mapspec: "${.renames.path}[i] -> ${.output_name}[i]"
+        func:
+          _target_: rbyte.io.VideoDataFrameBuilder
+          fields:
+            frame_idx:
+              _target_: polars.Int32
+      #@ end
+
       #@ # §3: each camera is joined on its own `frame_index`; the semi-joins drop
       #@ # any row whose frame is missing from the corresponding mp4.
       - _target_: pipefunc.PipeFunc
         output_name: filtered
-        mapspec: "nero[i], base_meta[i], side_left_meta[i], side_right_meta[i] -> ${.output_name}[i]"
+        mapspec: "nero[i], (@=meta_mapspec@) -> ${.output_name}[i]"
         func:
           _target_: makefun.create_function
-          func_signature: "filter(*, nero, base_meta, side_left_meta, side_right_meta)"
+          func_signature: "filter(*, nero, (@=meta_args@))"
           func_impl:
             _target_: rbyte.io.DuckDBDataFrameQuery
             query: |
@@ -238,6 +313,7 @@ samples:
                   ON nero."frame_index.side_left" = side_left_meta.frame_idx
                 SEMI JOIN side_right_meta
                   ON nero."frame_index.side_right" = side_right_meta.frame_idx
+                (@=depth_join@)
               WHERE
                 COLUMNS(*) IS NOT NULL
               ORDER BY
@@ -266,7 +342,8 @@ samples:
           func_impl:
             _target_: rbyte.io.DuckDBDataFrameQuery
             query: |
-              SELECT "frame_index.base"::INT32[(@=str(clip_length)@)] AS "frame_index.base",
+              SELECT (@=depth_cast@)
+                     "frame_index.base"::INT32[(@=str(clip_length)@)] AS "frame_index.base",
                      "frame_index.side_left"::INT32[(@=str(clip_length)@)] AS "frame_index.side_left",
                      "frame_index.side_right"::INT32[(@=str(clip_length)@)] AS "frame_index.side_right",
                      "state.pose"::FLOAT[46][2][(@=str(clip_length)@)] AS "state.pose",
