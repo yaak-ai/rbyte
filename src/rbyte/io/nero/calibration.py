@@ -51,6 +51,16 @@ class CameraCalibration(BaseModel):
     distortion: Sequence[float] = ()
     T_world_cam: Annotated[Sequence[Sequence[float]], Field(min_length=4, max_length=4)]
 
+    # Provenance, written by read_oak_intrinsics.py when the values come from
+    # device EEPROM. Optional so hand-written and placeholder files still load.
+    mxid: str | None = None
+    socket: str | None = None
+    rotated_180: bool = False
+    """The recorder rotates every camera 180 degrees, and the EEPROM intrinsics
+    describe the unrotated sensor, so `intrinsics`/`distortion` here must already
+    carry that correction. This flag records that it was applied -- it is a
+    marker, not an instruction: nothing downstream re-applies it."""
+
     model_config = ConfigDict(extra="forbid", protected_namespaces=())
 
     @property
@@ -85,6 +95,10 @@ class NeroArmsCalibration(BaseModel):
     world_frame: str
     cameras: dict[str, CameraCalibration]
     placeholder: bool = True
+
+    intrinsics_source: str | None = None
+    """Where the intrinsics came from -- "eeprom" when read off the devices by
+    read_oak_intrinsics.py, None for hand-written or placeholder files."""
 
     model_config = ConfigDict(extra="forbid")
 
