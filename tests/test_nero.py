@@ -304,13 +304,13 @@ def test_alignment_residual_within_one_glove_period(
     residual = nero_arms_dataframe["align_residual_ms"]
 
     assert residual.null_count() == 0, "no extrapolation: rows must be dropped instead"
-    assert float(residual.min()) >= 0.0
+    assert float(residual.min()) >= 0.0  # ty: ignore[invalid-argument-type]
     # §3.4: fail loudly above one glove period. Measured over all 104 episodes
     # the worst case is 6.47 ms and the mean is 3.00 ms.
-    assert float(residual.max()) < GLOVE_PERIOD_MS, (
+    assert float(residual.max()) < GLOVE_PERIOD_MS, (  # ty: ignore[invalid-argument-type]
         f"alignment residual {residual.max()} ms exceeds one glove period"
     )
-    assert float(residual.mean() or 0.0) < GLOVE_HALF_PERIOD_MS, (
+    assert float(residual.mean() or 0.0) < GLOVE_HALF_PERIOD_MS, (  # ty: ignore[invalid-argument-type]
         "mean residual should sit well inside half a glove period"
     )
 

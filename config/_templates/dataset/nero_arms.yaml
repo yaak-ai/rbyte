@@ -196,7 +196,9 @@ samples:
         func:
           _target_: rbyte.io.NeroArmsDataFrameBuilder
           action_horizon: #@ action_horizon
-          #! §6.1 auxiliary blocks, off by default.
+          #! §6.1 auxiliary blocks, off by default. NOTE: turning either on
+          #! ALSO requires uncommenting the matching line in the cast step
+          #! below, otherwise the column is built and then silently dropped.
           include_imu: false
           include_status_flags: false
           cameras:
@@ -271,6 +273,10 @@ samples:
                      "state.pose_rel_start"::FLOAT[46][2][(@=str(clip_length)@)] AS "state.pose_rel_start",
                      "action.future_state"::FLOAT[46][2][(@=str(action_horizon)@)][(@=str(clip_length)@)] AS "action.future_state",
                      "action.future_state"::FLOAT[46][2][(@=str(action_horizon)@)][(@=str(clip_length)@)] AS "action.commanded",
+                     -- uncomment together with `include_imu` above:
+                     -- "state.imu"::FLOAT[42][2][(@=str(clip_length)@)] AS "state.imu",
+                     -- uncomment together with `include_status_flags` above:
+                     -- "state.status_flags"::INT32[8][2][(@=str(clip_length)@)] AS "state.status_flags",
                      "align_residual_ms"::FLOAT[(@=str(clip_length)@)] AS "align_residual_ms",
                      "side_valid"[1]::BOOLEAN[2] AS "side_valid",
                      "camera_cond"[1]::FLOAT[13][3] AS "camera_cond",
