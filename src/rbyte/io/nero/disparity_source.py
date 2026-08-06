@@ -74,6 +74,7 @@ class NeroArmsDisparityFrameSource(TensorSource[int]):
             seek_mode="exact",
         )
         self._check_decodable(str(source))
+        self._check_channels()
         self._stereo = (
             None
             if output is not DisparityOutput.depth
@@ -105,6 +106,24 @@ class NeroArmsDisparityFrameSource(TensorSource[int]):
                 source=source,
                 pixel_format=pixel_format,
                 expected=PIXEL_FORMAT,
+            )
+
+            raise ValueError(msg)
+
+    def _check_channels(self) -> None:
+        """torchcodec hands `gray` back NCHW with the plane replicated across
+        three channels. Assert that once, here, rather than on every decode: at
+        the measured 1280x800 an all-close over a clip is tens of MB of pointless
+        traffic per sample, and the behaviour is fixed for a given file.
+        """
+        if not self._decoder.metadata.num_frames:
+            return
+
+        frames = self._decoder.get_frame_at(index=0).data
+        if frames.shape[-3] != 1 and not bool((frames == frames[..., :1, :, :]).all()):
+            logger.error(
+                msg := "disparity frames are not single-channel gray",
+                shape=tuple(frames.shape),
             )
 
             raise ValueError(msg)
@@ -162,20 +181,8 @@ class NeroArmsDisparityFrameSource(TensorSource[int]):
             case int():
                 frames = self._decoder.get_frame_at(index=indexes).data.unsqueeze(0)
 
-        # torchcodec hands back NCHW with a `gray` plane replicated across three
-        # channels. Assert the replication rather than assuming it, then keep one.
-        if frames.shape[-3] != 1:
-            if not bool((frames == frames[..., :1, :, :]).all()):
-                logger.error(
-                    msg := "disparity frames are not single-channel gray",
-                    shape=tuple(frames.shape),
-                )
-
-                raise ValueError(msg)
-
-            frames = frames[..., :1, :, :]
-
-        out = frames.contiguous()
+        # replication across the three channels is checked once, in `__init__`
+        out = frames[..., :1, :, :].contiguous()
 
         return out if isinstance(indexes, Sequence) else out.squeeze(0)
 

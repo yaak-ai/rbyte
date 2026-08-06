@@ -767,6 +767,57 @@ def disparity_mkv(
     )
 
 
+@pytest.fixture(scope="session")
+def disparity_mkv_measured(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Disparity at the MEASURED `stereo.image_size`, so the size guard's
+    *passing* branch and the `calibration_path` resolution both get exercised at
+    the resolution the real rig will use."""
+    width, height = 1280, 800
+    # 1 .. max_disparity inclusive, so both range endpoints are actually present
+    ramp = (1 + (np.arange(width) * MAX_DISPARITY[False]) // width).astype(np.uint8)
+    frames = np.ascontiguousarray(
+        np.stack([
+            np.roll(np.broadcast_to(ramp, (height, width)), k, 1) for k in range(4)
+        ])
+    )
+    frames[:, :16, :16] = 0
+
+    return _encode(
+        tmp_path_factory.mktemp("measured") / "base_disparity.mkv",
+        frames,
+        pix_fmt="gray",
+    )
+
+
+def test_depth_through_the_shipped_calibration_path(
+    disparity_mkv_measured: Path,
+) -> None:
+    """The path the config template takes: `camera` + `calibration_path`."""
+    source = NeroArmsDisparityFrameSource(
+        source=disparity_mkv_measured,
+        output=DisparityOutput.depth,
+        camera="base",
+        calibration_path=CALIBRATION_PATH,
+    )
+    disparity = NeroArmsDisparityFrameSource(source=disparity_mkv_measured)[0]
+    depth = source[0]
+    valid = NeroArmsDisparityFrameSource(
+        source=disparity_mkv_measured, output=DisparityOutput.valid
+    )[0]
+
+    assert depth.shape == (1, 800, 1280)
+    assert torch.isfinite(depth).all()
+    assert (valid.numpy() == (disparity.numpy() > 0)).all()
+
+    levels = disparity.numpy()[0]
+
+    assert round(float(depth.numpy()[0][levels == MAX_DISPARITY[False]].max()), 3) == (
+        MIN_DEPTH_M
+    ), "disparity 95 must land on the documented MinZ"
+    assert round(float(depth.numpy()[0][levels == 1].max()), 1) == MAX_DEPTH_M
+    assert (depth.numpy()[0][levels == 0] == 0.0).all()  # noqa: RUF069
+
+
 def _builder(disparity_cameras: Sequence[str] = ()) -> NeroArmsDataFrameBuilder:
     return NeroArmsDataFrameBuilder(
         cameras=["base"],
