@@ -45,4 +45,25 @@ cameras:
       - [0.0, 0.0, 1.0, 0.0]
       - [0.0, 0.0, 0.0, 1.0]
 
+# §21: the MONO pair behind the depth stream, MEASURED off the device
+# (OAK-D W, mxid 194430100104372F00). These are NOT the `cameras.base`
+# intrinsics above -- that is CAM_A, the RGB camera, a much narrower lens.
+# `fx_mono` is expressed at `image_size`, and the disparity frames must be
+# decoded at exactly that size: a resize scales fx but NOT the stored
+# disparity levels, so depth would come out wrong by the resize factor.
+#
+# Derived range at these values (fx_mono * baseline_m = 43.228 m*px):
+#   MinZ 0.455 m (max_disparity 95) / 0.226 m (extended, 191); far limit
+#   43.2 m at disparity 1. Check MinZ against the actual mount height.
+stereo:
+  base:
+    fx_mono: 576.37 # CAM_B @ 1280x800, HFOV 96.0 deg (CAM_C reads 566.77)
+    baseline_m: 0.075 # getBaselineDistance() = 7.5000 cm exactly
+    image_size: [1280, 800]
+    mono_sockets: [CAM_B, CAM_C]
+    max_disparity: 95 # §21.1: 191 if `extended_disparity`
+    subpixel: false # §21.1: MUST be false -- 8-bit cannot hold 760 levels
+    extended_disparity: false
+    placeholder: false # MEASURED, unlike the extrinsics above
+
 placeholder: true # MUST be false before any real training run
