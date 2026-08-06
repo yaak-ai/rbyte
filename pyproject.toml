@@ -85,6 +85,7 @@ check = [
 ]
 test = [
   "dill>=0.4.1",
+  "imageio-ffmpeg>=0.6.0",
   "makefun>=1.16.0",
   "pytest>=9.1.1",
   "pytest-lazy-fixtures>=1.4.0",
