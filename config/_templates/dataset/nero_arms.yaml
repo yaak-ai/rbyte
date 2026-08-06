@@ -1,0 +1,292 @@
+#@yaml/text-templated-strings
+
+#@ # nero-arms (data contract v0.1). One episode == one directory under `${data_dir}`.
+#@ # `${data_dir}` is the recording-session root:
+#@ #   linux: /nasa/drives/nero-arms/gloves-mcap-recordings/2026-07-17
+#@ #   macos: /Volumes/data/drives/nero-arms/gloves-mcap-recordings/2026-07-17
+#@ # Regenerate the manifest below with:
+#@ #   ls -d $data_dir/*/ | xargs -n1 basename
+#@ episodes = [
+#@     "2026-07-17--14-22-20-607711",
+#@     "2026-07-17--14-22-31-803566",
+#@     "2026-07-17--14-22-40-179540",
+#@     "2026-07-17--14-22-48-219503",
+#@     "2026-07-17--14-22-57-255544",
+#@     "2026-07-17--14-23-06-591575",
+#@     "2026-07-17--14-23-14-127548",
+#@     "2026-07-17--14-23-20-763578",
+#@     "2026-07-17--14-23-32-655468",
+#@     "2026-07-17--14-23-42-783430",
+#@     "2026-07-17--14-23-49-815377",
+#@     "2026-07-17--14-23-59-823487",
+#@     "2026-07-17--14-24-09-495466",
+#@     "2026-07-17--14-24-23-787441",
+#@     "2026-07-17--14-24-33-543423",
+#@     "2026-07-17--14-24-40-875434",
+#@     "2026-07-17--14-24-50-343519",
+#@     "2026-07-17--14-25-00-543444",
+#@     "2026-07-17--14-25-09-435451",
+#@     "2026-07-17--14-25-19-551448",
+#@     "2026-07-17--14-25-28-119475",
+#@     "2026-07-17--14-25-45-627503",
+#@     "2026-07-17--14-25-53-307254",
+#@     "2026-07-17--14-26-03-927340",
+#@     "2026-07-17--14-26-16-215327",
+#@     "2026-07-17--14-26-26-607210",
+#@     "2026-07-17--14-26-35-331240",
+#@     "2026-07-17--14-26-56-199194",
+#@     "2026-07-17--14-27-05-007302",
+#@     "2026-07-17--14-27-14-199178",
+#@     "2026-07-17--14-27-23-799180",
+#@     "2026-07-17--14-27-33-207118",
+#@     "2026-07-17--14-27-44-055195",
+#@     "2026-07-17--14-27-53-283163",
+#@     "2026-07-17--14-35-37-610686",
+#@     "2026-07-17--14-35-45-914670",
+#@     "2026-07-17--14-35-53-294755",
+#@     "2026-07-17--14-36-04-070797",
+#@     "2026-07-17--14-36-14-798576",
+#@     "2026-07-17--14-36-26-546594",
+#@     "2026-07-17--14-36-35-390647",
+#@     "2026-07-17--14-36-43-094554",
+#@     "2026-07-17--14-36-50-798587",
+#@     "2026-07-17--14-36-58-298836",
+#@     "2026-07-17--14-37-06-038565",
+#@     "2026-07-17--14-37-15-950578",
+#@     "2026-07-17--14-37-23-390613",
+#@     "2026-07-17--14-37-30-998719",
+#@     "2026-07-17--14-37-39-410526",
+#@     "2026-07-17--14-37-47-570566",
+#@     "2026-07-17--14-37-56-042516",
+#@     "2026-07-17--14-38-04-754534",
+#@     "2026-07-17--14-38-12-854496",
+#@     "2026-07-17--14-38-20-702491",
+#@     "2026-07-17--14-38-30-578487",
+#@     "2026-07-17--14-38-38-930449",
+#@     "2026-07-17--14-38-46-778423",
+#@     "2026-07-17--14-38-55-718502",
+#@     "2026-07-17--14-39-08-570475",
+#@     "2026-07-17--14-39-18-602516",
+#@     "2026-07-17--14-39-28-586461",
+#@     "2026-07-17--14-39-36-710457",
+#@     "2026-07-17--14-39-45-482445",
+#@     "2026-07-17--14-39-53-702431",
+#@     "2026-07-17--14-40-02-054411",
+#@     "2026-07-17--14-40-11-042411",
+#@     "2026-07-17--14-40-18-782425",
+#@     "2026-07-17--14-40-27-362408",
+#@     "2026-07-17--14-40-34-250387",
+#@     "2026-07-17--14-40-42-854341",
+#@     "2026-07-17--14-40-50-858305",
+#@     "2026-07-17--14-41-00-602300",
+#@     "2026-07-17--14-41-12-170262",
+#@     "2026-07-17--14-41-20-558390",
+#@     "2026-07-17--14-41-31-046297",
+#@     "2026-07-17--14-41-41-582286",
+#@     "2026-07-17--14-41-52-634246",
+#@     "2026-07-17--14-41-59-918281",
+#@     "2026-07-17--14-42-18-710264",
+#@     "2026-07-17--14-42-26-246252",
+#@     "2026-07-17--14-42-34-490301",
+#@     "2026-07-17--14-42-41-606262",
+#@     "2026-07-17--14-42-49-970236",
+#@     "2026-07-17--14-42-57-326197",
+#@     "2026-07-17--14-43-07-094241",
+#@     "2026-07-17--14-43-14-078161",
+#@     "2026-07-17--14-43-21-590277",
+#@     "2026-07-17--14-43-28-730235",
+#@     "2026-07-17--14-43-37-946180",
+#@     "2026-07-17--14-43-46-562202",
+#@     "2026-07-17--14-43-57-782226",
+#@     "2026-07-17--14-44-02-726195",
+#@     "2026-07-17--14-44-10-202176",
+#@     "2026-07-17--14-44-17-582252",
+#@     "2026-07-17--14-44-24-530284",
+#@     "2026-07-17--14-44-32-354217",
+#@     "2026-07-17--14-44-42-770054",
+#@     "2026-07-17--14-44-51-122076",
+#@     "2026-07-17--14-44-58-310208",
+#@     "2026-07-17--14-45-05-978085",
+#@     "2026-07-17--14-45-14-450062",
+#@     "2026-07-17--14-45-25-118042",
+#@     "2026-07-17--14-45-33-074099",
+#@     "2026-07-17--14-45-41-126070",
+#@ ]
+
+#@ # §7.2: the cameras are heterogeneous (base 1920x1080, sides 1280x800). The
+#@ # decode-time resize below is **isotropic** for every camera (base x0.25,
+#@ # sides x0.375), which leaves the resolution-normalised intrinsics in
+#@ # `camera_cond` (§7.1) exactly valid. Any anisotropic resize/crop/letterbox
+#@ # must be mirrored into `calibration.yaml` or `camera_cond` will describe a
+#@ # camera that does not match the pixels.
+#@ cameras = {
+#@     "base": [270, 480],
+#@     "side_left": [300, 480],
+#@     "side_right": [300, 480],
+#@ }
+
+#@ # §8: T = clip length. rmind PR #265 uses episode_length=6.
+#@ clip_length = 6
+#@ # §6.2: action == the chunk of future states [t+1 .. t+H].
+#@ action_horizon = 6
+---
+_target_: rbyte.Dataset.from_config
+_recursive_: false
+_convert_: all
+streams:
+  #@ for/end camera, size in cameras.items():
+  image.(@=camera@):
+    index: frame_index.(@=camera@)
+    sources:
+      #@ for/end episode in episodes:
+      (@=episode@):
+        _target_: rbyte.io.TorchCodecFrameSource
+        source: ${data_dir}/(@=episode@)/(@=camera@).mp4
+        transforms:
+          - _target_: torchcodec.transforms.Resize
+            size: #@ size
+
+  #@ for/end camera, size in cameras.items():
+  goal.image.(@=camera@):
+    index: goal.frame_index.(@=camera@)
+    sources:
+      #@ for/end episode in episodes:
+      (@=episode@):
+        _target_: rbyte.io.TorchCodecFrameSource
+        source: ${data_dir}/(@=episode@)/(@=camera@).mp4
+        transforms:
+          - _target_: torchcodec.transforms.Resize
+            size: #@ size
+
+samples:
+  inputs:
+    input_id:
+      #@ for/end episode in episodes:
+      - (@=episode@)
+
+    mcap_path:
+      #@ for/end episode in episodes:
+      - ${data_dir}/(@=episode@)/data.mcap
+
+    calibration_path:
+      #@ for/end episode in episodes:
+      - ${data_dir}/calibration.yaml
+
+    #@ for/end camera in cameras:
+    (@=camera@)_path:
+      #@ for/end episode in episodes:
+      - ${data_dir}/(@=episode@)/(@=camera@).mp4
+
+  executor:
+    _target_: concurrent.futures.ProcessPoolExecutor
+    max_workers: 1
+    mp_context:
+      _target_: multiprocessing.get_context
+      method: forkserver
+
+  pipeline:
+    _target_: pipefunc.Pipeline
+    validate_type_annotations: false
+    functions:
+      - _target_: pipefunc.PipeFunc
+        renames:
+          path: mcap_path
+        output_name: nero
+        mapspec: "${.renames.path}[i], calibration_path[i] -> ${.output_name}[i]"
+        func:
+          _target_: rbyte.io.NeroArmsDataFrameBuilder
+          action_horizon: #@ action_horizon
+          #! §6.1 auxiliary blocks, off by default.
+          include_imu: false
+          include_status_flags: false
+          cameras:
+            #@ for/end camera in cameras:
+            - (@=camera@)
+          reference_camera: (@=list(cameras)[0]@)
+
+      #@ for/end camera in cameras:
+      - _target_: pipefunc.PipeFunc
+        renames:
+          path: (@=camera@)_path
+        output_name: (@=camera@)_meta
+        mapspec: "${.renames.path}[i] -> ${.output_name}[i]"
+        func:
+          _target_: rbyte.io.VideoDataFrameBuilder
+          fields:
+            frame_idx:
+              _target_: polars.Int32
+
+      #@ # §3: each camera is joined on its own `frame_index`; the semi-joins drop
+      #@ # any row whose frame is missing from the corresponding mp4.
+      - _target_: pipefunc.PipeFunc
+        output_name: filtered
+        mapspec: "nero[i], base_meta[i], side_left_meta[i], side_right_meta[i] -> ${.output_name}[i]"
+        func:
+          _target_: makefun.create_function
+          func_signature: "filter(*, nero, base_meta, side_left_meta, side_right_meta)"
+          func_impl:
+            _target_: rbyte.io.DuckDBDataFrameQuery
+            query: |
+              SELECT *
+              FROM
+                nero
+                SEMI JOIN base_meta
+                  ON nero."frame_index.base" = base_meta.frame_idx
+                SEMI JOIN side_left_meta
+                  ON nero."frame_index.side_left" = side_left_meta.frame_idx
+                SEMI JOIN side_right_meta
+                  ON nero."frame_index.side_right" = side_right_meta.frame_idx
+              WHERE
+                COLUMNS(*) IS NOT NULL
+              ORDER BY
+                nero."frame_index.base"
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          input: filtered
+        output_name: samples
+        mapspec: "${.renames.input}[i] -> ${.output_name}[i]"
+        func:
+          _target_: rbyte.io.DataFrameGroupByDynamic
+          index_column: frame_index.base
+          #! dense, overlapping windows
+          every: 1i
+          period: (@=str(clip_length)@)i
+
+      #@ # fixed-shape casts (rbyte requires `polars.Array`, not `List`) and the
+      #@ # per-episode constants collapsed back to a single value per sample.
+      - _target_: pipefunc.PipeFunc
+        output_name: samples_cast
+        mapspec: "samples[i] -> ${.output_name}[i]"
+        func:
+          _target_: makefun.create_function
+          func_signature: "cast(*, samples)"
+          func_impl:
+            _target_: rbyte.io.DuckDBDataFrameQuery
+            query: |
+              SELECT "frame_index.base"::INT32[(@=str(clip_length)@)] AS "frame_index.base",
+                     "frame_index.side_left"::INT32[(@=str(clip_length)@)] AS "frame_index.side_left",
+                     "frame_index.side_right"::INT32[(@=str(clip_length)@)] AS "frame_index.side_right",
+                     "state.pose"::FLOAT[46][2][(@=str(clip_length)@)] AS "state.pose",
+                     "state.pose_rel_start"::FLOAT[46][2][(@=str(clip_length)@)] AS "state.pose_rel_start",
+                     "action.future_state"::FLOAT[46][2][(@=str(action_horizon)@)][(@=str(clip_length)@)] AS "action.future_state",
+                     "action.future_state"::FLOAT[46][2][(@=str(action_horizon)@)][(@=str(clip_length)@)] AS "action.commanded",
+                     "align_residual_ms"::FLOAT[(@=str(clip_length)@)] AS "align_residual_ms",
+                     "side_valid"[1]::BOOLEAN[2] AS "side_valid",
+                     "camera_cond"[1]::FLOAT[13][3] AS "camera_cond",
+                     "camera_cond.placeholder"[1]::BOOLEAN AS "camera_cond.placeholder",
+                     "goal.xyz"[1]::FLOAT[3][2] AS "goal.xyz",
+                     "goal.frame_index.base"[1]::INT32 AS "goal.frame_index.base",
+                     "goal.frame_index.side_left"[1]::INT32 AS "goal.frame_index.side_left",
+                     "goal.frame_index.side_right"[1]::INT32 AS "goal.frame_index.side_right"
+              FROM samples
+              WHERE len("frame_index.base") == (@=str(clip_length)@)
+
+      - _target_: pipefunc.PipeFunc
+        renames:
+          keys: input_id
+          values: samples_cast
+        output_name: samples_aggregated
+        func:
+          _target_: rbyte.io.DataFrameConcater
+          key_column: input_id

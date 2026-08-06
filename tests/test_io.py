@@ -3,7 +3,9 @@ from pathlib import Path
 import polars as pl
 from polars.testing import assert_frame_equal
 
-from rbyte.io import PathDataFrameBuilder, YaakMetadataDataFrameBuilder
+from rbyte.io import PathDataFrameBuilder
+
+from .conftest import YaakMetadataDataFrameBuilder, requires_yaak_proto
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 CAMERA_ENUM = pl.Enum(
@@ -45,6 +47,7 @@ def test_PathDataFrameBuilder() -> None:  # noqa: N802
     )
 
 
+@requires_yaak_proto
 def test_YaakMetadataDataFrameBuilder() -> None:  # noqa: N802
     path = DATA_DIR / "yaak" / "Niro098-HQ" / "2024-06-18--13-39-54" / "metadata.log"
 

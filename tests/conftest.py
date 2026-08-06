@@ -23,7 +23,6 @@ from rbyte.io import (
     TreeBroadcastMapper,
     VideoDataFrameBuilder,
     WaypointBuilder,
-    YaakMetadataDataFrameBuilder,
 )
 from rbyte.io.dataframe.aligner import (
     AlignConfig,
@@ -32,6 +31,19 @@ from rbyte.io.dataframe.aligner import (
 )
 from rbyte.io.dataframe.concater import DataFrameConcater
 from rbyte.viz.loggers.rerun_logger import RerunLogger
+
+# `rbyte.io` exports this only when the generated yaak protobuf stubs are
+# present -- they require the private `idl-repo` submodule (see `just setup`).
+# Mirror that optionality here so the rest of the suite stays collectable.
+try:
+    from rbyte.io import YaakMetadataDataFrameBuilder
+except ImportError:
+    YaakMetadataDataFrameBuilder = None
+
+requires_yaak_proto = pytest.mark.skipif(
+    YaakMetadataDataFrameBuilder is None,
+    reason="yaak protobuf stubs unavailable (see `just setup`)",
+)
 
 logger = get_logger(__name__)
 
@@ -66,6 +78,9 @@ def nuscenes_dataset() -> Dataset:
 
 @pytest.fixture(scope="session")
 def yaak_dataset() -> Dataset:
+    if YaakMetadataDataFrameBuilder is None:
+        pytest.skip("yaak protobuf stubs unavailable")
+
     return _build_dataset("yaak")
 
 
@@ -76,6 +91,9 @@ def zod_dataset() -> Dataset:
 
 @pytest.fixture(scope="session")
 def yaak_dataset_pydantic() -> Dataset:
+    if YaakMetadataDataFrameBuilder is None:
+        pytest.skip("yaak protobuf stubs unavailable")
+
     data_dir = DATA_DIR / "yaak"
     drive_queries: dict[str, str] = {
         "Niro098-HQ/2024-06-18--13-39-54": "SELECT * FROM self WHERE time_stamp BETWEEN TIMESTAMP('2024-06-18 13:39:55') AND TIMESTAMP('2024-06-18 13:40:15')"  # noqa: E501

@@ -47,6 +47,13 @@ else:
     ]
 
 try:  # noqa: RUF067
+    from .nero import NeroArmsCalibration, NeroArmsDataFrameBuilder
+except ImportError:
+    pass
+else:
+    __all__ += ["NeroArmsCalibration", "NeroArmsDataFrameBuilder"]
+
+try:  # noqa: RUF067
     from .video import TorchCodecFrameSource, VideoDataFrameBuilder
 except (ImportError, RuntimeError):
     pass
