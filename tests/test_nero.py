@@ -34,6 +34,7 @@ from rbyte.samples.nero import (
     STATE_DIM_9D,
     STATE_DIM_QUAT,
     STATUS_SENSORS,
+    SUBPIXEL_FRACTIONAL_BITS,
     DisparityDeclaration,
     DisparityOutput,
     NeroArmsCalibration,
@@ -50,7 +51,11 @@ from rbyte.samples.nero import (
     state_quat_to_9d,
 )
 from rbyte.samples.nero.rotation import matrix_to_quat, quat_to_matrix
-from rbyte.streams.nero import NeroArmsDisparitySource
+from rbyte.streams.nero import (
+    NeroArmsDisparitySource,
+    _PyAvDisparityDecoder,  # ruff:ignore[import-private-name]
+    _TorchCodecDisparityDecoder,  # ruff:ignore[import-private-name]
+)
 
 DATA_DIR = Path(__file__).resolve().parent / "data" / "nero_arms"
 CALIBRATION_PATH = DATA_DIR / "calibration.yaml"
@@ -483,6 +488,13 @@ N_DISPARITY_FRAMES = 58
 N_CAMERA_FRAMES = 60
 #: §21.1: extended disparity halves MinZ and doubles the level count.
 EXTENDED_MAX_DISPARITY = 191
+#: §21.16: the primary form now -- 5 fractional bits, so stored values are x32
+#: and `max_disparity` is 95 << 5. At this scale the 2 cm cube §21.14 measured at
+#: 1.1 integer levels spans ~35 units.
+SUBPIXEL_BITS = 5
+SUBPIXEL_MAX_DISPARITY = MAX_DISPARITY[False] << SUBPIXEL_BITS
+#: the largest value an 8-bit store can hold -- what a truncating decoder caps at
+EIGHT_BIT_MAX = 255
 #: §21.3: the disparity stream starts two camera frames late, so its own
 #: `frame_index` is NOT the camera's -- which is the point of the separate join.
 DISPARITY_START_FRAME = 2
@@ -518,10 +530,31 @@ def _declaration(**overrides: str) -> dict[str, str]:
         "max_disparity": str(MAX_DISPARITY[False]),
         "subpixel": "false",
         "extended_disparity": "false",
+        "bit_depth": "8",
         "width": str(width),
         "height": str(height),
         "mono_sockets": "CAM_B,CAM_C",
     } | overrides
+
+
+def _subpixel_declaration(**overrides: str) -> dict[str, str]:
+    """§21.16 metadata for the 16-bit primary form."""
+    return _declaration(**{
+        "max_disparity": str(SUBPIXEL_MAX_DISPARITY),
+        "subpixel": "true",
+        "subpixel_fractional_bits": str(SUBPIXEL_BITS),
+        "bit_depth": "16",
+        **overrides,
+    })
+
+
+def _subpixel_stereo(**overrides: object) -> StereoCalibration:
+    return _stereo(**{
+        "max_disparity": SUBPIXEL_MAX_DISPARITY,
+        "subpixel": True,
+        "subpixel_fractional_bits": SUBPIXEL_BITS,
+        **overrides,
+    })
 
 
 def _synthetic_disparity(n: int = N_DISPARITY_FRAMES) -> np.ndarray:
@@ -534,6 +567,28 @@ def _synthetic_disparity(n: int = N_DISPARITY_FRAMES) -> np.ndarray:
     ramp = (1 + (np.arange(width) * (MAX_DISPARITY[False] - 1)) // width).astype(
         np.uint8
     )
+    frames = np.stack([
+        np.roll(np.broadcast_to(ramp, (height, width)), k, 1) for k in range(n)
+    ])
+    frames[:, :8, :8] = 0
+
+    return np.ascontiguousarray(frames)
+
+
+def _synthetic_subpixel(n: int = N_DISPARITY_FRAMES) -> np.ndarray:
+    """§21.16: the same shape of data as uint16 x2**SUBPIXEL_BITS.
+
+    Deliberately NOT a multiple of the scale everywhere -- the whole reason for
+    subpixel is the values *between* the integer levels, so a fixture that only
+    carried whole levels would pass even if the scale were dropped on the floor.
+    Values reach `SUBPIXEL_MAX_DISPARITY` exactly, and exceed 255 nearly
+    everywhere, so an 8-bit truncation cannot possibly look correct.
+    """
+    width, height = DISPARITY_SIZE
+    ramp = (1 + (np.arange(width) * (SUBPIXEL_MAX_DISPARITY - 1)) // width).astype(
+        np.uint16
+    )
+    ramp[-1] = SUBPIXEL_MAX_DISPARITY
     frames = np.stack([
         np.roll(np.broadcast_to(ramp, (height, width)), k, 1) for k in range(n)
     ])
@@ -768,6 +823,23 @@ def disparity_mkv(
 
 
 @pytest.fixture(scope="session")
+def subpixel_frames() -> np.ndarray:
+    return _synthetic_subpixel()
+
+
+@pytest.fixture(scope="session")
+def subpixel_mkv(
+    tmp_path_factory: pytest.TempPathFactory, subpixel_frames: np.ndarray
+) -> Path:
+    """§21.16: 16-bit `gray16le` FFV1 in MKV -- the new primary form."""
+    return _encode(
+        tmp_path_factory.mktemp("subpixel") / "base_disparity.mkv",
+        subpixel_frames,
+        pix_fmt="gray16le",
+    )
+
+
+@pytest.fixture(scope="session")
 def disparity_mkv_measured(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Disparity at the MEASURED `stereo.image_size`, so the size guard's
     *passing* branch and the `calibration_path` resolution both get exercised at
@@ -830,17 +902,85 @@ def _builder(disparity_cameras: Sequence[str] = ()) -> NeroArmsReader:
 # ------------------------------------------------------------ §21.1 declaration
 
 
-def test_stereo_calibration_rejects_subpixel() -> None:
-    """§21.4: an 8-bit read of subpixel disparity is wrong by a factor of 8."""
+def test_subpixel_is_accepted_with_a_declared_scale() -> None:
+    """§21.16: subpixel is the primary form now, not the thing to refuse."""
+    for bits in sorted(SUBPIXEL_FRACTIONAL_BITS):
+        stereo = _stereo(
+            subpixel=True,
+            subpixel_fractional_bits=bits,
+            max_disparity=MAX_DISPARITY[False] << bits,
+        )
+
+        assert stereo.disparity_scale == 2**bits
+
+        declaration = DisparityDeclaration.from_mcap_metadata(
+            _subpixel_declaration(
+                subpixel_fractional_bits=str(bits),
+                max_disparity=str(MAX_DISPARITY[False] << bits),
+            )
+        )
+
+        assert declaration.disparity_scale == 2**bits
+        # both sides validate internally, so a scale mismatch between them is
+        # only ever caught here -- and it is a power of two on every depth
+        declaration.check_against(stereo, camera="base")
+
+
+def test_subpixel_without_a_declared_scale_is_refused() -> None:
+    """The old veto becomes a scale requirement, not an absence of a rule.
+
+    `760` is `95 << 3`, i.e. a perfectly real 3-bit ceiling -- but with the
+    exponent unstated it could equally be a 5-bit stream that is wrong by 4x, and
+    nothing in the pixels chooses between them.
+    """
     with pytest.raises(ValidationError, match="subpixel"):
         _stereo(subpixel=True, max_disparity=760)
 
-
-def test_declaration_rejects_subpixel() -> None:
     with pytest.raises(ValidationError, match="subpixel"):
         DisparityDeclaration.from_mcap_metadata(
             _declaration(subpixel="true", max_disparity="760")
         )
+
+    # ...and the reverse contradiction: a scale with subpixel off
+    with pytest.raises(ValidationError, match="subpixel"):
+        _stereo(subpixel_fractional_bits=5)
+
+
+def test_a_subpixel_ceiling_must_match_the_declared_scale() -> None:
+    """95 << 3 declared alongside 5 fractional bits is a recorder bug."""
+    with pytest.raises(ValidationError, match="max_disparity"):
+        DisparityDeclaration.from_mcap_metadata(
+            _subpixel_declaration(max_disparity=str(MAX_DISPARITY[False] << 3))
+        )
+
+    with pytest.raises(ValidationError, match="max_disparity"):
+        _subpixel_stereo(max_disparity=MAX_DISPARITY[False] << 3)
+
+
+def test_the_declaration_must_agree_with_the_store_it_describes() -> None:
+    """§21.16: `bit_depth` is a routing key, so a disagreement is fatal."""
+    declaration = DisparityDeclaration.from_mcap_metadata(_subpixel_declaration())
+    declaration.check_bit_depth(16, source="test")
+
+    with pytest.raises(ValueError, match="bit_depth"):
+        declaration.check_bit_depth(8, source="test")
+
+    eight_bit = DisparityDeclaration.from_mcap_metadata(_declaration())
+    eight_bit.check_bit_depth(8, source="test")
+
+    # 16-bit with subpixel declared off is the §21.12 stream: measured on the
+    # rig, subpixel reading back OFF while the device delivered uint16 to 6164.
+    # Caught even when `bit_depth` was never written -- a recording from before
+    # the field existed still cannot smuggle an unknown scale through.
+    legacy = _declaration()
+    del legacy["bit_depth"]
+    undeclared = DisparityDeclaration.from_mcap_metadata(legacy)
+
+    assert undeclared.bit_depth is None
+    undeclared.check_bit_depth(8, source="test")
+
+    with pytest.raises(ValueError, match="contradicts"):
+        undeclared.check_bit_depth(16, source="test")
 
 
 def test_declaration_rejects_max_disparity_contradiction() -> None:
@@ -985,19 +1125,163 @@ def test_ffv1_gray8_decodes_bit_exact(
     assert np.array_equal(batch.numpy()[:, 0], disparity_frames[[0, 7, 11]])
 
 
-def test_sixteen_bit_is_refused_not_silently_downconverted(tmp_path: Path) -> None:
-    """§21.2: torchcodec does not raise on 16-bit -- it returns wrong data."""
-    frames = _synthetic_disparity(4).astype("<u2") * 8  # as subpixel would store it
-    path = _encode(tmp_path / "d16.mkv", frames, pix_fmt="gray16le")
+def test_sixteen_bit_routes_to_pyav_and_is_bit_exact(
+    subpixel_mkv: Path, subpixel_frames: np.ndarray
+) -> None:
+    """§21.16: 16-bit is no longer refused, it is ROUTED -- to PyAV, exactly.
 
+    This is the pairing the whole change rests on: PyAV reproduces gray16le
+    bit-for-bit, and the values here exceed 255 nearly everywhere, so a decoder
+    that truncated would be caught by the very first assertion rather than
+    producing something merely a bit wrong.
+    """
+    source = NeroArmsDisparitySource(
+        source=subpixel_mkv,
+        declaration=DisparityDeclaration.from_mcap_metadata(_subpixel_declaration()),
+    )
+
+    assert isinstance(source._decoder, _PyAvDisparityDecoder)  # ruff:ignore[private-member-access]
+    assert len(source) == N_DISPARITY_FRAMES
+
+    single = source[3]
+
+    assert single.shape == (1, DISPARITY_SIZE[1], DISPARITY_SIZE[0])
+    # not torch.uint16: torch has the dtype but not `>`, and `> 0` is the §21.4
+    # validity mask every consumer of this stream computes first
+    assert single.dtype == torch.int32
+    assert np.array_equal(single.numpy()[0], subpixel_frames[3])
+    assert int(single.max()) == SUBPIXEL_MAX_DISPARITY > EIGHT_BIT_MAX
+
+    # out of order, with a repeat and a backwards jump -- the cursor has to cope
+    batch = source[[11, 3, 3, 0]]
+
+    assert batch.shape == (4, 1, DISPARITY_SIZE[1], DISPARITY_SIZE[0])
+    assert np.array_equal(batch.numpy()[:, 0], subpixel_frames[[11, 3, 3, 0]])
+
+
+def test_eight_bit_still_routes_to_torchcodec(disparity_mkv: Path) -> None:
+    """§21.2: FFV1 `gray` is bit-exact through torchcodec, so it stays there."""
+    source = NeroArmsDisparitySource(source=disparity_mkv)
+
+    assert isinstance(source._decoder, _TorchCodecDisparityDecoder)  # ruff:ignore[private-member-access]
+    assert source[0].dtype == torch.uint8
+
+
+def test_both_decoders_agree_on_shape_and_values(disparity_mkv: Path) -> None:
+    """The two backends are interchangeable on an 8-bit file, or the routing
+    would silently change the shape of the tensor a config receives."""
+    indices = [0, 5, 9]
+    via_torchcodec = _TorchCodecDisparityDecoder(disparity_mkv.as_posix())
+    via_pyav = _PyAvDisparityDecoder(disparity_mkv.as_posix())
+
+    assert via_pyav.num_frames == via_torchcodec.num_frames == N_DISPARITY_FRAMES
+    assert via_pyav.size == via_torchcodec.size == DISPARITY_SIZE
+
+    torchcodec_frames = via_torchcodec.frames(indices)
+    pyav_frames = via_pyav.frames(indices)
+
+    assert pyav_frames.shape == torchcodec_frames.shape
+    assert np.array_equal(pyav_frames.numpy(), torchcodec_frames.numpy())
+
+
+def test_the_torchcodec_path_refuses_sixteen_bit(subpixel_mkv: Path) -> None:
+    """§21.16: the acceptance is SILENT, so the path has to be closed at the
+    point of use and not only by the routing upstream of it.
+
+    Constructed directly, bypassing `NeroArmsDisparitySource` entirely --
+    which is the point: no route into torchcodec accepts a 16-bit stream, not
+    just the one the source happens to take.
+    """
     with pytest.raises(ValueError, match="PyAV"):
-        NeroArmsDisparitySource(source=path)
+        _TorchCodecDisparityDecoder(subpixel_mkv.as_posix())
 
-    # the failure mode being guarded against, demonstrated
-    decoded = VideoDecoder(path.as_posix()).get_frame_at(index=0).data
+    # and the failure mode being guarded against, demonstrated on the same file
+    decoded = VideoDecoder(subpixel_mkv.as_posix()).get_frame_at(index=0).data
+    reference = _synthetic_subpixel(1)[0]
 
     assert decoded.dtype == torch.uint8, "torchcodec silently down-converts"
-    assert not np.array_equal(decoded.numpy()[0], frames[0])
+    assert not np.array_equal(decoded.numpy()[0], reference)
+    # not a rounding error -- it is the top byte thrown away
+    error = np.abs(decoded.numpy()[0].astype(np.int64) - reference.astype(np.int64))
+
+    assert error.max() > EIGHT_BIT_MAX
+
+
+def test_sixteen_bit_without_a_declared_scale_is_refused(subpixel_mkv: Path) -> None:
+    """§21.16: `disparity * 2**bits` with `bits` unknown is not a quantity.
+
+    depthai reports 5 fractional bits on a fresh config and was measured at 3 on
+    a preset-built node, so defaulting would be wrong by 4x on a real recording,
+    silently. The mask output is exempt: `> 0` is invariant under the scale.
+    """
+    with pytest.raises(ValueError, match="no subpixel mode was declared"):
+        NeroArmsDisparitySource(source=subpixel_mkv)
+
+    valid = NeroArmsDisparitySource(source=subpixel_mkv, output=DisparityOutput.valid)[
+        0
+    ]
+
+    assert valid.dtype == torch.bool
+    assert np.array_equal(valid.numpy()[0], _synthetic_subpixel(1)[0] > 0)
+
+
+def test_a_store_that_contradicts_the_declaration_is_refused(
+    subpixel_mkv: Path, disparity_mkv: Path
+) -> None:
+    """Either direction is a corrupt recording, not a preference to resolve."""
+    # 16-bit file, declaration says 8-bit integer levels: this is the §21.12
+    # stream, whose real scale is whatever the device was actually doing
+    with pytest.raises(ValueError, match=r"bit_depth|contradicts"):
+        NeroArmsDisparitySource(
+            source=subpixel_mkv,
+            declaration=DisparityDeclaration.from_mcap_metadata(_declaration()),
+        )
+
+    # 8-bit file, declaration says x32 subpixel: the values were truncated
+    with pytest.raises(ValueError, match=r"bit_depth|contradicts"):
+        NeroArmsDisparitySource(
+            source=disparity_mkv,
+            declaration=DisparityDeclaration.from_mcap_metadata(
+                _subpixel_declaration()
+            ),
+        )
+
+
+def test_subpixel_depth_divides_by_the_declared_scale(
+    subpixel_mkv: Path, subpixel_frames: np.ndarray
+) -> None:
+    """§21.16: `fx * baseline / (raw / 2**bits)`, and the scale is DECLARED.
+
+    Reading a 5-bit stream as if it were 3-bit is wrong by exactly 4x and looks
+    entirely plausible, so the assertion is against the scale that was declared
+    rather than against any constant.
+    """
+    stereo = _subpixel_stereo()
+    depth = NeroArmsDisparitySource(
+        source=subpixel_mkv, output=DisparityOutput.depth, stereo=stereo
+    )[0]
+
+    raw = subpixel_frames[0].astype(np.float64)
+    invalid = raw == 0
+
+    assert depth.dtype == torch.float32
+    assert torch.isfinite(depth).all()
+    assert (depth.numpy()[0][invalid] == 0.0).all()  # ruff:ignore[float-equality-comparison]
+    assert np.allclose(
+        depth.numpy()[0][~invalid],
+        FX_MONO * BASELINE_M / (raw[~invalid] / 2**SUBPIXEL_BITS),
+        rtol=1e-6,
+    )
+    # the subpixel stream resolves the SAME near limit as the 8-bit one -- what
+    # it buys is resolution between the levels, not range (§21.14)
+    assert round(stereo.min_depth_m, 6) == round(_stereo().min_depth_m, 6)
+    # ...and a wrong scale is off by a clean power of two, which is why it has to
+    # be declared: nothing in the pixels distinguishes these two readings
+    wrong = _subpixel_stereo(
+        subpixel_fractional_bits=3, max_disparity=MAX_DISPARITY[False] << 3
+    )
+
+    assert wrong.disparity_scale * 4 == stereo.disparity_scale
 
 
 def test_lossy_codec_is_refused(tmp_path: Path) -> None:
@@ -1127,16 +1411,24 @@ def test_builder_requires_the_declaration(
     assert len(_builder()(path, calibration_no_stereo)) > 0
 
 
-def test_builder_rejects_declared_subpixel(
+def test_builder_rejects_subpixel_with_no_declared_scale(
     tmp_path: Path, calibration_no_stereo: Path
 ) -> None:
-    path = _write_episode(
-        tmp_path / "data.mcap",
+    """§21.16: the builder accepts subpixel; it refuses an unstated scale."""
+    unscaled = _write_episode(
+        tmp_path / "unscaled.mcap",
         declaration=_declaration(subpixel="true", max_disparity="760"),
     )
 
     with pytest.raises(ValidationError, match="subpixel"):
-        _builder(["base"])(path, calibration_no_stereo)
+        _builder(["base"])(unscaled, calibration_no_stereo)
+
+    # ...and with the scale declared, the same episode ingests
+    scaled = _write_episode(
+        tmp_path / "scaled.mcap", declaration=_subpixel_declaration()
+    )
+
+    assert len(_builder(["base"])(scaled, calibration_no_stereo)) > 0
 
 
 def test_builder_cross_checks_the_declaration_against_calibration(

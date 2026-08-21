@@ -2,15 +2,18 @@ from .arms import NeroArmsReader
 from .calibration import (
     CAMERA_COND_DIM,
     MAX_DISPARITY,
+    SUBPIXEL_FRACTIONAL_BITS,
     CameraModel,
     NeroArmsCalibration,
     StereoCalibration,
 )
 from .disparity import (
     DISPARITY_METADATA_PREFIX,
+    DISPARITY_PIXEL_FORMATS,
     DISPARITY_TOPIC_PREFIX,
     DisparityDeclaration,
     DisparityOutput,
+    check_store_against_mode,
     disparity_to_depth,
 )
 from .rotation import (
@@ -38,6 +41,7 @@ __all__ = [
     "CAMERAS",
     "CAMERA_COND_DIM",
     "DISPARITY_METADATA_PREFIX",
+    "DISPARITY_PIXEL_FORMATS",
     "DISPARITY_TOPIC_PREFIX",
     "FINGERS",
     "IMU_DIM",
@@ -47,6 +51,7 @@ __all__ = [
     "STATE_DIM_9D",
     "STATE_DIM_QUAT",
     "STATUS_SENSORS",
+    "SUBPIXEL_FRACTIONAL_BITS",
     "CameraModel",
     "DisparityDeclaration",
     "DisparityOutput",
@@ -54,6 +59,7 @@ __all__ = [
     "NeroArmsReader",
     "StereoCalibration",
     "canonicalize_quat",
+    "check_store_against_mode",
     "disparity_to_depth",
     "pose_9d_to_quat",
     "pose_quat_to_9d",

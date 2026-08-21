@@ -136,11 +136,13 @@
 #@ # as the recorder writes the stream -- provided `${data_dir}/calibration.yaml`
 #@ # carries the matching `stereo:` block; without it the depth streams fail
 #@ # loudly rather than emitting mis-scaled metres. `depth_output` may be set to
-#@ # "disparity" to ingest raw uint8 levels with no calibration at all. Flipping
-#@ # `depth` rewires the stream keys, the meta PipeFunc, the semi-join and the
-#@ # cast together -- never half of them.
+#@ # "disparity" to ingest raw stored levels; 8-bit needs no calibration at all,
+#@ # while a 16-bit (subpixel) stream reads the scale out of the `stereo:` block
+#@ # that is passed below either way (§21.16). Flipping `depth` rewires the
+#@ # stream keys, the meta PipeFunc, the semi-join and the cast together --
+#@ # never half of them.
 #@ depth = False
-#@ depth_output = "depth"          #! "depth" (metres) | "disparity" (uint8 levels)
+#@ depth_output = "depth"          #! "depth" (metres) | "disparity" (stored levels)
 #@ depth_camera = "base"           #! §21.3: the overhead camera only
 #@ depth_file = depth_camera + "_disparity.mkv"
 #@ depth_index = "frame_index.disparity." + depth_camera

@@ -55,6 +55,11 @@ nero = [
   "protobuf>=7.35.1,<8",
   "pyyaml>=6.0.2",
 ]
+# DATA_CONTRACT §21.16: the ONLY decoder for 16-bit disparity. FFV1 gray16le
+# round-trips bit-exact through PyAV, while torchcodec silently returns uint8
+# for it (measured max error 58751, no exception) -- so a 16-bit stream is
+# routed here and the torchcodec path refuses it.
+pyav = ["av>=15.0.0"]
 video = ["torchcodec>=0.14.0"]
 visualize = [
   "einops>=0.8.2",
