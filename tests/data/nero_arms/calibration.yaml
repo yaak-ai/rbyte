@@ -61,8 +61,18 @@ stereo:
     baseline_m: 0.075 # getBaselineDistance() = 7.5000 cm exactly
     image_size: [1280, 800]
     mono_sockets: [CAM_B, CAM_C]
-    max_disparity: 95 # §21.1: 191 if `extended_disparity`
-    subpixel: false # §21.1: MUST be false -- 8-bit cannot hold 760 levels
+    # §21.16: this block still describes the 8-BIT form. `subpixel` is no longer
+    # forbidden -- it is the primary form, since integer disparity cannot resolve
+    # the manipulated object at this working distance (§21.14) -- so the first
+    # subpixel-on recording needs this trio updated together, e.g. for 5
+    # fractional bits: subpixel true, subpixel_fractional_bits 5,
+    # max_disparity 3040 (= 95 << 5). Leaving them as-is makes the episode's
+    # declaration disagree with the calibration, which fails loudly by design.
+    # A merely FILTERED 16-bit recording (§21.13) needs no change here: those are
+    # integer levels in a wider container, at scale 1.
+    max_disparity: 95 # 191 if `extended_disparity`; << bits if subpixel
+    subpixel: false
+    subpixel_fractional_bits: 0 # the exponent stored values are scaled by
     extended_disparity: false
     placeholder: false # MEASURED, unlike the extrinsics above
 
