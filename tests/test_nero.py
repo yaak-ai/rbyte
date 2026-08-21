@@ -6,6 +6,7 @@ are ~2.4 GB and are deliberately not vendored into `tests/data`.
 """
 
 import os
+import pickle  # ruff:ignore[suspicious-pickle-import]
 import subprocess  # ruff:ignore[suspicious-subprocess-import]
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -968,19 +969,25 @@ def test_the_declaration_must_agree_with_the_store_it_describes() -> None:
     eight_bit = DisparityDeclaration.from_mcap_metadata(_declaration())
     eight_bit.check_bit_depth(8, source="test")
 
-    # 16-bit with subpixel declared off is the §21.12 stream: measured on the
-    # rig, subpixel reading back OFF while the device delivered uint16 to 6164.
-    # Caught even when `bit_depth` was never written -- a recording from before
-    # the field existed still cannot smuggle an unknown scale through.
+    # a recording written before `bit_depth` existed still loads, and the
+    # container is then the sole authority -- either store is accepted, because
+    # §21.13's filters produce 16-bit integer levels legitimately
     legacy = _declaration()
     del legacy["bit_depth"]
     undeclared = DisparityDeclaration.from_mcap_metadata(legacy)
 
     assert undeclared.bit_depth is None
     undeclared.check_bit_depth(8, source="test")
+    undeclared.check_bit_depth(16, source="test")
 
-    with pytest.raises(ValueError, match="contradicts"):
-        undeclared.check_bit_depth(16, source="test")
+    # ...but subpixel in an 8-bit store never is
+    subpixel = _subpixel_declaration()
+    del subpixel["bit_depth"]
+
+    with pytest.raises(ValueError, match="truncated"):
+        DisparityDeclaration.from_mcap_metadata(subpixel).check_bit_depth(
+            8, source="test"
+        )
 
 
 def test_declaration_rejects_max_disparity_contradiction() -> None:
@@ -1225,26 +1232,88 @@ def test_sixteen_bit_without_a_declared_scale_is_refused(subpixel_mkv: Path) -> 
     assert np.array_equal(valid.numpy()[0], _synthetic_subpixel(1)[0] > 0)
 
 
-def test_a_store_that_contradicts_the_declaration_is_refused(
-    subpixel_mkv: Path, disparity_mkv: Path
-) -> None:
-    """Either direction is a corrupt recording, not a preference to resolve."""
-    # 16-bit file, declaration says 8-bit integer levels: this is the §21.12
-    # stream, whose real scale is whatever the device was actually doing
-    with pytest.raises(ValueError, match=r"bit_depth|contradicts"):
-        NeroArmsDisparitySource(
-            source=subpixel_mkv,
-            declaration=DisparityDeclaration.from_mcap_metadata(_declaration()),
-        )
+def test_an_eight_bit_store_cannot_hold_subpixel_disparity(disparity_mkv: Path) -> None:
+    """The one arithmetically impossible pair, and the only one refused.
 
-    # 8-bit file, declaration says x32 subpixel: the values were truncated
-    with pytest.raises(ValueError, match=r"bit_depth|contradicts"):
+    x2**bits values do not fit 8 bits, so a file that claims both has already
+    been truncated by whatever wrote it.
+    """
+    with pytest.raises(ValueError, match=r"bit_depth|truncated"):
         NeroArmsDisparitySource(
             source=disparity_mkv,
             declaration=DisparityDeclaration.from_mcap_metadata(
                 _subpixel_declaration()
             ),
         )
+
+
+def test_sixteen_bit_without_subpixel_is_legitimate(
+    subpixel_mkv: Path, subpixel_frames: np.ndarray
+) -> None:
+    """§21.16 point 3: the value-rewriting filters each force uint16 on their own.
+
+    §21.13 measured temporal filtering as the best-covering variant of any
+    (72.7% against 67.1% all-off), and it forces a 16-bit store while leaving
+    disparity as plain integer levels. Bit depth picks the DECODER; subpixel
+    picks the SCALE; coupling them would refuse exactly the configuration that
+    measurement recommends.
+    """
+    declaration = DisparityDeclaration.from_mcap_metadata(_declaration(bit_depth="16"))
+
+    assert not declaration.subpixel
+    assert declaration.disparity_scale == 1
+
+    source = NeroArmsDisparitySource(source=subpixel_mkv, declaration=declaration)
+
+    assert isinstance(source._decoder, _PyAvDisparityDecoder)  # ruff:ignore[private-member-access]
+    # still routed to PyAV, and still bit-exact -- the store is what decides that
+    assert np.array_equal(source[0].numpy()[0], subpixel_frames[0])
+
+    # and at scale 1 the metres are the plain form
+    stereo = _stereo(image_size=DISPARITY_SIZE)
+    depth = NeroArmsDisparitySource(
+        source=subpixel_mkv, output=DisparityOutput.depth, stereo=stereo
+    )[0]
+    raw = subpixel_frames[0].astype(np.float64)
+    inside = (raw > 0) & (raw <= MAX_DISPARITY[False])
+
+    assert np.allclose(
+        depth.numpy()[0][inside], FX_MONO * BASELINE_M / raw[inside], rtol=1e-6
+    )
+
+
+def test_a_declared_bit_depth_that_disagrees_with_the_file_is_refused(
+    subpixel_mkv: Path,
+) -> None:
+    """`bit_depth` is the routing key, so a disagreement is a corrupt recording."""
+    with pytest.raises(ValueError, match="bit_depth"):
+        NeroArmsDisparitySource(
+            source=subpixel_mkv,
+            declaration=DisparityDeclaration.from_mcap_metadata(_declaration()),
+        )
+
+
+def test_the_pyav_decoder_survives_pickling(
+    subpixel_mkv: Path, subpixel_frames: np.ndarray
+) -> None:
+    """A `StreamSource` may be handed to a forked dataloader worker.
+
+    The live container and the cursor are dropped and re-established, so a
+    round-trip is not merely importable but decodes the same frames. (The
+    torchcodec backend does not pickle at all -- pre-existing, and why this is
+    asserted on the PyAV one rather than on `NeroArmsDisparitySource`.)
+    """
+    decoder = _PyAvDisparityDecoder(subpixel_mkv.as_posix())
+
+    assert np.array_equal(decoder.frames([2]).numpy()[0, 0], subpixel_frames[2])
+
+    restored = pickle.loads(pickle.dumps(decoder))  # ruff:ignore[suspicious-pickle-usage]
+
+    assert restored.num_frames == decoder.num_frames
+    assert restored.size == decoder.size
+    assert np.array_equal(restored.frames([2]).numpy()[0, 0], subpixel_frames[2])
+    # ...and the cursor still works forwards afterwards
+    assert np.array_equal(restored.frames([7]).numpy()[0, 0], subpixel_frames[7])
 
 
 def test_subpixel_depth_divides_by_the_declared_scale(

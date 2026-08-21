@@ -226,15 +226,22 @@ def check_store_against_mode(
 
         raise ValueError(msg)
 
-    if (observed_bit_depth == BIT_DEPTH_PYAV_ONLY) != subpixel:
-        # 8-bit under subpixel means the x2**bits values were truncated
-        # somewhere. 16-bit without subpixel is the §21.12 stream -- measured on
-        # the rig, subpixel reading back OFF while the device delivered uint16
-        # with values to 6164 -- and its scale is whatever the device was
-        # actually doing, i.e. unknown.
+    # THE TWO PROPERTIES ARE INDEPENDENT, and conflating them would refuse a
+    # configuration §21.16 point 3 goes out of its way to legalise. The bit depth
+    # selects the DECODER; subpixel and its bits select the SCALE. §21.13 measured
+    # that speckle, spatial, temporal and decimation each force uint16 on their
+    # own -- and temporal gave the best coverage of any variant (72.7% against
+    # 67.1% all-off) -- so a filtered, subpixel-OFF recording is legitimately
+    # 16-bit carrying plain integer levels at scale 1. Refusing it here would
+    # reject the very setting that measurement recommends.
+    #
+    # The one arithmetically impossible pair is 8-bit with subpixel on: the values
+    # are disparity x 2**bits and 8 bits cannot hold them, so they were already
+    # truncated by whatever produced the file.
+    if observed_bit_depth != BIT_DEPTH_PYAV_ONLY and subpixel:
         logger.error(
-            msg := "§21.16: the stream's store contradicts the declared "
-            "`subpixel` mode, so the scale of its values is unknown",
+            msg := "§21.16: an 8-bit store cannot hold subpixel disparity -- the "
+            "values are disparity * 2**bits and have already been truncated",
             source=source,
             observed_bit_depth=observed_bit_depth,
             subpixel=subpixel,

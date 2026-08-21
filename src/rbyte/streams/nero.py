@@ -32,6 +32,7 @@ disparity gave a max error of 81 levels at 95 levels full scale.
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Sequence
 from contextlib import suppress
+from threading import Lock
 from typing import Any, final, override
 
 import numpy as np
@@ -223,18 +224,21 @@ class _PyAvDisparityDecoder(_DisparityDecoder):
     0` -- which is the §21.4 validity mask, i.e. the thing every consumer of this
     stream does first -- would raise. int32 holds every uint16 value exactly, so
     nothing is lost but memory.
+
+    Because the cursor is shared mutable state, `frames` holds a lock and the
+    live container is dropped on pickling and re-opened on demand. A `StreamSource`
+    can be handed to a threaded or forked dataloader, and two callers interleaving
+    `next()` on one generator would not error -- they would return each other's
+    frames, which is the same class of silent wrongness this module exists to
+    prevent.
     """
 
     def __init__(self, source: str, *, stream_index: int | None = None) -> None:
         import av  # ruff:ignore[import-outside-top-level]
 
-        self._av = av
         self._source = source
         self._stream_index = stream_index
-        self._container: Any = None
-        self._frames: Iterator[Any] | None = None
-        self._cursor = 0
-        self._cached: tuple[int, np.ndarray] | None = None
+        self._reset()
 
         with av.open(source) as container:
             stream = self._select(container)
@@ -253,15 +257,38 @@ class _PyAvDisparityDecoder(_DisparityDecoder):
 
         return container.streams[self._stream_index]
 
+    def _reset(self) -> None:
+        self._container: Any = None
+        self._frames: Iterator[Any] | None = None
+        self._cursor = 0
+        self._cached: tuple[int, np.ndarray] | None = None
+        self._lock = Lock()
+
+    def __getstate__(self) -> dict[str, Any]:
+        """Everything except the live decode, which is re-established lazily."""
+        return {
+            key: value
+            for key, value in self.__dict__.items()
+            if key not in {"_container", "_frames", "_cached", "_lock"}
+        }
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        self.__dict__.update(state)
+        self._reset()
+
     def _count(self) -> int:
-        with self._av.open(self._source) as container:
+        import av  # ruff:ignore[import-outside-top-level]
+
+        with av.open(self._source) as container:
             stream = self._select(container)
 
             return sum(1 for _ in container.decode(stream))
 
     def _reopen(self) -> None:
+        import av  # ruff:ignore[import-outside-top-level]
+
         self.close()
-        self._container = self._av.open(self._source)
+        self._container = av.open(self._source)
         self._frames = self._container.decode(self._select(self._container))
         self._cursor = 0
 
@@ -322,8 +349,9 @@ class _PyAvDisparityDecoder(_DisparityDecoder):
         # reopen per out-of-order index; the caller's order is restored after
         order = sorted(range(len(indices)), key=indices.__getitem__)
         decoded: list[np.ndarray | None] = [None] * len(indices)
-        for position in order:
-            decoded[position] = self._frame_at(indices[position])
+        with self._lock:
+            for position in order:
+                decoded[position] = self._frame_at(indices[position])
 
         stacked = np.stack([array for array in decoded if array is not None])
         if stacked.dtype == np.uint16:
@@ -456,6 +484,10 @@ class NeroArmsDisparitySource(StreamSource[int]):
 
         8-bit needs no declaration to be read raw, which is why it is exempt: the
         values are integer disparity levels whatever else is or is not declared.
+        A 16-bit stream with subpixel declared OFF is fine too -- §21.13 measured
+        that the filters force uint16 on their own, so that is plain integer
+        levels in a wider container, at scale 1 -- but it still has to say so,
+        which is why the declaration is required rather than the mode.
 
         `DisparityOutput.valid` is exempt too, at any bit depth, and for the same
         reason turned around: it emits `disparity > 0`, which is the §21.4
