@@ -1,0 +1,48 @@
+# nero-arms camera calibration sidecar (data contract §7).
+#
+# Canonical location is the recording-session directory, e.g.
+#   ${data_dir}/calibration.yaml
+# so that real calibration is a plain file drop. This copy is the placeholder
+# that ships with rbyte for tests and as a template.
+#
+# `image_size` is MEASURED (§7.2) -- the three cameras are heterogeneous.
+# Everything else is a PLACEHOLDER and `placeholder: true` must be flipped to
+# false before any real training run.
+---
+version: 0
+world_frame: coil_pro # extrinsics are expressed in the coil-pro base-station frame
+cameras:
+  base:
+    model: opencv_fisheye # one of: pinhole | opencv | opencv_fisheye (Kannala-Brandt)
+    image_size: [1920, 1080] # MEASURED
+    intrinsics: {fx: 0.0, fy: 0.0, cx: 0.0, cy: 0.0} # PLACEHOLDER
+    distortion: [0.0, 0.0, 0.0, 0.0] # PLACEHOLDER, k1..k4
+    T_world_cam: # PLACEHOLDER 4x4
+      - [1.0, 0.0, 0.0, 0.0]
+      - [0.0, 1.0, 0.0, 0.0]
+      - [0.0, 0.0, 1.0, 0.0]
+      - [0.0, 0.0, 0.0, 1.0]
+
+  side_left:
+    model: opencv_fisheye
+    image_size: [1280, 800] # MEASURED
+    intrinsics: {fx: 0.0, fy: 0.0, cx: 0.0, cy: 0.0} # PLACEHOLDER
+    distortion: [0.0, 0.0, 0.0, 0.0] # PLACEHOLDER
+    T_world_cam: # PLACEHOLDER
+      - [1.0, 0.0, 0.0, 0.0]
+      - [0.0, 1.0, 0.0, 0.0]
+      - [0.0, 0.0, 1.0, 0.0]
+      - [0.0, 0.0, 0.0, 1.0]
+
+  side_right:
+    model: opencv_fisheye
+    image_size: [1280, 800] # MEASURED
+    intrinsics: {fx: 0.0, fy: 0.0, cx: 0.0, cy: 0.0} # PLACEHOLDER
+    distortion: [0.0, 0.0, 0.0, 0.0] # PLACEHOLDER
+    T_world_cam: # PLACEHOLDER
+      - [1.0, 0.0, 0.0, 0.0]
+      - [0.0, 1.0, 0.0, 0.0]
+      - [0.0, 0.0, 1.0, 0.0]
+      - [0.0, 0.0, 0.0, 1.0]
+
+placeholder: true # MUST be false before any real training run
