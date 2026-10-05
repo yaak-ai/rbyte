@@ -55,6 +55,11 @@ nero = [
   "protobuf>=7.35.1,<8",
   "pyyaml>=6.0.2",
 ]
+# DATA_CONTRACT §21.16: the ONLY decoder for 16-bit disparity. FFV1 gray16le
+# round-trips bit-exact through PyAV, while torchcodec silently returns uint8
+# for it (measured max error 58751, no exception) -- so a 16-bit stream is
+# routed here and the torchcodec path refuses it.
+pyav = ["av>=15.0.0"]
 video = ["torchcodec>=0.14.0"]
 visualize = [
   "einops>=0.8.2",
@@ -85,6 +90,7 @@ check = [
 ]
 test = [
   "dill>=0.4.1",
+  "imageio-ffmpeg>=0.6.0",
   "makefun>=1.16.0",
   "pytest>=9.1.1",
   "pytest-lazy-fixtures>=1.4.0",
@@ -101,6 +107,10 @@ addopts = ["--import-mode=importlib", "-ra", "-vv"]
 testpaths = ["tests"]
 
 [tool.ruff]
+# _vendor/hand_features.py is a SHA256-pinned verbatim copy of nutron-cli's file:
+# no tool may rewrite it, even when a hook passes it explicitly (force-exclude)
+extend-exclude = ["src/rbyte/samples/nero/_vendor/hand_features.py"]
+force-exclude = true
 output-format = "grouped"
 preview = true
 unsafe-fixes = true
@@ -126,10 +136,16 @@ split-on-trailing-comma = false
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["assert"]
+# the pins are pasted verbatim from nutron-cli's `hand_features_sync.py`
+"src/rbyte/samples/nero/_vendor/__init__.py" = ["non-empty-init-module"]
 
 [tool.tombi]
 files.exclude = ["**/Cargo.lock"]
 schema.strict = false
+
+[tool.ty.src]
+# verbatim nutron-cli copy, checked there (see [tool.ruff])
+exclude = ["src/rbyte/samples/nero/_vendor/hand_features.py"]
 
 [tool.ty.rules]
 unused-ignore-comment = "warn"
