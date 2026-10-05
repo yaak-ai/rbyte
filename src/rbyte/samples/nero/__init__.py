@@ -16,6 +16,7 @@ from .disparity import (
     check_store_against_mode,
     disparity_to_depth,
 )
+from .robot import NeroRobotReader, NeroRobotWindowGrouper
 from .rotation import (
     canonicalize_quat,
     pose_9d_to_quat,
@@ -57,6 +58,8 @@ __all__ = [
     "DisparityOutput",
     "NeroArmsCalibration",
     "NeroArmsReader",
+    "NeroRobotReader",
+    "NeroRobotWindowGrouper",
     "StereoCalibration",
     "canonicalize_quat",
     "check_store_against_mode",

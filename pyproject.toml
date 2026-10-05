@@ -107,6 +107,10 @@ addopts = ["--import-mode=importlib", "-ra", "-vv"]
 testpaths = ["tests"]
 
 [tool.ruff]
+# _vendor/hand_features.py is a SHA256-pinned verbatim copy of nutron-cli's file:
+# no tool may rewrite it, even when a hook passes it explicitly (force-exclude)
+extend-exclude = ["src/rbyte/samples/nero/_vendor/hand_features.py"]
+force-exclude = true
 output-format = "grouped"
 preview = true
 unsafe-fixes = true
@@ -132,10 +136,16 @@ split-on-trailing-comma = false
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["assert"]
+# the pins are pasted verbatim from nutron-cli's `hand_features_sync.py`
+"src/rbyte/samples/nero/_vendor/__init__.py" = ["non-empty-init-module"]
 
 [tool.tombi]
 files.exclude = ["**/Cargo.lock"]
 schema.strict = false
+
+[tool.ty.src]
+# verbatim nutron-cli copy, checked there (see [tool.ruff])
+exclude = ["src/rbyte/samples/nero/_vendor/hand_features.py"]
 
 [tool.ty.rules]
 unused-ignore-comment = "warn"
