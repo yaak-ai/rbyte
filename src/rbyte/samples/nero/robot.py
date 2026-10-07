@@ -58,6 +58,45 @@ Emitted columns (one row per kept base frame, `S = 2` sides, `A = 13`):
 | `hand.motor_ok` / `hand.tip_ok` | `Boolean`                  |
 | `camera_cond`                | `Array(Float32, (3, 13))`     |
 | `camera_cond.placeholder`    | `Boolean`                     |
+
+BIMANUAL (nutron-cli contract layout "nero-bimanual-26"). A recording whose MCAP
+`episode` metadata says `capture_mode = bus_bimanual` (`active_hand = both`) is
+read from the per-side topics `robot.{left,right}.{measured.q, command.q,
+hand.command, hand.tactile}` -- selected from the metadata, never guessed from
+which topics exist -- and every rule above runs ONCE PER SIDE:
+
+* **Validity** (contract rule 8, the same rule as `convert.align`): a frame is
+  valid iff, for EVERY side, measured/command/hand command are fresh within the
+  100 ms ZOH and `t <=` that side's last sample, and that side's `hand_prev` is
+  fresh; plus the side-camera match. `align(ep).per_side[side]` holds each arm's
+  own validity and indices (what the parity test pins against convert).
+* **State / chunk** fill both sides (side-major, `[left 13 | right 13]`),
+  `side_valid = [True, True]`. Hand dims are counts/1000 and asserted in [0, 1].
+* **`action.is_pad`** stays `(C,)`: the per-step UNION over sides (a step is
+  padded if it runs past the run end or EITHER side's command is stale), and
+  both sides hold their value at the union's last real step.
+* **Reset spans** are read per side -- MCAP `hand_reset.{side}` U outcome.json
+  `hand_reset.by_side.{side}` (the top-level outcome `hand_reset` of a bimanual
+  take is an events-only summary and is NOT read) -- plus per-side
+  self-detection; `reset_poison` is the union over sides.
+* **Hand token blocks** are the UNCHANGED vendored `hf.build_tokens` called once
+  per side on that side's tactile + command, emitted as side-prefixed columns
+  `hand.{left,right}.{current,pos_err,pos,tip,age,motor_ok,tip_ok}` (same
+  dtypes as above). No unsided `hand.*` columns are emitted for a bimanual take.
+* The recorder's `state_order` / `action_order` metadata must equal the
+  canonical layout; its `state_hand_source` is ignored (the state hand part is
+  always `hand_prev`).
+
+POST-ALIGN FILTERS ARE PATCH-ONLY, BY DESIGN. After `align`, this builder keeps
+`runs_of(valid & ~reset_poison & ~duplicate_grid, MIN_RUN)` and then drops rows
+whose chunk pads more than `max_pad_steps`. nutron-cli's ACT `convert.py` keeps
+`runs_of(valid, MIN_RUN)` and carries poison as a column (it becomes chunk
+padding there). The two families therefore train on different row sets (about
+19.6k patch rows vs 23.9k ACT frames on the 2026-10-07 bimanual corpus); only
+`align().valid` and the per-side `hand_prev` indices are shared and pinned.
+
+A single-arm recording (no `bus_bimanual` capture mode) takes the legacy path
+and its output is unchanged.
 """
 
 import json
@@ -92,12 +131,15 @@ __all__ = [
     "ROBOT_SIDES",
     "NeroRobotReader",
     "NeroRobotWindowGrouper",
+    "RobotArm",
     "RobotEpisode",
     "align",
     "build_rows",
     "chunk_offsets_ns",
+    "layout_names",
     "read_episode",
     "runs_of",
+    "side_topics",
 ]
 
 # ------------------------------------------------- convert.py port (keep in sync)
@@ -130,6 +172,45 @@ CAMERA_MXIDS: Final = {
 }
 
 _HAND_RESET_KEY: Final = "hand_reset"
+_HAND_RESET_BY_SIDE: Final = "by_side"
+#: MCAP `episode.capture_mode` of a two-arm take (nutron-cli convert.py)
+BIMANUAL_CAPTURE_MODE: Final = "bus_bimanual"
+BIMANUAL_ACTIVE_HAND: Final = "both"
+HAND_COUNT_MAX: Final = 1000
+#: the recorder's own units for the 26-d order it declares
+_RECORDER_ARM_UNITS: Final = "radians"
+_RECORDER_HAND_UNITS: Final = "revo2_counts_0_to_1000"
+
+
+def side_topics(side: str | None) -> dict[str, str]:
+    """The four robot streams of one arm: `robot.*` (single-arm) or `robot.{side}.*`."""
+    prefix = "robot." if side is None else f"robot.{side}."
+    return {
+        "measured": f"{prefix}measured.q",
+        "command": f"{prefix}command.q",
+        "hand": f"{prefix}hand.command",
+        "tactile": f"{prefix}hand.tactile",
+    }
+
+
+def layout_names(sides: Sequence[str] = ROBOT_SIDES) -> tuple[str, ...]:
+    """nutron-cli `policy_contract.patch_axis_names` re-derived (rbyte cannot import
+    nutron-cli; the test asserts equality when a checkout is present): per-side 13
+    names, side-major -- `left.joint1 .. left.pinky, right.joint1 .. right.pinky`.
+    """
+    return tuple(f"{side}.{name}" for side in sides for name in AXIS_NAMES)
+
+
+def _recorder_order(sides: Sequence[str]) -> list[str]:
+    """The recorder's names for the same 26-d order (`left.arm.0 .. right.hand.5`)."""
+    return [
+        f"{side}.{part}.{i}"
+        for side in sides
+        for part, n in (("arm", len(JOINT_NAMES)), ("hand", len(FINGER_NAMES)))
+        for i in range(n)
+    ]
+
+
 _NS_PER_S: Final = 1_000_000_000
 
 
@@ -181,28 +262,94 @@ def chunk_offsets_ns(chunk_size: int) -> npt.NDArray[np.int64]:
 
 
 @dataclass
-class RobotEpisode:
-    """One robot recording, every stream on the MCAP `publish_time` clock."""
+class RobotArm:
+    """One arm + hand's streams, every stream on the MCAP `publish_time` clock."""
 
-    name: str
+    side: str
     measured_ts: npt.NDArray[np.int64]
     measured: npt.NDArray[np.float64]  # (N, 7)
     command_ts: npt.NDArray[np.int64]
     command: npt.NDArray[np.float64]  # (N, 7)
     hand_ts: npt.NDArray[np.int64]
     hand_counts: npt.NDArray[np.int64]  # (N, 6) raw 0..1000
-    cam_ts: dict[str, npt.NDArray[np.int64]]
-    cam_idx: dict[str, npt.NDArray[np.int64]]
     tactile: list[Any]
-    active_side: str = "left"
-    recording_started_ns: int | None = None
     #: recorder reset spans as OFFSETS from recording start (MCAP U outcome.json)
     hand_reset_spans_offset_ns: list[list[int]] | None = None
 
     @property
     def hand(self) -> npt.NDArray[np.float64]:
-        """`robot.hand.command / 1000` -- convert's `ep.hand.val`."""
+        """`robot[.{side}].hand.command / 1000` -- convert's `hand.val`."""
         return self.hand_counts.astype(np.float64) / HAND_SCALE
+
+
+@dataclass
+class RobotEpisode:
+    """One robot recording: one arm (single-arm) or both (bimanual).
+
+    `arms` is keyed by side in `ROBOT_SIDES` order: the active side alone for a
+    single-arm take, `left` and `right` for a `bus_bimanual` one. The single-arm
+    accessors (`measured_ts`, `hand`, ...) delegate to the one arm and refuse a
+    bimanual episode.
+    """
+
+    name: str
+    arms: dict[str, RobotArm]
+    cam_ts: dict[str, npt.NDArray[np.int64]]
+    cam_idx: dict[str, npt.NDArray[np.int64]]
+    bimanual: bool = False
+    recording_started_ns: int | None = None
+
+    @property
+    def sides(self) -> tuple[str, ...]:
+        return tuple(self.arms)
+
+    @property
+    def active_side(self) -> str:
+        return BIMANUAL_ACTIVE_HAND if self.bimanual else self._single().side
+
+    def _single(self) -> RobotArm:
+        if self.bimanual or len(self.arms) != 1:
+            msg = f"{self.name}: bimanual episode, use ep.arms[side]"
+            raise AttributeError(msg)
+        (arm,) = self.arms.values()
+        return arm
+
+    @property
+    def measured_ts(self) -> npt.NDArray[np.int64]:
+        return self._single().measured_ts
+
+    @property
+    def measured(self) -> npt.NDArray[np.float64]:
+        return self._single().measured
+
+    @property
+    def command_ts(self) -> npt.NDArray[np.int64]:
+        return self._single().command_ts
+
+    @property
+    def command(self) -> npt.NDArray[np.float64]:
+        return self._single().command
+
+    @property
+    def hand_ts(self) -> npt.NDArray[np.int64]:
+        return self._single().hand_ts
+
+    @property
+    def hand_counts(self) -> npt.NDArray[np.int64]:
+        return self._single().hand_counts
+
+    @property
+    def tactile(self) -> list[Any]:
+        return self._single().tactile
+
+    @property
+    def hand_reset_spans_offset_ns(self) -> list[list[int]] | None:
+        return self._single().hand_reset_spans_offset_ns
+
+    @property
+    def hand(self) -> npt.NDArray[np.float64]:
+        """`robot.hand.command / 1000` -- convert's `ep.hand.val`."""
+        return self._single().hand
 
 
 def _sorted_by_publish(
@@ -243,15 +390,31 @@ def _camera_sources(metadata: Mapping[str, Mapping[str, str]]) -> None:
             raise ValueError(msg)
 
 
+def _reset_sources(
+    metadata: Mapping[str, Mapping[str, str]],
+    outcome: Mapping[str, Any],
+    side: str | None,
+) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
+    """(MCAP copy, outcome.json copy) of the reset record (`convert._reset_sources`).
+
+    Single-arm (`side=None`): MCAP `hand_reset` and outcome.json `hand_reset`.
+    Bimanual: MCAP `hand_reset.{side}` and outcome.json `hand_reset.by_side.{side}`
+    ONLY -- a bimanual take's top-level outcome `hand_reset` is a union summary.
+    """
+    if side is None:
+        return metadata.get(_HAND_RESET_KEY, {}), outcome.get(_HAND_RESET_KEY) or {}
+    by_side = (outcome.get(_HAND_RESET_KEY) or {}).get(_HAND_RESET_BY_SIDE) or {}
+    return metadata.get(f"{_HAND_RESET_KEY}.{side}", {}), by_side.get(side) or {}
+
+
 def _reset_spans_offset(
-    metadata: Mapping[str, Mapping[str, str]], outcome: Mapping[str, Any]
+    metadata: Mapping[str, Mapping[str, str]],
+    outcome: Mapping[str, Any],
+    side: str | None = None,
 ) -> list[list[int]]:
     """`convert.hand_reset_spans`, but the UNION of both copies (brief: MCAP U disk)."""
     spans: list[list[int]] = []
-    for source in (
-        metadata.get(_HAND_RESET_KEY, {}),
-        outcome.get(_HAND_RESET_KEY) or {},
-    ):
+    for source in _reset_sources(metadata, outcome, side):
         value = source.get("spans_ns") or "[]"
         if isinstance(value, str):
             try:
@@ -263,33 +426,80 @@ def _reset_spans_offset(
     return spans
 
 
-def read_episode(  # ruff:ignore[complex-structure, too-many-statements, too-many-locals]
-    path: PathLike[str] | str,
-) -> RobotEpisode:
-    """Read `data.mcap` (+ the sibling `outcome.json` if present).
+def _is_bimanual(path: Path, episode: Mapping[str, str]) -> bool:
+    """`convert.episode_sides`: a `bus_bimanual` take must have `active_hand=both`.
 
     Raises:
-        ValueError: on a missing stream or a malformed message.
+        ValueError: on a `bus_bimanual` recording with one active hand (refused
+            rather than half-filled, as in convert).
     """
-    path = Path(path)
-    topics = [T_MEASURED, T_COMMAND, T_HAND, T_TACTILE] + [
-        f"observation.images.{c}" for c in ROBOT_CAMERAS
-    ]
-    raw: dict[str, list[tuple[int, Any]]] = defaultdict(list)
-    with path.open("rb") as f:
-        reader = make_reader(f, decoder_factories=[DecoderFactory()])
-        metadata = {r.name: dict(r.metadata) for r in reader.iter_metadata()}
-        f.seek(0)
-        reader = make_reader(f, decoder_factories=[DecoderFactory()])
-        for _schema, channel, message, decoded in reader.iter_decoded_messages(
-            topics=topics
-        ):
-            raw[channel.topic].append((message.publish_time, decoded))
+    if episode.get("capture_mode") != BIMANUAL_CAPTURE_MODE:
+        return False
+    active = episode.get("active_hand")
+    if active != BIMANUAL_ACTIVE_HAND:
+        msg = (
+            f"{path}: capture_mode {BIMANUAL_CAPTURE_MODE} with active_hand "
+            f"{active!r}; only {BIMANUAL_ACTIVE_HAND!r} is supported"
+        )
+        raise ValueError(msg)
+    return True
 
-    _camera_sources(metadata)
+
+def _check_bimanual_metadata(path: Path, episode: Mapping[str, str]) -> None:
+    """`convert.check_bimanual_metadata`: the recorder's 26-d order IS the layout.
+
+    `state_order` / `action_order` use the recorder's names (`left.arm.0 ..
+    right.hand.5`); index for index they must be `layout_names()`. The
+    `state_*_source` keys are deliberately not read: the recorder declares tactile
+    positions as the hand state, every consumer uses `hand_prev` (contract rule 2).
+
+    Raises:
+        ValueError: on any mismatch.
+    """
+    want = _recorder_order(ROBOT_SIDES)
+    problems = []
+    for key in ("state_order", "action_order"):
+        got = [x for x in str(episode.get(key, "")).split(",") if x]
+        if got != want:
+            problems.append(f"episode {key} {got} != canonical {want}")
+    problems.extend(
+        f"{key} {episode[key]} != {len(want)}"
+        for key in ("state_dimension", "action_dimension")
+        if key in episode and int(episode[key]) != len(want)
+    )
+    fingers = [x for x in str(episode.get("hand_channel_order", "")).split(",") if x]
+    if fingers != list(FINGER_NAMES):
+        problems.append(f"hand_channel_order {fingers} != {list(FINGER_NAMES)}")
+    if episode.get("arm_units") != _RECORDER_ARM_UNITS:
+        problems.append(f"arm_units {episode.get('arm_units')!r}")
+    if episode.get("hand_units") != _RECORDER_HAND_UNITS:
+        problems.append(f"hand_units {episode.get('hand_units')!r}")
+    if problems:
+        msg = f"{path}: bimanual metadata is not the canonical layout: " + "; ".join(
+            problems
+        )
+        raise ValueError(msg)
+
+
+def _read_arm(
+    path: Path,
+    raw: Mapping[str, list[tuple[int, Any]]],
+    side: str | None,
+    *,
+    arm_side: str,
+    reset_spans: list[list[int]],
+) -> RobotArm:
+    """One arm's four streams (`side=None`: the single-arm `robot.*` topics).
+
+    Raises:
+        ValueError: on a missing stream or a malformed message; for a bimanual
+            arm also on hand counts outside [0, 1000] or tactile rows tagged
+            with the other side.
+    """
+    topics = side_topics(side)
 
     def joints(topic: str) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.float64]]:
-        ts, rows = _sorted_by_publish(raw[topic])
+        ts, rows = _sorted_by_publish(list(raw[topic]))
         if not len(ts):
             msg = f"{path}: no {topic} messages"
             raise ValueError(msg)
@@ -299,19 +509,112 @@ def read_episode(  # ruff:ignore[complex-structure, too-many-statements, too-man
             raise ValueError(msg)
         return ts, val
 
-    measured_ts, measured = joints(T_MEASURED)
-    command_ts, command = joints(T_COMMAND)
+    measured_ts, measured = joints(topics["measured"])
+    command_ts, command = joints(topics["command"])
 
-    hand_ts, hand_rows = _sorted_by_publish(raw[T_HAND])
+    hand_ts, hand_rows = _sorted_by_publish(list(raw[topics["hand"]]))
     if not len(hand_ts):
-        msg = f"{path}: no {T_HAND} messages"
+        msg = f"{path}: no {topics['hand']} messages"
         raise ValueError(msg)
     hand_counts = np.asarray([list(r.counts) for r in hand_rows], dtype=np.int64)
     if hand_counts.shape[1:] != (6,):
-        msg = f"{path}: {T_HAND} counts are not 6-wide"
+        msg = f"{path}: {topics['hand']} counts are not 6-wide"
         raise ValueError(msg)
 
-    _, tactile = _sorted_by_publish(raw[T_TACTILE])
+    _, tactile = _sorted_by_publish(list(raw[topics["tactile"]]))
+
+    if side is not None:
+        # contract rule 2: the hand part of state/action is counts/1000 in [0, 1]
+        lo, hi = int(hand_counts.min()), int(hand_counts.max())
+        if lo < 0 or hi > HAND_COUNT_MAX:
+            msg = (
+                f"{path}: {topics['hand']} counts outside "
+                f"[0, {HAND_COUNT_MAX}]: {lo}..{hi}"
+            )
+            raise ValueError(msg)
+        wrong = {
+            str(getattr(r, "side", "") or "")
+            for r in tactile
+            if (getattr(r, "side", "") or "") not in {"", side}
+        }
+        if wrong:
+            msg = (
+                f"{path}: {topics['tactile']} carries rows tagged side {sorted(wrong)}"
+            )
+            raise ValueError(msg)
+
+    return RobotArm(
+        side=arm_side,
+        measured_ts=measured_ts,
+        measured=measured,
+        command_ts=command_ts,
+        command=command,
+        hand_ts=hand_ts,
+        hand_counts=hand_counts,
+        tactile=tactile,
+        hand_reset_spans_offset_ns=reset_spans,
+    )
+
+
+def read_episode(  # ruff:ignore[complex-structure, too-many-locals]
+    path: PathLike[str] | str,
+) -> RobotEpisode:
+    """Read `data.mcap` (+ the sibling `outcome.json` if present).
+
+    A `bus_bimanual` recording (MCAP `episode.capture_mode`) is read from the
+    per-side topics; anything else from the single-arm `robot.*` topics.
+
+    Raises:
+        ValueError: on a missing stream or a malformed message.
+    """
+    path = Path(path)
+    with path.open("rb") as f:
+        reader = make_reader(f, decoder_factories=[DecoderFactory()])
+        metadata = {r.name: dict(r.metadata) for r in reader.iter_metadata()}
+    episode = metadata.get("episode", {})
+    bimanual = _is_bimanual(path, episode)
+    if bimanual:
+        _check_bimanual_metadata(path, episode)
+    arm_topics = (
+        [t for side in ROBOT_SIDES for t in side_topics(side).values()]
+        if bimanual
+        else list(side_topics(None).values())
+    )
+    topics = arm_topics + [f"observation.images.{c}" for c in ROBOT_CAMERAS]
+    raw: dict[str, list[tuple[int, Any]]] = defaultdict(list)
+    with path.open("rb") as f:
+        reader = make_reader(f, decoder_factories=[DecoderFactory()])
+        for _schema, channel, message, decoded in reader.iter_decoded_messages(
+            topics=topics
+        ):
+            raw[channel.topic].append((message.publish_time, decoded))
+
+    _camera_sources(metadata)
+
+    outcome_path = path.parent / "outcome.json"
+    outcome = json.loads(outcome_path.read_text()) if outcome_path.exists() else {}
+    if bimanual:
+        arms = {
+            side: _read_arm(
+                path,
+                raw,
+                side,
+                arm_side=side,
+                reset_spans=_reset_spans_offset(metadata, outcome, side),
+            )
+            for side in ROBOT_SIDES
+        }
+    else:
+        # the side is checked after the outcome (below); "left" is a placeholder
+        arms = {
+            "left": _read_arm(
+                path,
+                raw,
+                None,
+                arm_side="left",
+                reset_spans=_reset_spans_offset(metadata, outcome),
+            )
+        }
 
     cam_ts: dict[str, npt.NDArray[np.int64]] = {}
     cam_idx: dict[str, npt.NDArray[np.int64]] = {}
@@ -329,10 +632,7 @@ def read_episode(  # ruff:ignore[complex-structure, too-many-statements, too-man
             raise ValueError(msg)
         cam_ts[camera], cam_idx[camera] = ts, idx
 
-    episode = metadata.get("episode", {})
     started = episode.get("recording_started_at_unix_ns")
-    outcome_path = path.parent / "outcome.json"
-    outcome = json.loads(outcome_path.read_text()) if outcome_path.exists() else {}
     # convert.py's corpus rule, ported: a take trains only if BOTH copies of its
     # outcome say success -- the MCAP record (cannot be edited after the fact) and
     # outcome.json (what a web-UI relabel rewrites). Anything else is refused by
@@ -344,25 +644,21 @@ def read_episode(  # ruff:ignore[complex-structure, too-many-statements, too-man
     if outcome.get("outcome") != "success":
         msg = f"{path}: outcome.json is {outcome.get('outcome')!r}, not success"
         raise ValueError(msg)
-    active = str(episode.get("active_hand") or "left")
-    if active not in ROBOT_SIDES:
-        msg = f"{path}: active_hand {active!r} not in {ROBOT_SIDES}"
-        raise ValueError(msg)
+    if not bimanual:
+        active = str(episode.get("active_hand") or "left")
+        if active not in ROBOT_SIDES:
+            msg = f"{path}: active_hand {active!r} not in {ROBOT_SIDES}"
+            raise ValueError(msg)
+        arms["left"].side = active
+        arms = {active: arms["left"]}
 
     return RobotEpisode(
         name=path.parent.name,
-        measured_ts=measured_ts,
-        measured=measured,
-        command_ts=command_ts,
-        command=command,
-        hand_ts=hand_ts,
-        hand_counts=hand_counts,
+        arms=arms,
         cam_ts=cam_ts,
         cam_idx=cam_idx,
-        tactile=tactile,
-        active_side=active,
+        bimanual=bimanual,
         recording_started_ns=int(started) if started else None,
-        hand_reset_spans_offset_ns=_reset_spans_offset(metadata, outcome),
     )
 
 
@@ -370,35 +666,61 @@ def read_episode(  # ruff:ignore[complex-structure, too-many-statements, too-man
 
 
 @dataclass
-class Aligned:
-    """`convert.Aligned`: per-base-frame alignment of one episode."""
+class SideAligned:
+    """`convert.SideAligned`: one arm's own validity and ZOH indices."""
 
-    valid: npt.NDArray[np.bool_]
+    valid: npt.NDArray[np.bool_]  # this side alone (fresh, in range, hand_prev fresh)
     j_measured: npt.NDArray[np.intp]
     j_command: npt.NDArray[np.intp]
     j_hand: npt.NDArray[np.intp]
     j_hand_prev: npt.NDArray[np.intp]
+
+
+@dataclass
+class Aligned:
+    """`convert.Aligned`: per-base-frame alignment of one episode.
+
+    `valid` is the AND over the episode's sides (contract rule 8) AND the
+    side-camera match. `per_side[side]` holds each arm's own validity and
+    indices (keyed by the episode's sides). The top-level `j_*` are that one
+    arm's indices for a single-arm episode and None for a bimanual one.
+    """
+
+    valid: npt.NDArray[np.bool_]
+    j_measured: npt.NDArray[np.intp] | None
+    j_command: npt.NDArray[np.intp] | None
+    j_hand: npt.NDArray[np.intp] | None
+    j_hand_prev: npt.NDArray[np.intp] | None
     side_pick: dict[str, npt.NDArray[np.intp]]
     side_dt: dict[str, npt.NDArray[np.int64]]
+    per_side: dict[str, SideAligned]
 
 
-def align(ep: RobotEpisode) -> Aligned:
-    """`convert.align`, line for line."""
-    t = ep.cam_ts["base"]
+def align_side(arm: RobotArm, t: npt.NDArray[np.int64]) -> SideAligned:
+    """`convert.align_side`, line for line: one arm's rule at base times `t`."""
     valid = np.ones(len(t), dtype=bool)
-
     js = {}
     for name, ts in (
-        ("measured", ep.measured_ts),
-        ("command", ep.command_ts),
-        ("hand", ep.hand_ts),
+        ("measured", arm.measured_ts),
+        ("command", arm.command_ts),
+        ("hand", arm.hand_ts),
     ):
         j, age = zoh(ts, t)
         valid &= (age <= MAX_STALE_NS) & (t <= ts[-1])
         js[name] = j
 
-    j_hand_prev, hand_prev_age = zoh(ep.hand_ts, t - PREV_NS)
+    j_hand_prev, hand_prev_age = zoh(arm.hand_ts, t - PREV_NS)
     valid &= hand_prev_age <= MAX_STALE_NS
+    return SideAligned(valid, js["measured"], js["command"], js["hand"], j_hand_prev)
+
+
+def align(ep: RobotEpisode) -> Aligned:
+    """`convert.align`, line for line (one rule per side, ANDed)."""
+    t = ep.cam_ts["base"]
+    per_side = {side: align_side(arm, t) for side, arm in ep.arms.items()}
+    valid = np.ones(len(t), dtype=bool)
+    for sa in per_side.values():
+        valid &= sa.valid
 
     side_pick, side_dt = {}, {}
     for camera in ("side_left", "side_right"):
@@ -406,14 +728,16 @@ def align(ep: RobotEpisode) -> Aligned:
         valid &= dt <= SIDE_TOL_NS
         side_pick[camera], side_dt[camera] = pick, dt
 
+    single = None if ep.bimanual else next(iter(per_side.values()))
     return Aligned(
         valid=valid,
-        j_measured=js["measured"],
-        j_command=js["command"],
-        j_hand=js["hand"],
-        j_hand_prev=j_hand_prev,
+        j_measured=None if single is None else single.j_measured,
+        j_command=None if single is None else single.j_command,
+        j_hand=None if single is None else single.j_hand,
+        j_hand_prev=None if single is None else single.j_hand_prev,
         side_pick=side_pick,
         side_dt=side_dt,
+        per_side=per_side,
     )
 
 
@@ -451,25 +775,42 @@ class Rows:
     stats: dict[str, Any]
 
 
-def _reset_spans(ep: RobotEpisode, motor: hf.MotorTimeline) -> npt.NDArray[np.int64]:
+def _reset_spans(
+    ep: RobotEpisode, arm: RobotArm, motor: hf.MotorTimeline
+) -> npt.NDArray[np.int64]:
     """Recorder spans (MCAP U outcome.json) UNION self-detected, absolute ns."""
     spans = [hf.reset_spans_from_timeline(motor)]
-    if ep.hand_reset_spans_offset_ns and ep.recording_started_ns is not None:
+    if arm.hand_reset_spans_offset_ns and ep.recording_started_ns is not None:
         spans.append(
             hf.reset_spans_from_record(
-                ep.hand_reset_spans_offset_ns, ep.recording_started_ns
+                arm.hand_reset_spans_offset_ns, ep.recording_started_ns
             )
         )
-    elif ep.hand_reset_spans_offset_ns:
+    elif arm.hand_reset_spans_offset_ns:
         logger.warning(
             "hand_reset spans recorded without recording_started_at_unix_ns; "
             "using self-detection only",
             episode=ep.name,
+            side=arm.side,
         )
     return np.concatenate(spans, axis=0).astype(np.int64).reshape(-1, 2)
 
 
-def build_rows(  # ruff:ignore[too-many-locals, too-many-statements]
+def _hand_columns(
+    prefix: str, tokens: hf.TokenBlocks, keep_idx: npt.NDArray[np.intp]
+) -> dict[str, npt.NDArray[Any]]:
+    return {
+        f"{prefix}current": tokens.blocks["current"][keep_idx],
+        f"{prefix}pos_err": tokens.blocks["pos_err"][keep_idx],
+        f"{prefix}pos": tokens.blocks["pos"][keep_idx],
+        f"{prefix}tip": tokens.blocks["tip"][keep_idx],
+        f"{prefix}age": tokens.blocks["hand_age"][keep_idx, 0],
+        f"{prefix}motor_ok": tokens.motor_ok[keep_idx],
+        f"{prefix}tip_ok": tokens.tip_ok[keep_idx],
+    }
+
+
+def build_rows(  # ruff:ignore[too-many-locals, too-many-statements, complex-structure]
     ep: RobotEpisode,
     *,
     chunk_size: int = 100,
@@ -480,7 +821,8 @@ def build_rows(  # ruff:ignore[too-many-locals, too-many-statements]
     """All row columns for one episode (see the module docstring).
 
     Raises:
-        ValueError: if `chunk_size` < 1.
+        ValueError: if `chunk_size` < 1, or (bimanual) a hand value of the
+            state or chunk falls outside [0, 1].
     """
     if chunk_size < 1:
         msg = "chunk_size must be >= 1"
@@ -489,13 +831,19 @@ def build_rows(  # ruff:ignore[too-many-locals, too-many-statements]
     t = ep.cam_ts["base"]
     n = len(t)
     a = align(ep)
+    sides = ep.sides
 
-    motor = hf.motor_timeline(ep.tactile)
-    tips = hf.tip_timeline(ep.tactile)
-    commands = hf.make_command_timeline(ep.hand_ts, ep.hand_counts)
-    tokens = hf.build_tokens(t, motor, commands, tips)
-    spans = _reset_spans(ep, motor)
-    poison = hf.reset_poison(t, spans)
+    tokens: dict[str, hf.TokenBlocks] = {}
+    motor_rows: dict[str, int] = {}
+    poison = np.zeros(n, dtype=bool)
+    for side, arm in ep.arms.items():
+        motor = hf.motor_timeline(arm.tactile)
+        tips = hf.tip_timeline(arm.tactile)
+        commands = hf.make_command_timeline(arm.hand_ts, arm.hand_counts)
+        tokens[side] = hf.build_tokens(t, motor, commands, tips)
+        motor_rows[side] = len(motor)
+        # a reset on EITHER hand poisons the (shared) row
+        poison |= hf.reset_poison(t, _reset_spans(ep, arm, motor))
 
     grid = grid_index(t)
     duplicate = duplicate_grid(grid)
@@ -503,8 +851,7 @@ def build_rows(  # ruff:ignore[too-many-locals, too-many-statements]
     runs = runs_of(usable, min_run)
 
     offsets = chunk_offsets_ns(chunk_size)
-    hand = ep.hand
-    side = ROBOT_SIDES.index(ep.active_side)
+    hands = {side: arm.hand for side, arm in ep.arms.items()}
 
     keep: list[int] = []
     chunks: list[npt.NDArray[np.float64]] = []
@@ -514,20 +861,30 @@ def build_rows(  # ruff:ignore[too-many-locals, too-many-statements]
         rows = np.arange(start, stop)
         t_end = t[stop - 1]
         tk = t[rows, None] + offsets[None, :]  # (R, C)
-        jc, age_c = zoh(ep.command_ts, tk.reshape(-1))
-        jh, age_h = zoh(ep.hand_ts, tk.reshape(-1))
-        stale = ((age_c > MAX_STALE_NS) | (age_h > MAX_STALE_NS)).reshape(tk.shape)
-        # a pad is a SUFFIX: the first padded step and everything after it
+        stale = np.zeros(tk.shape, dtype=bool)
+        per_side: list[npt.NDArray[np.float64]] = []
+        for side, arm in ep.arms.items():
+            jc, age_c = zoh(arm.command_ts, tk.reshape(-1))
+            jh, age_h = zoh(arm.hand_ts, tk.reshape(-1))
+            stale |= ((age_c > MAX_STALE_NS) | (age_h > MAX_STALE_NS)).reshape(tk.shape)
+            per_side.append(
+                np.concatenate(
+                    [
+                        arm.command[jc].reshape(*tk.shape, 7),
+                        hands[side][jh].reshape(*tk.shape, 6),
+                    ],
+                    axis=-1,
+                )
+            )
+        chunk = np.stack(per_side, axis=2)  # (R, C, S_ep, 13)
+        # a pad is a SUFFIX: the first padded step (past the run end, or EITHER
+        # side stale) and everything after it -- one union mask for all sides
         pad = np.logical_or.accumulate((tk > t_end) | stale, axis=1)
         pad[:, 0] = False  # k = 0 is t itself, a valid frame by construction
-        chunk = np.concatenate(
-            [ep.command[jc].reshape(*tk.shape, 7), hand[jh].reshape(*tk.shape, 6)],
-            axis=-1,
-        )
-        # hold the last real step through the padded tail
+        # every side holds its last real step (of the UNION) through the tail
         last = np.maximum((~pad).sum(axis=1) - 1, 0)
-        held = chunk[np.arange(len(rows)), last]  # (R, 13)
-        chunk = np.where(pad[..., None], held[:, None, :], chunk)
+        held = chunk[np.arange(len(rows)), last]  # (R, S_ep, 13)
+        chunk = np.where(pad[..., None, None], held[:, None], chunk)
         ok = pad.sum(axis=1) <= max_pad
         dropped_pad += int((~ok).sum())
         keep += rows[ok].tolist()
@@ -539,26 +896,48 @@ def build_rows(  # ruff:ignore[too-many-locals, too-many-statements]
     chunk_all = (
         np.concatenate(chunks, axis=0)
         if chunks
-        else np.zeros((0, chunk_size, ACTION_DIM))
+        else np.zeros((0, chunk_size, len(sides), ACTION_DIM))
     )
     pad_all = (
         np.concatenate(pads, axis=0) if pads else np.zeros((0, chunk_size), dtype=bool)
     )
 
     state = np.zeros((r, len(ROBOT_SIDES), ACTION_DIM), dtype=np.float32)
-    state[:, side] = np.concatenate(
-        [ep.measured[a.j_measured[keep_idx]], hand[a.j_hand_prev[keep_idx]]], axis=-1
-    ).astype(np.float32)
     action = np.zeros((r, chunk_size, len(ROBOT_SIDES), ACTION_DIM), dtype=np.float32)
-    action[:, :, side] = chunk_all.astype(np.float32)
     side_valid = np.zeros((r, len(ROBOT_SIDES)), dtype=bool)
-    side_valid[:, side] = True
+    for k, (side, arm) in enumerate(ep.arms.items()):
+        s = ROBOT_SIDES.index(side)
+        sa = a.per_side[side]
+        state[:, s] = np.concatenate(
+            [
+                arm.measured[sa.j_measured[keep_idx]],
+                hands[side][sa.j_hand_prev[keep_idx]],
+            ],
+            axis=-1,
+        ).astype(np.float32)
+        action[:, :, s] = chunk_all[:, :, k].astype(np.float32)
+        side_valid[:, s] = True
+
+    if ep.bimanual:
+        hand_dims = slice(len(JOINT_NAMES), ACTION_DIM)
+        for name, values in (("state", state), ("action.chunk", action)):
+            h = values[..., hand_dims]
+            if h.size and (h.min() < 0 or h.max() > 1):
+                msg = f"{ep.name}: {name} hand dims outside [0, 1]"
+                raise ValueError(msg)
 
     cond = (
         np.zeros((len(ROBOT_CAMERAS), 13), dtype=np.float32)
         if camera_cond is None
         else np.asarray(camera_cond, dtype=np.float32).reshape(len(ROBOT_CAMERAS), 13)
     )
+
+    hand_columns: dict[str, npt.NDArray[Any]] = {}
+    if ep.bimanual:
+        for side in sides:
+            hand_columns |= _hand_columns(f"hand.{side}.", tokens[side], keep_idx)
+    else:
+        hand_columns = _hand_columns("hand.", tokens[sides[0]], keep_idx)
 
     columns: dict[str, npt.NDArray[Any]] = {
         "frame_index.base": ep.cam_idx["base"][keep_idx].astype(np.int32),
@@ -572,16 +951,14 @@ def build_rows(  # ruff:ignore[too-many-locals, too-many-statements]
         "action.chunk": action,
         "action.is_pad": pad_all,
         "side_valid": side_valid,
-        "hand.current": tokens.blocks["current"][keep_idx],
-        "hand.pos_err": tokens.blocks["pos_err"][keep_idx],
-        "hand.pos": tokens.blocks["pos"][keep_idx],
-        "hand.tip": tokens.blocks["tip"][keep_idx],
-        "hand.age": tokens.blocks["hand_age"][keep_idx, 0],
-        "hand.motor_ok": tokens.motor_ok[keep_idx],
-        "hand.tip_ok": tokens.tip_ok[keep_idx],
+        **hand_columns,
         "camera_cond": np.broadcast_to(cond, (r, *cond.shape)).copy(),
         "camera_cond.placeholder": np.full(r, camera_cond is None),
     }
+
+    def per_hand(values: Mapping[str, int]) -> int | dict[str, int]:
+        return dict(values) if ep.bimanual else values[sides[0]]
+
     stats = {
         "frames": n,
         "valid": int(a.valid.sum()),
@@ -591,10 +968,18 @@ def build_rows(  # ruff:ignore[too-many-locals, too-many-statements]
         "rows": r,
         "dropped_pad": dropped_pad,
         "padded_rows": int(pad_all.any(axis=1).sum()),
-        "hand_ok_rows": int(tokens.motor_ok[keep_idx].sum()),
-        "tactile_rows": len(ep.tactile),
-        "motor_rows": len(motor),
+        "hand_ok_rows": per_hand({
+            side: int(tokens[side].motor_ok[keep_idx].sum()) for side in sides
+        }),
+        "tactile_rows": per_hand({
+            side: len(arm.tactile) for side, arm in ep.arms.items()
+        }),
+        "motor_rows": per_hand(motor_rows),
     }
+    if ep.bimanual:
+        stats["side_valid"] = {
+            side: int(a.per_side[side].valid.sum()) for side in sides
+        }
     return Rows(keep=keep_idx, columns=columns, stats=stats)
 
 
